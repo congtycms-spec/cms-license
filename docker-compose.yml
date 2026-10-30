@@ -1,0 +1,41 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: clps-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: clps_admin
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ChangeMeStrongPassword2026!}
+      POSTGRES_DB: wp_license_system
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./license-server/database/migrations/001_init_postgresql.sql:/docker-entrypoint-initdb.d/001_init.sql:ro
+    ports:
+      - "5432:5432"
+
+  license-server:
+    build:
+      context: ./license-server
+      dockerfile: Dockerfile
+    container_name: clps-central-server
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    environment:
+      PORT: 4000
+      NODE_ENV: production
+      DATABASE_URL: postgresql://clps_admin:${POSTGRES_PASSWORD:-ChangeMeStrongPassword2026!}@postgres:5432/wp_license_system?schema=public
+      ADMIN_JWT_SECRET: ${ADMIN_JWT_SECRET:-replace-with-strong-64-byte-secret-in-production}
+      TRUSTED_PROXIES: "127.0.0.1,::1"
+      DEFAULT_LEASE_HOURS: 24
+      DEFAULT_GRACE_PERIOD_HOURS: 72
+    volumes:
+      - ./license-server/data:/app/data
+    ports:
+      - "4000:4000"
+
+volumes:
+  pgdata:
+
