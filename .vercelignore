@@ -1,0 +1,10 @@
+index.php
+.htaccess
+start-server.bat
+docker-compose.yml
+wordpress-plugin/
+.agent/
+design-system/
+node_modules/
+license-server/node_modules/
+

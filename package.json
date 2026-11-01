@@ -1,0 +1,29 @@
+{
+  "name": "cms-license-root",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Root wrapper for deploying WordPress License Protection Central Server on Vercel",
+  "scripts": {
+    "build": "cd license-server && npm install && npm run build",
+    "start": "node license-server/dist/main.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.13.3",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/jsonwebtoken": "^9.0.8",
+    "@types/node": "^22.13.4",
+    "@types/pg": "^8.11.11",
+    "typescript": "^5.7.3"
+  }
+}
+
