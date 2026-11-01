@@ -1,5 +1,6 @@
 index.php
 .htaccess
+.env.local
 start-server.bat
 docker-compose.yml
 wordpress-plugin/

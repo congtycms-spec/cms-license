@@ -16,6 +16,8 @@ const admin_api_routes_1 = require("./routes/admin-api.routes");
 const ed25519_service_1 = require("./crypto/ed25519.service");
 const db_service_1 = require("./database/db.service");
 dotenv_1.default.config();
+dotenv_1.default.config({ path: node_path_1.default.resolve(__dirname, '..', '..', '.env.local') });
+dotenv_1.default.config({ path: node_path_1.default.resolve(__dirname, '..', '.env.local') });
 function createApp() {
     const app = (0, express_1.default)();
     app.use((0, helmet_1.default)({

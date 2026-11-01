@@ -26,16 +26,19 @@ class DatabaseService {
         this.initPostgresPoolIfNeeded();
     }
     initPostgresPoolIfNeeded() {
-        const dbUrl = (process.env.DATABASE_URL ||
+        const rawUrl = (process.env.DATABASE_URL ||
             process.env.POSTGRES_URL ||
             process.env.POSTGRES_PRISMA_URL ||
             process.env.POSTGRES_URL_NON_POOLING ||
             process.env.SUPABASE_DB_URL ||
             '').trim();
-        const isPlaceHolder = dbUrl.includes('postgres:postgres@localhost:5432');
-        if (!dbUrl || (isPlaceHolder && process.env.USE_POSTGRES !== 'true')) {
+        const isPlaceHolder = rawUrl.includes('postgres:postgres@localhost:5432');
+        if (!rawUrl || (isPlaceHolder && process.env.USE_POSTGRES !== 'true')) {
             return;
         }
+        const dbUrl = rawUrl
+            .replace(/([?&])sslmode=require(&?)/gi, (_m, p1, p2) => (p2 ? p1 : ''))
+            .replace(/[?&]$/, '');
         this.pgPool = new pg_1.Pool({
             connectionString: dbUrl,
             ssl: dbUrl.includes('localhost') || dbUrl.includes('127.0.0.1')

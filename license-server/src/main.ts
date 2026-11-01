@@ -11,6 +11,8 @@ import { ed25519Service } from './crypto/ed25519.service';
 import { dbService } from './database/db.service';
 
 dotenv.config();
+dotenv.config({ path: path.resolve(__dirname, '..', '..', '.env.local') });
+dotenv.config({ path: path.resolve(__dirname, '..', '.env.local') });
 
 export function createApp() {
   const app = express();
