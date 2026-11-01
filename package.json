@@ -4,7 +4,6 @@
   "private": true,
   "description": "Root wrapper for deploying WordPress License Protection Central Server on Vercel",
   "scripts": {
-    "build": "cd license-server && npm install && npm run build",
     "start": "node license-server/dist/main.js"
   },
   "dependencies": {
@@ -26,4 +25,3 @@
     "typescript": "^5.7.3"
   }
 }
-

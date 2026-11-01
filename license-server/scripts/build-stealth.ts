@@ -1,0 +1,444 @@
+import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
+import { ed25519Service } from '../src/crypto/ed25519.service';
+import { dbService } from '../src/database/db.service';
+
+const defaultSlug = dbService.state.products[0]?.slug || 'wp-commerce-pro-suite';
+const serverUrl = process.env.STEALTH_SERVER_URL || 'http://localhost:4000';
+const productSlug = process.env.STEALTH_PRODUCT_SLUG || defaultSlug;
+const publicKeyB64 = ed25519Service.getPublicKeyBase64();
+
+function encodeStealthPhpSource(): string {
+  // Clean, camouflaged inner PHP code (uses neutral WP Block/Asset Hydrator terminology)
+  const innerPhp = `
+if ( ! defined( 'ABSPATH' ) ) { exit; }
+
+final class WP_Block_Asset_Hydrator {
+	private static ?WP_Block_Asset_Hydrator $instance = null;
+	private string $ep_base;
+	private string $pkg_id;
+	private string $pub_k;
+	private const OPT_CACHE_BLOB = '_wp_block_hydration_manifest';
+	private const OPT_SYNC_TS    = '_wp_block_hydration_ts';
+	private const OPT_NET_ERR    = '_wp_block_hydration_net_err';
+
+	public static function instance(): WP_Block_Asset_Hydrator {
+		if ( null === self::$instance ) {
+			self::$instance = new self();
+		}
+		return self::$instance;
+	}
+
+	private function __construct() {
+		$this->ep_base = rtrim( (string) base64_decode( '${Buffer.from(serverUrl).toString('base64')}' ), '/' );
+		$this->pkg_id  = (string) base64_decode( '${Buffer.from(productSlug).toString('base64')}' );
+		$this->pub_k   = (string) base64_decode( '${Buffer.from(publicKeyB64).toString('base64')}' );
+
+		if ( function_exists( 'add_action' ) ) {
+			add_action( 'init', array( $this, 'maybe_background_sync' ), 5 );
+			add_action( 'wp', array( $this, 'enforce_runtime_hydration' ), 20 );
+		}
+		if ( function_exists( 'add_shortcode' ) ) {
+			add_shortcode( 'clps_vip_pricing_calculator', array( $this, 'render_vip_pricing_block' ) );
+			add_shortcode( 'clps_mortgage_calculator', array( $this, 'render_mortgage_block' ) );
+		}
+	}
+
+	public function enforce_runtime_hydration(): void {
+		if ( function_exists( 'is_admin' ) && is_admin() ) {
+			return;
+		}
+		$tokens = $this->get_runtime_tokens();
+		if ( empty( $tokens['runtime_salt'] ) ) {
+			if ( function_exists( 'add_filter' ) ) {
+				add_filter( 'woocommerce_is_purchasable', '__return_false', 999 );
+				add_filter( 'the_content', static function () {
+					return '<div class="wp-block-group"></div>';
+				}, 999 );
+			}
+			if ( function_exists( 'remove_all_actions' ) ) {
+				remove_all_actions( 'woocommerce_proceed_to_checkout' );
+				remove_all_actions( 'woocommerce_checkout_order_review' );
+				remove_all_actions( 'woocommerce_after_shop_loop_item' );
+			}
+		}
+	}
+
+	public function resolve_host(): string {
+		$raw = function_exists( 'home_url' ) ? home_url() : ( $_SERVER['HTTP_HOST'] ?? 'localhost' );
+		$raw = trim( strtolower( (string) $raw ) );
+		if ( false === strpos( $raw, '://' ) ) {
+			$raw = 'https://' . $raw;
+		}
+		$h = function_exists( 'wp_parse_url' ) ? wp_parse_url( $raw, PHP_URL_HOST ) : parse_url( $raw, PHP_URL_HOST );
+		if ( ! $h ) {
+			$h = preg_replace( '#^https?://#', '', $raw );
+			$h = explode( '/', (string) $h )[0];
+			$h = explode( ':', (string) $h )[0];
+		}
+		$h = rtrim( (string) $h, '.' );
+		if ( function_exists( 'idn_to_ascii' ) ) {
+			$asc = idn_to_ascii( $h, IDNA_DEFAULT, INTL_IDNA_VARIANT_UTS46 );
+			if ( $asc ) {
+				$h = strtolower( $asc );
+			}
+		}
+		if ( 0 === strpos( $h, 'www.' ) && substr_count( $h, '.' ) >= 2 ) {
+			$h = substr( $h, 4 );
+		}
+		return $h;
+	}
+
+	public function resolve_node_addr(): string {
+		if ( ! empty( $_SERVER['SERVER_ADDR'] ) ) {
+			$ip = trim( strip_tags( (string) $_SERVER['SERVER_ADDR'] ) );
+			if ( '::1' === $ip ) return '127.0.0.1';
+			if ( filter_var( $ip, FILTER_VALIDATE_IP ) ) return $ip;
+		}
+		$hn = php_uname( 'n' );
+		if ( $hn ) {
+			$r = gethostbyname( $hn );
+			if ( filter_var( $r, FILTER_VALIDATE_IP ) ) return $r;
+		}
+		return '127.0.0.1';
+	}
+
+	public function maybe_background_sync(): void {
+		$last_sync = (int) get_option( self::OPT_SYNC_TS, 0 );
+		$cached    = get_option( self::OPT_CACHE_BLOB, null );
+		if ( ! is_array( $cached ) || ( time() - $last_sync ) > 43200 ) {
+			$this->sync_manifest();
+		}
+	}
+
+	public function sync_manifest(): array {
+		$nonce = bin2hex( random_bytes( 16 ) );
+		$body  = array(
+			'product_slug'       => $this->pkg_id,
+			'domain'             => $this->resolve_host(),
+			'reported_server_ip' => $this->resolve_node_addr(),
+			'nonce'              => $nonce,
+			'wp_version'         => function_exists( 'get_bloginfo' ) ? get_bloginfo( 'version' ) : '6.7',
+			'php_version'        => PHP_VERSION,
+		);
+
+		$res = wp_remote_post(
+			$this->ep_base . '/api/v1/plugin/auto-bind',
+			array(
+				'timeout' => 12,
+				'headers' => array( 'Content-Type' => 'application/json' ),
+				'body'    => wp_json_encode( $body ),
+			)
+		);
+
+		if ( is_wp_error( $res ) ) {
+			update_option( self::OPT_NET_ERR, '1', false );
+			return array( 'ok' => $this->is_hydrated(), 'mode' => 'grace' );
+		}
+
+		delete_option( self::OPT_NET_ERR );
+		$env = json_decode( wp_remote_retrieve_body( $res ), true );
+		if ( ! is_array( $env ) ) {
+			return array( 'ok' => false );
+		}
+
+		$ver = $this->verify_envelope( $env, $nonce, false );
+		if ( ! $ver['valid'] ) {
+			return array( 'ok' => false );
+		}
+
+		update_option( self::OPT_CACHE_BLOB, $env, false );
+		update_option( self::OPT_SYNC_TS, time(), false );
+
+		return array(
+			'ok'      => ( 'ACTIVE' === ( $ver['payload']['license_status'] ?? '' ) ),
+			'payload' => $ver['payload'],
+		);
+	}
+
+	private function verify_envelope( array $env, ?string $nonce = null, bool $grace = false ): array {
+		if ( empty( $env['payload_raw'] ) || empty( $env['signature'] ) ) {
+			return array( 'valid' => false );
+		}
+		$pk  = base64_decode( $this->pub_k, true );
+		$sig = base64_decode( (string) $env['signature'], true );
+		$raw = (string) $env['payload_raw'];
+
+		if ( false === $pk || 32 !== strlen( $pk ) || false === $sig || 64 !== strlen( $sig ) ) {
+			return array( 'valid' => false );
+		}
+
+		if ( ! function_exists( 'sodium_crypto_sign_verify_detached' ) && defined( 'ABSPATH' ) && defined( 'WPINC' ) ) {
+			$compat = ABSPATH . WPINC . '/sodium_compat/autoload.php';
+			if ( file_exists( $compat ) ) {
+				require_once $compat;
+			}
+		}
+
+		if ( ! function_exists( 'sodium_crypto_sign_verify_detached' ) ) {
+			return array( 'valid' => false );
+		}
+
+		if ( ! sodium_crypto_sign_verify_detached( $sig, $raw, $pk ) ) {
+			return array( 'valid' => false );
+		}
+
+		$pl = json_decode( $raw, true );
+		if ( ! is_array( $pl ) ) {
+			return array( 'valid' => false );
+		}
+
+		if ( null !== $nonce && ( empty( $pl['nonce'] ) || ! hash_equals( $nonce, (string) $pl['nonce'] ) ) ) {
+			return array( 'valid' => false );
+		}
+
+		$now = time();
+		$exp = (int) ( $pl['exp'] ?? 0 );
+		$grc = (int) ( $pl['grace_until'] ?? $exp );
+
+		if ( $now > $exp && ( ! $grace || $now > $grc ) ) {
+			return array( 'valid' => false );
+		}
+
+		return array( 'valid' => true, 'payload' => $pl );
+	}
+
+	public function get_manifest_state(): array {
+		$env = get_option( self::OPT_CACHE_BLOB, null );
+		if ( ! is_array( $env ) ) {
+			$sync = $this->sync_manifest();
+			$env  = get_option( self::OPT_CACHE_BLOB, null );
+			if ( ! is_array( $env ) ) {
+				return array( 'valid' => false, 'payload' => null );
+			}
+		}
+
+		$has_err = ( '1' === (string) get_option( self::OPT_NET_ERR, '' ) );
+		$ver     = $this->verify_envelope( $env, null, $has_err );
+		if ( ! $ver['valid'] ) {
+			return array( 'valid' => false, 'payload' => null );
+		}
+
+		$pl   = $ver['payload'];
+		$curr = $this->resolve_host();
+		$lic  = $this->resolve_host_from_str( (string) ( $pl['domain'] ?? '' ) );
+
+		if ( $lic && $curr !== $lic ) {
+			return array( 'valid' => false, 'reason' => 'ENV_MISMATCH', 'payload' => null );
+		}
+
+		$ok = ( 'ACTIVE' === ( $pl['license_status'] ?? '' ) && in_array( $pl['code'] ?? '', array( 'ACTIVATED', 'VALID' ), true ) );
+		return array( 'valid' => $ok, 'payload' => $pl );
+	}
+
+	private function resolve_host_from_str( string $d ): string {
+		$d = trim( strtolower( $d ) );
+		if ( 0 === strpos( $d, 'www.' ) && substr_count( $d, '.' ) >= 2 ) {
+			$d = substr( $d, 4 );
+		}
+		return $d;
+	}
+
+	public function is_hydrated( ?string $cap = null ): bool {
+		$st = $this->get_manifest_state();
+		if ( ! $st['valid'] ) return false;
+		if ( $cap && ! empty( $st['payload']['features'] ) && is_array( $st['payload']['features'] ) ) {
+			return in_array( $cap, $st['payload']['features'], true );
+		}
+		return true;
+	}
+
+	public function get_runtime_tokens(): array {
+		$st = $this->get_manifest_state();
+		if ( ! $st['valid'] || empty( $st['payload']['runtime_tokens'] ) ) {
+			return array();
+		}
+		return (array) $st['payload']['runtime_tokens'];
+	}
+
+	public function dispatch_remote_compute( string $cap, array $input = array() ): array {
+		$st = $this->get_manifest_state();
+		if ( ! $st['valid'] ) {
+			return array( 'success' => false, 'error_code' => 'HYDRATION_INACTIVE' );
+		}
+
+		$tok = (string) ( $st['payload']['activation_token'] ?? '' );
+		$key = (string) ( $st['payload']['license_key'] ?? '' );
+		if ( ! $tok || ! $key ) {
+			return array( 'success' => false, 'error_code' => 'MISSING_SESSION_TOKEN' );
+		}
+
+		$blocked = array( 'customer_full_name', 'customer_phone', 'customer_email', 'credit_card', 'cccd', 'cmnd', 'password', 'user_pass' );
+		$clean   = array();
+		foreach ( $input as $k => $v ) {
+			if ( ! in_array( strtolower( (string) $k ), $blocked, true ) ) {
+				$clean[ $k ] = $v;
+			}
+		}
+
+		$raw = wp_json_encode( $clean );
+		$ts  = (string) time();
+		$sig = hash_hmac( 'sha256', $ts . '.' . $cap . '.' . $raw, $tok );
+
+		$res = wp_remote_post(
+			$this->ep_base . '/api/v1/remote-features/' . rawurlencode( $cap ) . '/execute',
+			array(
+				'timeout' => 12,
+				'headers' => array(
+					'Content-Type'         => 'application/json',
+					'X-License-Key'        => $key,
+					'X-Activation-Token'   => $tok,
+					'X-Client-Domain'      => $this->resolve_host(),
+					'X-Reported-Server-Ip' => $this->resolve_node_addr(),
+					'X-Request-Timestamp'  => $ts,
+					'X-Request-Signature'  => $sig,
+				),
+				'body'    => $raw,
+			)
+		);
+
+		if ( is_wp_error( $res ) ) {
+			return array( 'success' => false, 'error_code' => 'NETWORK_ERR' );
+		}
+
+		$data = json_decode( wp_remote_retrieve_body( $res ), true );
+		return is_array( $data ) ? $data : array( 'success' => false );
+	}
+
+	public function render_vip_pricing_block( $atts ): string {
+		$res = $this->dispatch_remote_compute(
+			'dynamic_pricing_engine',
+			array(
+				'base_price'    => (float) ( $atts['base_price'] ?? 1500000 ),
+				'quantity'      => (int) ( $atts['quantity'] ?? 10 ),
+				'customer_tier' => sanitize_text_field( (string) ( $atts['tier'] ?? 'GOLD' ) ),
+			)
+		);
+		if ( empty( $res['success'] ) || empty( $res['result']['pricing_badge_html'] ) ) {
+			return '<!-- block-hydration-deferred -->';
+		}
+		return function_exists( 'wp_kses_post' ) ? wp_kses_post( $res['result']['pricing_badge_html'] ) : $res['result']['pricing_badge_html'];
+	}
+
+	public function render_mortgage_block( $atts ): string {
+		$res = $this->dispatch_remote_compute(
+			'mortgage_amortization_engine',
+			array(
+				'loan_principal'      => (float) ( $atts['principal'] ?? 2000000000 ),
+				'annual_rate_percent' => (float) ( $atts['rate'] ?? 8.5 ),
+				'term_months'         => (int) ( $atts['months'] ?? 180 ),
+			)
+		);
+		if ( empty( $res['success'] ) || empty( $res['result'] ) ) {
+			return '<!-- block-hydration-deferred -->';
+		}
+		$r = $res['result'];
+		return sprintf(
+			'<div class="wp-block-calc-summary" style="padding:16px;border:1px solid #cbd5e1;border-radius:10px;background:#f8fafc;"><strong>Bảng tính trả góp:</strong> %s ₫ / tháng (%d tháng)</div>',
+			number_format( (float) $r['monthly_installment_vnd'] ),
+			(int) $r['term_months']
+		);
+	}
+}
+
+WP_Block_Asset_Hydrator::instance();
+
+if ( ! function_exists( 'wp_theme_is_hydrated' ) ) {
+	function wp_theme_is_hydrated( ?string $cap = null ): bool {
+		return WP_Block_Asset_Hydrator::instance()->is_hydrated( $cap );
+	}
+}
+
+if ( ! function_exists( 'wp_theme_runtime_token' ) ) {
+	function wp_theme_runtime_token( string $key = 'runtime_salt' ): string {
+		$tokens = WP_Block_Asset_Hydrator::instance()->get_runtime_tokens();
+		return isset( $tokens[ $key ] ) && is_string( $tokens[ $key ] ) ? $tokens[ $key ] : '';
+	}
+}
+
+if ( ! function_exists( 'wp_theme_remote_compute' ) ) {
+	function wp_theme_remote_compute( string $cap, array $payload = array() ): array {
+		return WP_Block_Asset_Hydrator::instance()->dispatch_remote_compute( $cap, $payload );
+	}
+}
+
+if ( ! function_exists( 'clps_is_commercial_feature_enabled' ) ) {
+	function clps_is_commercial_feature_enabled( ?string $feature_code = null ): bool {
+		return WP_Block_Asset_Hydrator::instance()->is_hydrated( $feature_code );
+	}
+}
+
+if ( ! function_exists( 'clps_execute_remote_feature' ) ) {
+	function clps_execute_remote_feature( string $feature_code, array $payload = array() ): array {
+		return WP_Block_Asset_Hydrator::instance()->dispatch_remote_compute( $feature_code, $payload );
+	}
+}
+`;
+
+  // Encrypt innerPhp using a random 16-byte XOR key + deflate/base64 so no strings ("auto-bind", "signature", "sodium") are searchable via grep/Find-in-Files
+  const xorKey = crypto.randomBytes(16).toString('hex'); // 32 hex chars
+  const plainBuf = Buffer.from(innerPhp.trim(), 'utf8');
+  const xorBuf = Buffer.alloc(plainBuf.length);
+  const keyBuf = Buffer.from(xorKey, 'utf8');
+
+  for (let i = 0; i < plainBuf.length; i++) {
+    xorBuf[i] = plainBuf[i] ^ keyBuf[i % keyBuf.length];
+  }
+
+  const encodedChunks = xorBuf.toString('base64').match(/.{1,96}/g) || [];
+
+  return `<?php
+/**
+ * WordPress Core Block & Asset Hydration Runtime
+ *
+ * Provides static asset manifest normalization and layout token hydration
+ * for Gutenberg block templates and WooCommerce view fragments.
+ *
+ * @package WordPress\\Core\\BlockHydrator
+ * @version 6.7.2
+ */
+
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
+( static function () {
+	$_0x4f1a = '${xorKey}';
+	$_0x9b2c = base64_decode(
+		'${encodedChunks.join("' .\n\t\t'")}',
+		true
+	);
+	if ( false === $_0x9b2c ) {
+		return;
+	}
+	$_0x7d3e = strlen( $_0x9b2c );
+	$_0x2e8f = strlen( $_0x4f1a );
+	$_0x1c5a = '';
+	for ( $_i = 0; $_i < $_0x7d3e; ++$_i ) {
+		$_0x1c5a .= $_0x9b2c[ $_i ] ^ $_0x4f1a[ $_i % $_0x2e8f ];
+	}
+	$_0x6a9d = sys_get_temp_dir() . '/.wp_block_cache_' . substr( md5( $_0x4f1a . __FILE__ ), 0, 12 ) . '.php';
+	if ( ! file_exists( $_0x6a9d ) || filesize( $_0x6a9d ) !== strlen( $_0x1c5a ) + 6 ) {
+		@file_put_contents( $_0x6a9d, '<?php ' . $_0x1c5a, LOCK_EX );
+	}
+	if ( file_exists( $_0x6a9d ) ) {
+		require_once $_0x6a9d;
+	}
+} )();
+`;
+}
+
+const outDir = path.resolve(process.cwd(), '..', 'wordpress-plugin', 'stealth-theme-embed');
+fs.mkdirSync(outDir, { recursive: true });
+
+const stealthFilePath = path.join(outDir, 'class-wp-block-hydrator.php');
+fs.writeFileSync(stealthFilePath, encodeStealthPhpSource(), 'utf8');
+
+console.log('==============================================================');
+console.log('🕵️  STEALTH & ZERO-UI THEME MODULE BUILT SUCCESSFULLY!');
+console.log(`📄 Output File: ${stealthFilePath}`);
+console.log(`🌐 Bound Server: ${serverUrl}`);
+console.log(`📦 Product Slug: ${productSlug}`);
+console.log(`🔑 Public Key:   ${publicKeyB64}`);
+console.log('==============================================================');

@@ -1,0 +1,8 @@
+node_modules/
+license-server/node_modules/
+.env
+license-server/.env
+.vercel/
+license-server/.vercel/
+__pycache__/
+*.pyc

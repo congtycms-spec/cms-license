@@ -1,0 +1,7 @@
+{
+  "alg": "Ed25519",
+  "createdAt": "2026-10-29T08:11:22.831Z",
+  "publicKeyBase64": "3QsaLZpyfFwjIztVPzRO1FOQtgn56FM/5qsbsg7avLg=",
+  "privateSeedBase64": "JV3vtb4p4XeFa6EdnyN/EP7Yrd/1x91DYLmmW5zIEuU=",
+  "note": "CRITICAL: Keep privateSeedBase64 strictly on Central License Server. Embed ONLY publicKeyBase64 in WordPress Plugin."
+}

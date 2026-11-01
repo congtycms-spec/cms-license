@@ -1,0 +1,394 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.dbService = exports.DatabaseService = void 0;
+const node_crypto_1 = __importDefault(require("node:crypto"));
+const node_fs_1 = __importDefault(require("node:fs"));
+const node_path_1 = __importDefault(require("node:path"));
+const pg_1 = require("pg");
+class DatabaseService {
+    dbFilePath;
+    pgPool = null;
+    pgInitialized = false;
+    pendingSyncPromise = null;
+    state;
+    constructor() {
+        const dataCandidates = [
+            node_path_1.default.resolve(__dirname, '..', '..', 'data'),
+            node_path_1.default.join(process.cwd(), 'license-server', 'data'),
+            node_path_1.default.join(process.cwd(), 'data')
+        ];
+        const dataDir = dataCandidates.find((d) => node_fs_1.default.existsSync(d)) || dataCandidates[0];
+        this.dbFilePath = node_path_1.default.join(dataDir, 'license-db.json');
+        this.loadOrSeed();
+        this.initPostgresPoolIfNeeded();
+    }
+    initPostgresPoolIfNeeded() {
+        const dbUrl = (process.env.DATABASE_URL || process.env.SUPABASE_DB_URL || '').trim();
+        const isPlaceHolder = dbUrl.includes('postgres:postgres@localhost:5432');
+        if (!dbUrl || (isPlaceHolder && process.env.USE_POSTGRES !== 'true')) {
+            return;
+        }
+        this.pgPool = new pg_1.Pool({
+            connectionString: dbUrl,
+            ssl: dbUrl.includes('localhost') || dbUrl.includes('127.0.0.1')
+                ? false
+                : { rejectUnauthorized: false },
+            max: 5,
+            idleTimeoutMillis: 10000,
+            connectionTimeoutMillis: 8000
+        });
+    }
+    isCloudDatabaseEnabled() {
+        return this.pgPool !== null;
+    }
+    /**
+     * Ensures state is loaded from Supabase PostgreSQL before handling a request on Vercel Serverless.
+     * Automatically creates table `clps_cloud_store` and seeds initial local data if empty.
+     */
+    async ensureLoaded() {
+        if (!this.pgPool) {
+            return;
+        }
+        try {
+            if (!this.pgInitialized) {
+                await this.pgPool.query(`
+          CREATE TABLE IF NOT EXISTS clps_cloud_store (
+            store_key VARCHAR(64) PRIMARY KEY,
+            state_json JSONB NOT NULL,
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+          );
+        `);
+                this.pgInitialized = true;
+            }
+            // Wait for any in-flight save before reading
+            if (this.pendingSyncPromise) {
+                await this.pendingSyncPromise;
+            }
+            const res = await this.pgPool.query(`SELECT state_json FROM clps_cloud_store WHERE store_key = 'primary' LIMIT 1`);
+            if (res.rows.length > 0 && res.rows[0].state_json) {
+                this.state = res.rows[0].state_json;
+            }
+            else {
+                // First time connecting to Supabase: push current state (e.g. gofresh.vn) into Supabase
+                await this.pgPool.query(`INSERT INTO clps_cloud_store (store_key, state_json, updated_at)
+           VALUES ('primary', $1::jsonb, NOW())
+           ON CONFLICT (store_key) DO UPDATE SET state_json = EXCLUDED.state_json, updated_at = NOW()`, [JSON.stringify(this.state)]);
+            }
+        }
+        catch (err) {
+            console.error('[Supabase Sync Warning] Falling back to in-memory/local state:', err.message);
+        }
+    }
+    /**
+     * Flushes any pending asynchronous Supabase write before serverless function returns.
+     */
+    async flush() {
+        if (this.pendingSyncPromise) {
+            try {
+                await this.pendingSyncPromise;
+            }
+            catch (err) {
+                console.error('[Supabase Flush Error]:', err.message);
+            }
+        }
+    }
+    static hashPassword(password) {
+        const salt = node_crypto_1.default.randomBytes(16).toString('hex');
+        const derived = node_crypto_1.default.scryptSync(password, salt, 64).toString('hex');
+        return `${salt}:${derived}`;
+    }
+    static verifyPassword(password, storedHash) {
+        if (!storedHash)
+            return false;
+        if (storedHash.includes(':')) {
+            const [salt, keyHex] = storedHash.split(':');
+            const computed = node_crypto_1.default.scryptSync(password, salt, 64).toString('hex');
+            const a = Buffer.from(computed, 'utf8');
+            const b = Buffer.from(keyHex || '', 'utf8');
+            return a.length === b.length && node_crypto_1.default.timingSafeEqual(a, b);
+        }
+        // Backward compatibility with legacy hash format
+        const legacyComputed = node_crypto_1.default.scryptSync(password, 'clps_salt_v1', 32).toString('hex');
+        const a = Buffer.from(legacyComputed, 'utf8');
+        const b = Buffer.from(storedHash, 'utf8');
+        return a.length === b.length && node_crypto_1.default.timingSafeEqual(a, b);
+    }
+    static generateLicenseKey() {
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        const segment = () => Array.from({ length: 4 }, () => chars[node_crypto_1.default.randomInt(0, chars.length)]).join('');
+        return `CLPS-${segment()}-${segment()}-${segment()}-${segment()}`;
+    }
+    loadOrSeed() {
+        try {
+            if (node_fs_1.default.existsSync(this.dbFilePath)) {
+                this.state = JSON.parse(node_fs_1.default.readFileSync(this.dbFilePath, 'utf8'));
+                return;
+            }
+        }
+        catch {
+            // Fallback to empty state if corrupted or read-only
+        }
+        this.initEmptyState();
+    }
+    initEmptyState() {
+        this.state = {
+            users: [],
+            customers: [],
+            products: [],
+            licenses: [],
+            activations: [],
+            transferRequests: [],
+            validationLogs: [],
+            auditLogs: [],
+            remoteFeatureLogs: []
+        };
+        this.save();
+    }
+    save() {
+        // 1. Write to local JSON if filesystem is writable (Local XAMPP development)
+        try {
+            node_fs_1.default.mkdirSync(node_path_1.default.dirname(this.dbFilePath), { recursive: true });
+            node_fs_1.default.writeFileSync(this.dbFilePath, JSON.stringify(this.state, null, 2), 'utf8');
+        }
+        catch {
+            // Ignore read-only filesystem errors on Vercel Serverless
+        }
+        // 2. Sync to Supabase PostgreSQL if configured
+        if (this.pgPool) {
+            const snapshot = JSON.stringify(this.state);
+            this.pendingSyncPromise = this.pgPool
+                .query(`INSERT INTO clps_cloud_store (store_key, state_json, updated_at)
+           VALUES ('primary', $1::jsonb, NOW())
+           ON CONFLICT (store_key) DO UPDATE SET state_json = EXCLUDED.state_json, updated_at = NOW()`, [snapshot])
+                .then(() => {
+                this.pendingSyncPromise = null;
+            })
+                .catch((err) => {
+                console.error('[Supabase Save Error]:', err.message);
+                this.pendingSyncPromise = null;
+            });
+        }
+    }
+    seedInitialData() {
+        const now = new Date();
+        const oneYearLater = new Date(now.getTime() + 365 * 24 * 3600 * 1000).toISOString();
+        const tenDaysLater = new Date(now.getTime() + 10 * 24 * 3600 * 1000).toISOString();
+        const fiveDaysAgo = new Date(now.getTime() - 5 * 24 * 3600 * 1000).toISOString();
+        const adminId = '11111111-1111-4111-8111-111111111111';
+        const managerId = '22222222-2222-4222-8222-222222222222';
+        const supportId = '33333333-3333-4333-8333-333333333333';
+        const cust1Id = 'c1111111-1111-4111-8111-111111111111';
+        const cust2Id = 'c2222222-2222-4222-8222-222222222222';
+        const cust3Id = 'c3333333-3333-4333-8333-333333333333';
+        const prod1Id = 'b1111111-1111-4111-8111-111111111111';
+        const prod2Id = 'b2222222-2222-4222-8222-222222222222';
+        const lic1Id = 'a1111111-1111-4111-8111-111111111111';
+        const lic2Id = 'a2222222-2222-4222-8222-222222222222';
+        const lic3Id = 'a3333333-3333-4333-8333-333333333333';
+        this.state = {
+            users: [],
+            customers: [
+                {
+                    id: cust1Id,
+                    name: 'Nguyễn Văn An',
+                    email: 'an.nguyen@noithathoangall.vn',
+                    phone: '0901234567',
+                    company: 'Công ty TNHH Nội Thất Hoàng Gia',
+                    notes: 'Khách hàng gói Enterprise E-Commerce bàn giao tháng 10',
+                    createdAt: now.toISOString(),
+                    updatedAt: now.toISOString()
+                },
+                {
+                    id: cust2Id,
+                    name: 'Trần Thị Bích Ngọc',
+                    email: 'ngoc.tran@bdsdongnama.vn',
+                    phone: '0912345678',
+                    company: 'Tập đoàn BĐS Đông Nam Á',
+                    notes: 'Website Sàn Giao Dịch BĐS + Công cụ tính lãi suất vay',
+                    createdAt: now.toISOString(),
+                    updatedAt: now.toISOString()
+                },
+                {
+                    id: cust3Id,
+                    name: 'Lê Minh Tuấn',
+                    email: 'tuan.le@fashionviet.vn',
+                    phone: '0987654321',
+                    company: 'Thương hiệu Thời trang FashionViet',
+                    notes: 'License đã hết hạn, đang chờ thanh toán gia hạn năm 2',
+                    createdAt: now.toISOString(),
+                    updatedAt: now.toISOString()
+                }
+            ],
+            products: [
+                {
+                    id: prod1Id,
+                    slug: 'wp-commerce-pro-suite',
+                    name: 'WP Commerce Pro Suite (Website Bán Hàng Cao Cấp)',
+                    currentVersion: '2.4.0',
+                    commercialFeatures: [
+                        'dynamic_pricing_engine',
+                        'advanced_analytics_report',
+                        'smart_inventory_forecast',
+                        'vip_invoice_generator'
+                    ],
+                    defaultMaxActivations: 1,
+                    defaultMaxTransfers: 3,
+                    gracePeriodHours: 72,
+                    downloadUrl: 'https://releases.company.vn/wp-commerce-pro-suite-2.4.0.zip',
+                    isActive: true,
+                    createdAt: now.toISOString(),
+                    updatedAt: now.toISOString()
+                },
+                {
+                    id: prod2Id,
+                    slug: 'wp-realestate-enterprise',
+                    name: 'WP RealEstate Enterprise (Hệ thống Sàn BĐS)',
+                    currentVersion: '1.8.2',
+                    commercialFeatures: [
+                        'mortgage_amortization_engine',
+                        'project_roi_valuation',
+                        'crm_lead_scoring'
+                    ],
+                    defaultMaxActivations: 1,
+                    defaultMaxTransfers: 2,
+                    gracePeriodHours: 72,
+                    downloadUrl: 'https://releases.company.vn/wp-realestate-enterprise-1.8.2.zip',
+                    isActive: true,
+                    createdAt: now.toISOString(),
+                    updatedAt: now.toISOString()
+                }
+            ],
+            licenses: [
+                {
+                    id: lic1Id,
+                    licenseKey: 'CLPS-PRO1-2026-8888-9999',
+                    customerId: cust1Id,
+                    productId: prod1Id,
+                    status: 'ACTIVE',
+                    allowedDomain: 'noithathoanggia.vn',
+                    allowedIp: '103.56.158.10',
+                    strictIpCheck: true,
+                    treatWwwAsSame: true,
+                    maxActivations: 1,
+                    maxTransfers: 3,
+                    transferCount: 0,
+                    startsAt: now.toISOString(),
+                    expiresAt: oneYearLater,
+                    customFeatures: null,
+                    notes: 'License chính thức chạy trên VPS 103.56.158.10',
+                    createdAt: now.toISOString(),
+                    updatedAt: now.toISOString()
+                },
+                {
+                    id: lic2Id,
+                    licenseKey: 'CLPS-RE26-7777-6666-5555',
+                    customerId: cust2Id,
+                    productId: prod2Id,
+                    status: 'ACTIVE',
+                    allowedDomain: 'bdsdongnama.vn',
+                    allowedIp: '127.0.0.1',
+                    strictIpCheck: true,
+                    treatWwwAsSame: true,
+                    maxActivations: 2,
+                    maxTransfers: 2,
+                    transferCount: 0,
+                    startsAt: now.toISOString(),
+                    expiresAt: tenDaysLater, // Sắp hết hạn trong 10 ngày (để hiển thị cảnh báo trên Dashboard)
+                    customFeatures: null,
+                    notes: 'License sắp hết hạn trong 10 ngày tới',
+                    createdAt: now.toISOString(),
+                    updatedAt: now.toISOString()
+                },
+                {
+                    id: lic3Id,
+                    licenseKey: 'CLPS-EXP0-2025-1111-2222',
+                    customerId: cust3Id,
+                    productId: prod1Id,
+                    status: 'EXPIRED',
+                    allowedDomain: 'fashionviet.vn',
+                    allowedIp: '203.113.152.20',
+                    strictIpCheck: true,
+                    treatWwwAsSame: true,
+                    maxActivations: 1,
+                    maxTransfers: 3,
+                    transferCount: 1,
+                    startsAt: fiveDaysAgo,
+                    expiresAt: fiveDaysAgo,
+                    customFeatures: null,
+                    notes: 'License đã quá hạn 5 ngày',
+                    createdAt: fiveDaysAgo,
+                    updatedAt: now.toISOString()
+                }
+            ],
+            activations: [],
+            transferRequests: [],
+            validationLogs: [],
+            auditLogs: [
+                {
+                    id: 1,
+                    licenseId: lic1Id,
+                    actorUserId: adminId,
+                    eventType: 'LICENSE_CREATED',
+                    oldValue: null,
+                    newValue: {
+                        licenseKey: 'CLPS-PRO1-2026-8888-9999',
+                        domain: 'noithathoanggia.vn',
+                        ip: '103.56.158.10'
+                    },
+                    ipAddress: '127.0.0.1',
+                    note: 'Khởi tạo license bàn giao cho Công ty TNHH Nội Thất Hoàng Gia',
+                    createdAt: now.toISOString()
+                }
+            ],
+            remoteFeatureLogs: []
+        };
+        this.save();
+    }
+    addValidationLog(entry) {
+        const nextId = this.state.validationLogs.length > 0
+            ? this.state.validationLogs[this.state.validationLogs.length - 1].id + 1
+            : 1;
+        const record = {
+            ...entry,
+            id: nextId,
+            createdAt: new Date().toISOString()
+        };
+        this.state.validationLogs.push(record);
+        if (this.state.validationLogs.length > 2000) {
+            this.state.validationLogs.shift();
+        }
+        this.save();
+        return record;
+    }
+    addAuditLog(entry) {
+        const nextId = this.state.auditLogs.length > 0
+            ? this.state.auditLogs[this.state.auditLogs.length - 1].id + 1
+            : 1;
+        const record = {
+            ...entry,
+            id: nextId,
+            createdAt: new Date().toISOString()
+        };
+        this.state.auditLogs.push(record);
+        this.save();
+        return record;
+    }
+    addRemoteFeatureLog(entry) {
+        const nextId = this.state.remoteFeatureLogs.length > 0
+            ? this.state.remoteFeatureLogs[this.state.remoteFeatureLogs.length - 1].id + 1
+            : 1;
+        const record = {
+            ...entry,
+            id: nextId,
+            createdAt: new Date().toISOString()
+        };
+        this.state.remoteFeatureLogs.push(record);
+        this.save();
+        return record;
+    }
+}
+exports.DatabaseService = DatabaseService;
+exports.dbService = new DatabaseService();

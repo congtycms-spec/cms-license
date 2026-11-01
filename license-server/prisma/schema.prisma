@@ -1,0 +1,225 @@
+// ==========================================================
+// PRISMA SCHEMA - WORDPRESS LICENSE PROTECTION SYSTEM
+// Database: PostgreSQL
+// ==========================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum StaffRole {
+  SUPER_ADMIN
+  MANAGER
+  SUPPORT
+}
+
+enum LicenseStatus {
+  ACTIVE
+  INACTIVE
+  EXPIRED
+  SUSPENDED
+  REVOKED
+}
+
+enum ActivationStatus {
+  ACTIVE
+  DEACTIVATED
+  REVOKED_BY_TRANSFER
+}
+
+enum TransferRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ValidationAction {
+  ACTIVATE
+  VERIFY
+  DEACTIVATE
+  REMOTE_FEATURE
+  TRANSFER_REQ
+}
+
+model User {
+  id           String    @id @default(uuid()) @db.Uuid
+  email        String    @unique @db.VarChar(191)
+  passwordHash String    @map("password_hash")
+  fullName     String    @map("full_name") @db.VarChar(191)
+  role         StaffRole @default(SUPPORT)
+  isActive     Boolean   @default(true) @map("is_active")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  reviewedTransfers ServerTransferRequest[]
+  auditLogs         LicenseAuditLog[]
+
+  @@map("users")
+}
+
+model Customer {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @db.VarChar(191)
+  email     String   @unique @db.VarChar(191)
+  phone     String?  @db.VarChar(50)
+  company   String?  @db.VarChar(191)
+  notes     String?  @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  licenses License[]
+
+  @@map("customers")
+}
+
+model Product {
+  id                    String   @id @default(uuid()) @db.Uuid
+  slug                  String   @unique @db.VarChar(120)
+  name                  String   @db.VarChar(191)
+  currentVersion        String   @default("1.0.0") @map("current_version") @db.VarChar(40)
+  commercialFeatures    Json     @default("[]") @map("commercial_features")
+  defaultMaxActivations Int      @default(1) @map("default_max_activations")
+  defaultMaxTransfers   Int      @default(3) @map("default_max_transfers")
+  gracePeriodHours      Int      @default(72) @map("grace_period_hours")
+  downloadUrl           String?  @map("download_url")
+  isActive              Boolean  @default(true) @map("is_active")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  licenses License[]
+
+  @@map("products")
+}
+
+model License {
+  id             String        @id @default(uuid()) @db.Uuid
+  licenseKey     String        @unique @map("license_key") @db.VarChar(64)
+  customerId     String        @map("customer_id") @db.Uuid
+  productId      String        @map("product_id") @db.Uuid
+  status         LicenseStatus @default(INACTIVE)
+  allowedDomain  String?       @map("allowed_domain") @db.VarChar(255)
+  allowedIp      String?       @map("allowed_ip") @db.VarChar(100)
+  strictIpCheck  Boolean       @default(true) @map("strict_ip_check")
+  treatWwwAsSame Boolean       @default(true) @map("treat_www_as_same")
+  maxActivations Int           @default(1) @map("max_activations")
+  maxTransfers   Int           @default(3) @map("max_transfers")
+  transferCount  Int           @default(0) @map("transfer_count")
+  startsAt       DateTime      @default(now()) @map("starts_at")
+  expiresAt      DateTime      @map("expires_at")
+  customFeatures Json?         @map("custom_features")
+  notes          String?       @db.Text
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  customer          Customer                  @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  product           Product                   @relation(fields: [productId], references: [id], onDelete: Restrict)
+  activations       LicenseActivation[]
+  transferRequests  ServerTransferRequest[]
+  validationLogs    ValidationLog[]
+  auditLogs         LicenseAuditLog[]
+  remoteFeatureLogs RemoteFeatureUsageLog[]
+
+  @@index([customerId])
+  @@index([productId])
+  @@index([status, expiresAt])
+  @@index([allowedDomain])
+  @@map("licenses")
+}
+
+model LicenseActivation {
+  id              String           @id @default(uuid()) @db.Uuid
+  licenseId       String           @map("license_id") @db.Uuid
+  activationToken String           @unique @map("activation_token") @db.VarChar(128)
+  domain          String           @db.VarChar(255)
+  serverIp        String           @map("server_ip") @db.VarChar(100)
+  wpVersion       String?          @map("wp_version") @db.VarChar(40)
+  phpVersion      String?          @map("php_version") @db.VarChar(40)
+  pluginVersion   String?          @map("plugin_version") @db.VarChar(40)
+  status          ActivationStatus @default(ACTIVE)
+  activatedAt     DateTime         @default(now()) @map("activated_at")
+  lastVerifiedAt  DateTime         @default(now()) @map("last_verified_at")
+
+  license License @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+
+  @@index([licenseId, status])
+  @@map("license_activations")
+}
+
+model ServerTransferRequest {
+  id               String                @id @default(uuid()) @db.Uuid
+  licenseId        String                @map("license_id") @db.Uuid
+  oldDomain        String?               @map("old_domain") @db.VarChar(255)
+  oldIp            String?               @map("old_ip") @db.VarChar(100)
+  newDomain        String                @map("new_domain") @db.VarChar(255)
+  newIp            String                @map("new_ip") @db.VarChar(100)
+  reason           String                @db.Text
+  status           TransferRequestStatus @default(PENDING)
+  reviewedByUserId String?               @map("reviewed_by_user_id") @db.Uuid
+  reviewNote       String?               @map("review_note") @db.Text
+  createdAt        DateTime              @default(now()) @map("created_at")
+  reviewedAt       DateTime?             @map("reviewed_at")
+
+  license    License @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+  reviewedBy User?   @relation(fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([licenseId, status])
+  @@map("server_transfer_requests")
+}
+
+model ValidationLog {
+  id                 BigInt           @id @default(autoincrement())
+  licenseId          String?          @map("license_id") @db.Uuid
+  licenseKeyAttempt  String           @map("license_key_attempt") @db.VarChar(64)
+  requestDomain      String           @map("request_domain") @db.VarChar(255)
+  detectedOutboundIp String           @map("detected_outbound_ip") @db.VarChar(100)
+  reportedServerIp   String?          @map("reported_server_ip") @db.VarChar(100)
+  action             ValidationAction
+  isValid            Boolean          @map("is_valid")
+  failureReason      String?          @map("failure_reason") @db.VarChar(120)
+  userAgent          String?          @map("user_agent") @db.VarChar(255)
+  createdAt          DateTime         @default(now()) @map("created_at")
+
+  license License? @relation(fields: [licenseId], references: [id], onDelete: SetNull)
+
+  @@index([licenseId, createdAt])
+  @@index([isValid, createdAt])
+  @@map("validation_logs")
+}
+
+model LicenseAuditLog {
+  id          BigInt   @id @default(autoincrement())
+  licenseId   String   @map("license_id") @db.Uuid
+  actorUserId String?  @map("actor_user_id") @db.Uuid
+  eventType   String   @map("event_type") @db.VarChar(80)
+  oldValue    Json?    @map("old_value")
+  newValue    Json?    @map("new_value")
+  ipAddress   String?  @map("ip_address") @db.VarChar(100)
+  note        String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  license License @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+  actor   User?   @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([licenseId, createdAt])
+  @@map("license_audit_logs")
+}
+
+model RemoteFeatureUsageLog {
+  id          BigInt   @id @default(autoincrement())
+  licenseId   String   @map("license_id") @db.Uuid
+  featureCode String   @map("feature_code") @db.VarChar(100)
+  executionMs Int      @map("execution_ms")
+  status      String   @db.VarChar(40)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  license License @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+
+  @@index([licenseId, createdAt])
+  @@map("remote_feature_usage_logs")
+}
+
