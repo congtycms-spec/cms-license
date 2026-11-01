@@ -6,3 +6,7 @@ license-server/.env
 license-server/.vercel/
 __pycache__/
 *.pyc
+
+
+.vercel
+.env*
