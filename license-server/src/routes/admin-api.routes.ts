@@ -543,11 +543,27 @@ adminApiRouter.post(
   }
 );
 
+async function triggerRemoteClientSync(domain: string | null): Promise<void> {
+  if (!domain || domain.includes('localhost') || domain.includes('127.0.0.1')) return;
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000);
+    await fetch(`https://${domain}/?clps_sync=${Date.now()}`, {
+      method: 'GET',
+      headers: { 'User-Agent': 'CLPS-Central-Sync/1.0', 'Cache-Control': 'no-cache' },
+      signal: controller.signal
+    });
+    clearTimeout(timer);
+  } catch {
+    // Best-effort real-time webhook push to client WordPress site
+  }
+}
+
 // 4, 6, 7. Đổi trạng thái License: ACTIVE (Kích hoạt), SUSPENDED (Tạm ngừng), REVOKED (Thu hồi)
 adminApiRouter.patch(
   '/licenses/:id/status',
   requireAuth(['SUPER_ADMIN', 'MANAGER']),
-  (req: AuthenticatedAdminRequest, res) => {
+  async (req: AuthenticatedAdminRequest, res) => {
     const license = dbService.state.licenses.find((l) => l.id === req.params.id);
     if (!license) {
       res.status(404).json({ error: 'NOT_FOUND', message: 'Không tìm thấy License.' });
@@ -584,6 +600,8 @@ adminApiRouter.patch(
     });
 
     dbService.save();
+    await dbService.flush();
+    await triggerRemoteClientSync(license.allowedDomain);
     res.json({ license });
   }
 );
@@ -592,7 +610,7 @@ adminApiRouter.patch(
 adminApiRouter.patch(
   '/licenses/:id/renew',
   requireAuth(['SUPER_ADMIN', 'MANAGER']),
-  (req: AuthenticatedAdminRequest, res) => {
+  async (req: AuthenticatedAdminRequest, res) => {
     const license = dbService.state.licenses.find((l) => l.id === req.params.id);
     if (!license) {
       res.status(404).json({ error: 'NOT_FOUND', message: 'Không tìm thấy License.' });
@@ -622,6 +640,8 @@ adminApiRouter.patch(
     });
 
     dbService.save();
+    await dbService.flush();
+    await triggerRemoteClientSync(license.allowedDomain);
     res.json({ license });
   }
 );
@@ -630,7 +650,7 @@ adminApiRouter.patch(
 adminApiRouter.patch(
   '/licenses/:id/environment',
   requireAuth(['SUPER_ADMIN', 'MANAGER', 'SUPPORT']),
-  (req: AuthenticatedAdminRequest, res) => {
+  async (req: AuthenticatedAdminRequest, res) => {
     const license = dbService.state.licenses.find((l) => l.id === req.params.id);
     if (!license) {
       res.status(404).json({ error: 'NOT_FOUND', message: 'Không tìm thấy License.' });
@@ -684,6 +704,8 @@ adminApiRouter.patch(
     });
 
     dbService.save();
+    await dbService.flush();
+    await triggerRemoteClientSync(license.allowedDomain);
     res.json({ license });
   }
 );

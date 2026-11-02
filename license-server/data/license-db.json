@@ -2,13 +2,159 @@
   "users": [
     {
       "id": "9d4bbcb9-5d19-464b-af7b-f984f6dbbcf3",
-      "email": "thuong871990@gmail.com",
-      "passwordHash": "4c7ac030fa0ed398f4a72622a6a7a65abbf8bb49e5bdb867029a96abe201bae0",
-      "fullName": "Nguyễn Văn Thường",
       "role": "SUPER_ADMIN",
+      "email": "thuong871990@gmail.com",
+      "fullName": "Nguyễn Văn Thường",
       "isActive": true,
       "createdAt": "2026-10-29T08:45:13.440Z",
-      "updatedAt": "2026-10-29T08:45:13.440Z"
+      "updatedAt": "2026-10-29T08:45:13.440Z",
+      "passwordHash": "4c7ac030fa0ed398f4a72622a6a7a65abbf8bb49e5bdb867029a96abe201bae0"
+    }
+  ],
+  "licenses": [
+    {
+      "id": "a141ae77-6714-497c-a0b3-bf4bcefd6a0c",
+      "notes": "",
+      "status": "ACTIVE",
+      "startsAt": "2026-10-30T02:40:21.449Z",
+      "allowedIp": "103.221.223.75, 103.221.223.60",
+      "createdAt": "2026-10-30T02:40:21.449Z",
+      "expiresAt": "2027-10-30T02:40:21.449Z",
+      "productId": "c28670e2-f7f7-469e-baeb-0505da72d5ea",
+      "updatedAt": "2026-10-30T03:00:20.052Z",
+      "customerId": "b7f80d30-50a8-4324-9602-1f14307561dd",
+      "licenseKey": "CLPS-U82N-CBPV-HSGY-RRYZ",
+      "maxTransfers": 3,
+      "allowedDomain": "gofresh.vn",
+      "strictIpCheck": true,
+      "transferCount": 0,
+      "customFeatures": null,
+      "maxActivations": 1,
+      "treatWwwAsSame": true
+    },
+    {
+      "id": "b0fcf121-c83b-4045-97ad-9f6869820614",
+      "notes": "",
+      "status": "ACTIVE",
+      "startsAt": "2026-11-02T01:32:54.058Z",
+      "allowedIp": null,
+      "createdAt": "2026-11-02T01:32:54.058Z",
+      "expiresAt": "2027-11-02T01:32:54.058Z",
+      "productId": "c28670e2-f7f7-469e-baeb-0505da72d5ea",
+      "updatedAt": "2026-11-02T01:32:54.058Z",
+      "customerId": "b7f80d30-50a8-4324-9602-1f14307561dd",
+      "licenseKey": "CLPS-W4MA-TQNQ-G5NX-5H2B",
+      "maxTransfers": 3,
+      "allowedDomain": null,
+      "strictIpCheck": true,
+      "transferCount": 0,
+      "customFeatures": null,
+      "maxActivations": 1,
+      "treatWwwAsSame": true
+    },
+    {
+      "id": "bb56e89b-7d03-4204-a571-d5ca0a865221",
+      "notes": "",
+      "status": "ACTIVE",
+      "startsAt": "2026-11-02T01:32:55.603Z",
+      "allowedIp": null,
+      "createdAt": "2026-11-02T01:32:55.603Z",
+      "expiresAt": "2027-11-02T01:32:55.603Z",
+      "productId": "c28670e2-f7f7-469e-baeb-0505da72d5ea",
+      "updatedAt": "2026-11-02T01:32:55.603Z",
+      "customerId": "b7f80d30-50a8-4324-9602-1f14307561dd",
+      "licenseKey": "CLPS-WDR4-MAZQ-L3YC-QEUU",
+      "maxTransfers": 3,
+      "allowedDomain": null,
+      "strictIpCheck": true,
+      "transferCount": 0,
+      "customFeatures": null,
+      "maxActivations": 1,
+      "treatWwwAsSame": true
+    }
+  ],
+  "products": [
+    {
+      "id": "c28670e2-f7f7-469e-baeb-0505da72d5ea",
+      "name": "wp-gofresh",
+      "slug": "wp-gofresh",
+      "isActive": true,
+      "createdAt": "2026-10-30T02:39:33.094Z",
+      "updatedAt": "2026-10-30T02:39:33.094Z",
+      "downloadUrl": "https://releases.company.vn/wp-gofresh.zip",
+      "currentVersion": "1.0.0",
+      "gracePeriodHours": 72,
+      "commercialFeatures": [
+        "dynamic_pricing_engine",
+        "advanced_analytics_report"
+      ],
+      "defaultMaxTransfers": 3,
+      "defaultMaxActivations": 1
+    }
+  ],
+  "auditLogs": [
+    {
+      "id": 1,
+      "note": "Tạo mới license cho khách hàng Phạm Văn Hà",
+      "newValue": {
+        "allowedIp": "103.221.223.75",
+        "expiresAt": "2027-10-30T02:40:21.449Z",
+        "licenseKey": "CLPS-U82N-CBPV-HSGY-RRYZ",
+        "allowedDomain": "gofresh.vn"
+      },
+      "oldValue": null,
+      "createdAt": "2026-10-30T02:40:21.451Z",
+      "eventType": "LICENSE_CREATED",
+      "ipAddress": "::1",
+      "licenseId": "a141ae77-6714-497c-a0b3-bf4bcefd6a0c",
+      "actorUserId": "9d4bbcb9-5d19-464b-af7b-f984f6dbbcf3"
+    },
+    {
+      "id": 2,
+      "note": "Nhân viên Nguyễn Văn Thường đổi trạng thái sang SUSPENDED",
+      "newValue": {
+        "status": "SUSPENDED"
+      },
+      "oldValue": {
+        "status": "ACTIVE"
+      },
+      "createdAt": "2026-10-30T03:00:20.053Z",
+      "eventType": "STATUS_CHANGED_TO_SUSPENDED",
+      "ipAddress": "::1",
+      "licenseId": "a141ae77-6714-497c-a0b3-bf4bcefd6a0c",
+      "actorUserId": "9d4bbcb9-5d19-464b-af7b-f984f6dbbcf3"
+    },
+    {
+      "id": 3,
+      "note": "Tạo mới license cho khách hàng Phạm Văn Hà",
+      "newValue": {
+        "allowedIp": null,
+        "expiresAt": "2027-11-02T01:32:54.058Z",
+        "licenseKey": "CLPS-W4MA-TQNQ-G5NX-5H2B",
+        "allowedDomain": null
+      },
+      "oldValue": null,
+      "createdAt": "2026-11-02T01:32:54.059Z",
+      "eventType": "LICENSE_CREATED",
+      "ipAddress": "127.0.0.1",
+      "licenseId": "b0fcf121-c83b-4045-97ad-9f6869820614",
+      "actorUserId": "9d4bbcb9-5d19-464b-af7b-f984f6dbbcf3"
+    },
+    {
+      "id": 4,
+      "note": "Tạo mới license cho khách hàng Phạm Văn Hà",
+      "newValue": {
+        "allowedIp": null,
+        "expiresAt": "2027-11-02T01:32:55.603Z",
+        "licenseKey": "CLPS-WDR4-MAZQ-L3YC-QEUU",
+        "allowedDomain": null
+      },
+      "oldValue": null,
+      "createdAt": "2026-11-02T01:32:55.603Z",
+      "eventType": "LICENSE_CREATED",
+      "ipAddress": "127.0.0.1",
+      "licenseId": "bb56e89b-7d03-4204-a571-d5ca0a865221",
+      "actorUserId": "9d4bbcb9-5d19-464b-af7b-f984f6dbbcf3"
     }
   ],
   "customers": [
@@ -16,152 +162,24 @@
       "id": "b7f80d30-50a8-4324-9602-1f14307561dd",
       "name": "Phạm Văn Hà",
       "email": "info@gofresh.vn",
+      "notes": "",
       "phone": "07.06.06.06.06",
       "company": "Trái Cây Go Fresh",
-      "notes": "",
       "createdAt": "2026-10-30T02:39:03.420Z",
       "updatedAt": "2026-10-30T02:39:03.420Z"
     }
   ],
-  "products": [
-    {
-      "id": "c28670e2-f7f7-469e-baeb-0505da72d5ea",
-      "slug": "wp-gofresh",
-      "name": "wp-gofresh",
-      "currentVersion": "1.0.0",
-      "commercialFeatures": [
-        "dynamic_pricing_engine",
-        "advanced_analytics_report"
-      ],
-      "defaultMaxActivations": 1,
-      "defaultMaxTransfers": 3,
-      "gracePeriodHours": 72,
-      "downloadUrl": "https://releases.company.vn/wp-gofresh.zip",
-      "isActive": true,
-      "createdAt": "2026-10-30T02:39:33.094Z",
-      "updatedAt": "2026-10-30T02:39:33.094Z"
-    }
-  ],
-  "licenses": [
-    {
-      "id": "a141ae77-6714-497c-a0b3-bf4bcefd6a0c",
-      "licenseKey": "CLPS-U82N-CBPV-HSGY-RRYZ",
-      "customerId": "b7f80d30-50a8-4324-9602-1f14307561dd",
-      "productId": "c28670e2-f7f7-469e-baeb-0505da72d5ea",
-      "status": "ACTIVE",
-      "allowedDomain": "gofresh.vn",
-      "allowedIp": "103.221.223.75",
-      "strictIpCheck": true,
-      "treatWwwAsSame": true,
-      "maxActivations": 1,
-      "maxTransfers": 3,
-      "transferCount": 0,
-      "startsAt": "2026-10-30T02:40:21.449Z",
-      "expiresAt": "2027-10-30T02:40:21.449Z",
-      "customFeatures": null,
-      "notes": "",
-      "createdAt": "2026-10-30T02:40:21.449Z",
-      "updatedAt": "2026-10-30T03:00:20.052Z"
-    }
-  ],
-  "activations": [
-    {
-      "id": "4fc90419-6a54-4b58-ba57-8534fa9136fa",
-      "licenseId": "a141ae77-6714-497c-a0b3-bf4bcefd6a0c",
-      "activationToken": "act_058fe01fa6509b34df6687984187f98972cf762f4a82c25e",
-      "domain": "gofresh.vn",
-      "serverIp": "103.221.223.75",
-      "wpVersion": "6.7.2",
-      "phpVersion": "8.2.12",
-      "pluginVersion": "1.0.0-stealth",
-      "status": "DEACTIVATED",
-      "activatedAt": "2026-10-30T02:57:46.268Z",
-      "lastVerifiedAt": "2026-10-30T02:57:46.268Z"
-    }
-  ],
+  "activations": [],
+  "validationLogs": [],
   "transferRequests": [],
-  "validationLogs": [
-    {
-      "licenseId": null,
-      "licenseKeyAttempt": "AUTO_DOMAIN:noithathoanggia.vn",
-      "requestDomain": "noithathoanggia.vn",
-      "detectedOutboundIp": "127.0.0.1",
-      "reportedServerIp": "103.56.158.10",
-      "action": "VERIFY",
-      "isValid": false,
-      "failureReason": "UNREGISTERED_DOMAIN (noithathoanggia.vn)",
-      "userAgent": "WP-Core-Hydrator",
-      "id": 1,
-      "createdAt": "2026-10-30T02:55:36.526Z"
-    },
-    {
-      "licenseId": "a141ae77-6714-497c-a0b3-bf4bcefd6a0c",
-      "licenseKeyAttempt": "CLPS-U82N-CBPV-HSGY-RRYZ",
-      "requestDomain": "gofresh.vn",
-      "detectedOutboundIp": "127.0.0.1",
-      "reportedServerIp": "103.221.223.75",
-      "action": "ACTIVATE",
-      "isValid": true,
-      "failureReason": null,
-      "userAgent": "WP-Core-Hydrator",
-      "id": 2,
-      "createdAt": "2026-10-30T02:57:46.270Z"
-    },
-    {
-      "licenseId": "a141ae77-6714-497c-a0b3-bf4bcefd6a0c",
-      "licenseKeyAttempt": "CLPS-U82N-CBPV-HSGY-RRYZ",
-      "requestDomain": "gofresh.vn",
-      "detectedOutboundIp": "127.0.0.1",
-      "reportedServerIp": "103.221.223.75",
-      "action": "ACTIVATE",
-      "isValid": false,
-      "failureReason": "STATUS_SUSPENDED",
-      "userAgent": "WP-Core-Hydrator",
-      "id": 3,
-      "createdAt": "2026-10-30T03:12:23.401Z"
-    }
-  ],
-  "auditLogs": [
-    {
-      "licenseId": "a141ae77-6714-497c-a0b3-bf4bcefd6a0c",
-      "actorUserId": "9d4bbcb9-5d19-464b-af7b-f984f6dbbcf3",
-      "eventType": "LICENSE_CREATED",
-      "oldValue": null,
-      "newValue": {
-        "licenseKey": "CLPS-U82N-CBPV-HSGY-RRYZ",
-        "allowedDomain": "gofresh.vn",
-        "allowedIp": "103.221.223.75",
-        "expiresAt": "2027-10-30T02:40:21.449Z"
-      },
-      "ipAddress": "::1",
-      "note": "Tạo mới license cho khách hàng Phạm Văn Hà",
-      "id": 1,
-      "createdAt": "2026-10-30T02:40:21.451Z"
-    },
-    {
-      "licenseId": "a141ae77-6714-497c-a0b3-bf4bcefd6a0c",
-      "actorUserId": "9d4bbcb9-5d19-464b-af7b-f984f6dbbcf3",
-      "eventType": "STATUS_CHANGED_TO_SUSPENDED",
-      "oldValue": {
-        "status": "ACTIVE"
-      },
-      "newValue": {
-        "status": "SUSPENDED"
-      },
-      "ipAddress": "::1",
-      "note": "Nhân viên Nguyễn Văn Thường đổi trạng thái sang SUSPENDED",
-      "id": 2,
-      "createdAt": "2026-10-30T03:00:20.053Z"
-    }
-  ],
   "remoteFeatureLogs": [
     {
-      "licenseId": "a141ae77-6714-497c-a0b3-bf4bcefd6a0c",
-      "featureCode": "dynamic_pricing_engine",
-      "executionMs": 127,
-      "status": "SUCCESS",
       "id": 1,
-      "createdAt": "2026-10-30T02:57:49.621Z"
+      "status": "SUCCESS",
+      "createdAt": "2026-10-30T02:57:49.621Z",
+      "licenseId": "a141ae77-6714-497c-a0b3-bf4bcefd6a0c",
+      "executionMs": 127,
+      "featureCode": "dynamic_pricing_engine"
     }
   ]
 }

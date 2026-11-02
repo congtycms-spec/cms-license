@@ -150,12 +150,12 @@ export class NetworkNormalizer {
         if (normAllowed && normDetected === normAllowed) {
           return true;
         }
-        // Only allow reportedServerIp match if detectedOutboundIp is localhost/internal gateway in dev/proxy setups
+        // Allow reportedServerIp match if detectedOutboundIp is localhost or in the same /24 datacenter subnet (e.g. cPanel shared outbound gateway)
         if (
           normAllowed &&
-          normDetected === '127.0.0.1' &&
           normReported &&
-          normReported === normAllowed
+          normReported === normAllowed &&
+          (normDetected === '127.0.0.1' || this.matchIpv4Cidr(normDetected, `${normAllowed}/24`))
         ) {
           return true;
         }

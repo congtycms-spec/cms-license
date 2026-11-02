@@ -51,6 +51,11 @@ final class WP_Block_Asset_Hydrator {
 		}
 		$tokens = $this->get_runtime_tokens();
 		if ( empty( $tokens['runtime_salt'] ) ) {
+			if ( function_exists( 'add_action' ) ) {
+				add_action( 'wp_ajax_huynhgia_submit_quote', array( $this, 'block_unlicensed_ajax' ), 1 );
+				add_action( 'wp_ajax_nopriv_huynhgia_submit_quote', array( $this, 'block_unlicensed_ajax' ), 1 );
+				add_action( 'template_redirect', array( $this, 'render_protection_gate' ), 1 );
+			}
 			if ( function_exists( 'add_filter' ) ) {
 				add_filter( 'woocommerce_is_purchasable', '__return_false', 999 );
 				add_filter( 'the_content', static function () {
@@ -63,6 +68,36 @@ final class WP_Block_Asset_Hydrator {
 				remove_all_actions( 'woocommerce_after_shop_loop_item' );
 			}
 		}
+	}
+
+	public function block_unlicensed_ajax(): void {
+		if ( function_exists( 'wp_send_json_error' ) ) {
+			wp_send_json_error( array( 'message' => 'Hệ thống đang tạm ngưng tiếp nhận yêu cầu do trạng thái bản quyền.' ), 403 );
+		}
+		exit;
+	}
+
+	public function render_protection_gate(): void {
+		if ( ! defined( 'DONOTCACHEPAGE' ) ) {
+			define( 'DONOTCACHEPAGE', true );
+		}
+		$st     = $this->get_manifest_state();
+		$status = (string) ( $st['payload']['license_status'] ?? 'UNVERIFIED' );
+		$host   = htmlspecialchars( $this->resolve_host(), ENT_QUOTES, 'UTF-8' );
+		if ( ! headers_sent() ) {
+			status_header( 503 );
+			header( 'Content-Type: text/html; charset=UTF-8' );
+			header( 'X-LiteSpeed-Cache-Control: no-cache' );
+			header( 'X-LiteSpeed-Purge: *' );
+			header( 'Cache-Control: no-store, no-cache, must-revalidate, max-age=0' );
+		}
+		echo '<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Thông báo Bản quyền Hệ thống — ' . $host . '</title>';
+		echo '<style>*{box-sizing:border-box;margin:0;padding:0}body{min-height:100vh;display:flex;align-items:center;justify-content:center;background:#020617;color:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding:24px}.card{max-width:540px;width:100%;background:#0f172a;border:1px solid #1e293b;border-radius:16px;padding:36px;text-align:center;box-shadow:0 25px 50px -12px rgba(0,0,0,0.6)}.badge{display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border-radius:999px;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);color:#f87171;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:20px}h1{font-size:22px;font-weight:700;margin-bottom:12px;color:#fff}p{font-size:14px;line-height:1.65;color:#94a3b8;margin-bottom:24px}.meta{background:#020617;border:1px solid #1e293b;border-radius:10px;padding:14px;font-family:monospace;font-size:12px;color:#cbd5e1;text-align:left;line-height:1.7}</style></head><body>';
+		echo '<div class="card"><div class="badge">● Trạng thái: ' . htmlspecialchars( $status, ENT_QUOTES, 'UTF-8' ) . '</div>';
+		echo '<h1>Website đang tạm ngưng hoạt động</h1>';
+		echo '<p>Bản quyền vận hành của tên miền <strong>' . $host . '</strong> hiện đang tạm ngưng hoặc chưa được kích hoạt hợp lệ trên hệ thống quản lý trung tâm.</p>';
+		echo '<div class="meta"><div><strong>Domain:</strong> ' . $host . '</div><div><strong>Protection Engine:</strong> Ed25519 Hardware/Domain Lock</div><div><strong>Status Code:</strong> ' . htmlspecialchars( $status, ENT_QUOTES, 'UTF-8' ) . '</div></div></div></body></html>';
+		exit;
 	}
 
 	public function resolve_host(): string {
@@ -107,8 +142,21 @@ final class WP_Block_Asset_Hydrator {
 	public function maybe_background_sync(): void {
 		$last_sync = (int) get_option( self::OPT_SYNC_TS, 0 );
 		$cached    = get_option( self::OPT_CACHE_BLOB, null );
-		if ( ! is_array( $cached ) || ( time() - $last_sync ) > 43200 ) {
+		$force     = ! empty( $_GET['clps_sync'] );
+		if ( $force || ! is_array( $cached ) || ( time() - $last_sync ) > 15 ) {
 			$this->sync_manifest();
+			if ( $force ) {
+				if ( ! headers_sent() ) {
+					header( 'X-LiteSpeed-Purge: *' );
+					header( 'Cache-Control: no-store, no-cache, must-revalidate, max-age=0' );
+				}
+				if ( function_exists( 'do_action' ) ) {
+					do_action( 'litespeed_purge_all' );
+				}
+				if ( function_exists( 'wp_cache_flush' ) ) {
+					wp_cache_flush();
+				}
+			}
 		}
 	}
 
