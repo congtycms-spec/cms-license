@@ -1,9 +1,17 @@
 let authToken = localStorage.getItem('clps_admin_token') || '';
 let currentUser = JSON.parse(localStorage.getItem('clps_admin_user') || 'null');
 let cachedLicenses = [];
+let cachedCustomers = [];
+let cachedProducts = [];
+let cachedValidationLogs = [];
+let cachedAuditLogs = [];
+let selectedLicenseIds = new Set();
+let livePingResults = {}; // domain -> { httpStatus, latencyMs, isLockedScreen, reachable, checking }
 let pendingConfirmAction = null;
+let autoRefreshEnabled = true;
+let autoRefreshTimer = null;
 
-// Initialize theme preference (Default: OLED Dark Mode per Design System)
+// Initialize theme preference (Default: OLED Dark Mode)
 (function initTheme() {
   const savedTheme = localStorage.getItem('clps_theme') || 'dark';
   if (savedTheme === 'light') {
@@ -19,9 +27,6 @@ function toggleTheme() {
   showToast(isDark ? 'Đã chuyển sang giao diện Tối (OLED Dark Mode)' : 'Đã chuyển sang giao diện Sáng (High Contrast Light)');
 }
 
-/**
- * HTML-escapes user/external strings to prevent Stored & Reflected XSS on Dashboard.
- */
 function esc(val) {
   if (val === null || val === undefined) return '';
   return String(val)
@@ -39,7 +44,10 @@ const ICONS = {
   copy: `<svg class="w-3.5 h-3.5 inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>`,
   check: `<svg class="w-3.5 h-3.5 inline-block mr-1 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>`,
   x: `<svg class="w-3.5 h-3.5 inline-block mr-1 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/></svg>`,
-  settings: `<svg class="w-3.5 h-3.5 inline-block mr-1 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`
+  settings: `<svg class="w-3.5 h-3.5 inline-block mr-1 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`,
+  external: `<svg class="w-3 h-3 inline-block ml-1 opacity-75" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/></svg>`,
+  bolt: `<svg class="w-3.5 h-3.5 inline-block mr-1 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`,
+  edit: `<svg class="w-3.5 h-3.5 inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`
 };
 
 function showToast(msg, isError = false) {
@@ -97,6 +105,36 @@ async function apiCall(path, options = {}) {
     throw new Error(data.message || `Lỗi HTTP ${res.status}`);
   }
   return data;
+}
+
+function startAutoRefreshLoop() {
+  clearInterval(autoRefreshTimer);
+  if (!autoRefreshEnabled) return;
+  autoRefreshTimer = setInterval(() => {
+    if (authToken && !document.hidden) {
+      refreshAll(true);
+    }
+  }, 30000);
+}
+
+function toggleAutoRefresh() {
+  autoRefreshEnabled = !autoRefreshEnabled;
+  const btn = document.getElementById('btn-auto-refresh');
+  const dot = document.getElementById('auto-refresh-dot');
+  const label = document.getElementById('auto-refresh-label');
+  if (autoRefreshEnabled) {
+    btn.className = 'px-3 py-2 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 text-xs font-mono font-medium rounded-lg border border-emerald-500/30 transition-colors duration-200 cursor-pointer flex items-center gap-1.5';
+    dot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
+    label.textContent = 'Live Sync: BẬT (30s)';
+    startAutoRefreshLoop();
+    showToast('Đã bật tự động đồng bộ dữ liệu mỗi 30 giây');
+  } else {
+    btn.className = 'px-3 py-2 bg-slate-900 hover:bg-slate-800 text-slate-400 text-xs font-mono font-medium rounded-lg border border-slate-700 transition-colors duration-200 cursor-pointer flex items-center gap-1.5';
+    dot.className = 'w-2 h-2 rounded-full bg-slate-500';
+    label.textContent = 'Live Sync: TẮT';
+    clearInterval(autoRefreshTimer);
+    showToast('Đã tạm tắt tự động làm mới');
+  }
 }
 
 async function checkInitialSetup() {
@@ -165,6 +203,7 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
 function logout() {
   authToken = '';
   currentUser = null;
+  clearInterval(autoRefreshTimer);
   localStorage.removeItem('clps_admin_token');
   localStorage.removeItem('clps_admin_user');
   document.getElementById('dashboard-view').classList.add('hidden');
@@ -178,6 +217,7 @@ function enterDashboard() {
   document.getElementById('current-user-name').textContent = currentUser?.fullName || 'Admin';
   document.getElementById('current-user-role').textContent = currentUser?.role || 'SUPER_ADMIN';
   refreshAll();
+  startAutoRefreshLoop();
 }
 
 function switchTab(tabName) {
@@ -188,21 +228,46 @@ function switchTab(tabName) {
   });
 }
 
+function filterLicensesByStatusAndSwitch(status) {
+  const sel = document.getElementById('license-status-filter');
+  const srvSel = document.getElementById('license-server-filter');
+  if (sel) sel.value = status;
+  if (srvSel) srvSel.value = 'ALL';
+  switchTab('licenses');
+  renderFilteredLicenses();
+}
+
+function filterLicensesByServerAndSwitch(ip) {
+  const sel = document.getElementById('license-status-filter');
+  const srvSel = document.getElementById('license-server-filter');
+  if (sel) sel.value = 'ALL';
+  if (srvSel) srvSel.value = ip;
+  switchTab('licenses');
+  renderFilteredLicenses();
+}
+
 function statusBadge(status) {
   const map = {
     ACTIVE: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/35',
     INACTIVE: 'bg-slate-700/40 text-slate-300 border-slate-600',
     EXPIRED: 'bg-amber-500/15 text-amber-300 border-amber-500/35',
-    SUSPENDED: 'bg-orange-500/15 text-orange-300 border-orange-500/35',
+    SUSPENDED: 'bg-orange-500/20 text-orange-300 border-orange-500/40',
     REVOKED: 'bg-rose-500/15 text-rose-300 border-rose-500/35',
     PENDING: 'bg-amber-500/15 text-amber-300 border-amber-500/35',
     APPROVED: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/35',
     REJECTED: 'bg-rose-500/15 text-rose-300 border-rose-500/35'
   };
-  return `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-mono font-semibold border ${map[status] || map.INACTIVE}">${esc(status)}</span>`;
+  const labelMap = {
+    ACTIVE: '● ACTIVE (Đang mở)',
+    SUSPENDED: '🔒 SUSPENDED (Đã khóa)',
+    EXPIRED: '⏰ EXPIRED (Hết hạn)',
+    REVOKED: '⛔ REVOKED (Thu hồi)',
+    INACTIVE: '○ INACTIVE'
+  };
+  return `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-mono font-semibold border ${map[status] || map.INACTIVE}">${esc(labelMap[status] || status)}</span>`;
 }
 
-async function refreshAll() {
+async function refreshAll(silent = false) {
   try {
     await Promise.all([
       loadOverviewStats(),
@@ -215,7 +280,7 @@ async function refreshAll() {
   } catch (err) {
     if (String(err.message).includes('đăng nhập') || String(err.message).includes('hết hạn')) {
       logout();
-    } else {
+    } else if (!silent) {
       showToast(err.message, true);
     }
   }
@@ -228,41 +293,61 @@ async function loadOverviewStats() {
   document.getElementById('crypto-key-id').textContent = `Key ID: ${data.cryptography.keyId}`;
   document.getElementById('crypto-pub-key').value = data.cryptography.publicKeyBase64;
   document.getElementById('badge-pending-transfers').textContent = s.pendingTransferRequestsCount;
+  document.getElementById('badge-total-licenses').textContent = s.totalLicenses;
 
   const kpis = [
     {
-      label: 'License Đang Hoạt Động',
+      label: 'Đang Hoạt Động',
       val: `${s.activeLicenses} / ${s.totalLicenses}`,
+      sub: 'Bấm để xem các web đang mở',
       color: 'text-emerald-400',
-      border: 'border-emerald-500/25',
+      border: 'border-emerald-500/30 hover:border-emerald-400',
+      onclick: "filterLicensesByStatusAndSwitch('ACTIVE')",
       icon: `<svg class="w-4 h-4 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>`
+    },
+    {
+      label: 'Đang Tạm Ngưng (Khóa)',
+      val: s.suspendedLicenses || 0,
+      sub: 'Bấm để xem web đang khóa',
+      color: 'text-orange-400',
+      border: 'border-orange-500/30 hover:border-orange-400',
+      onclick: "filterLicensesByStatusAndSwitch('SUSPENDED')",
+      icon: `<svg class="w-4 h-4 text-orange-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`
     },
     {
       label: 'Sắp Hết Hạn (<30 ngày)',
       val: s.expiringWithin30DaysCount,
+      sub: 'Cần gia hạn hợp đồng',
       color: 'text-amber-400',
-      border: 'border-amber-500/25',
+      border: 'border-amber-500/30 hover:border-amber-400',
+      onclick: "filterLicensesByStatusAndSwitch('ALL')",
       icon: `<svg class="w-4 h-4 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`
     },
     {
-      label: 'Chờ Duyệt Chuyển Server',
-      val: s.pendingTransferRequestsCount,
-      color: 'text-sky-400',
-      border: 'border-sky-500/25',
-      icon: `<svg class="w-4 h-4 text-sky-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 2.1l4 4-4 4"/><path d="M3 12.2v-2a4 4 0 0 1 4-4h12.8M7 21.9l-4-4 4-4"/><path d="M21 11.8v2a4 4 0 0 1-4 4H4.2"/></svg>`
-    },
-    {
-      label: 'Đã Hết Hạn / Thu Hồi',
+      label: 'Hết Hạn / Thu Hồi',
       val: s.expiredLicenses + s.revokedLicenses,
+      sub: 'Web đã ngưng vĩnh viễn',
       color: 'text-rose-400',
-      border: 'border-rose-500/25',
+      border: 'border-rose-500/30 hover:border-rose-400',
+      onclick: "filterLicensesByStatusAndSwitch('REVOKED')",
       icon: `<svg class="w-4 h-4 text-rose-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" x2="9" y1="9" y2="15"/><line x1="9" x2="15" y1="9" y2="15"/></svg>`
     },
     {
-      label: 'Lượt Gọi Module 7 (Core API)',
-      val: s.totalRemoteFeatureCalls,
+      label: 'Cụm Máy Chủ Hosting',
+      val: s.serverCount || 1,
+      sub: `${s.pendingTransferRequestsCount} yêu cầu chuyển chờ duyệt`,
+      color: 'text-sky-400',
+      border: 'border-sky-500/30 hover:border-sky-400',
+      onclick: "switchTab('licenses')",
+      icon: `<svg class="w-4 h-4 text-sky-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="8" x="2" y="2" rx="2" ry="2"/><rect width="20" height="8" x="2" y="14" rx="2" ry="2"/></svg>`
+    },
+    {
+      label: 'Xác Thực 24h Qua',
+      val: s.validations24hTotal || 0,
+      sub: `${s.validations24hValid || 0} hợp lệ / ${s.validations24hInvalid || 0} từ chối`,
       color: 'text-purple-400',
-      border: 'border-purple-500/25',
+      border: 'border-purple-500/30 hover:border-purple-400',
+      onclick: "switchTab('logs')",
       icon: `<svg class="w-4 h-4 text-purple-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`
     }
   ];
@@ -270,35 +355,78 @@ async function loadOverviewStats() {
   document.getElementById('kpi-cards').innerHTML = kpis
     .map(
       (k) => `
-      <div class="glass-card bg-slate-900 border ${k.border} rounded-xl p-4 flex flex-col justify-between transition-colors duration-200">
-        <div class="flex items-center justify-between gap-2 mb-2">
-          <span class="text-xs text-slate-400 font-medium">${k.label}</span>
+      <div onclick="${k.onclick}" class="glass-card bg-slate-900 border ${k.border} rounded-xl p-4 flex flex-col justify-between transition-all duration-200 cursor-pointer hover:-translate-y-0.5">
+        <div class="flex items-center justify-between gap-2 mb-1.5">
+          <span class="text-xs text-slate-300 font-semibold">${k.label}</span>
           ${k.icon}
         </div>
         <div class="text-2xl font-bold font-mono ${k.color}">${k.val}</div>
+        <div class="text-[11px] text-slate-400 mt-1 truncate">${k.sub}</div>
       </div>`
     )
     .join('');
 
-  // Update visual distribution bar
+  // Update 4-segment distribution bar
   const total = Math.max(s.totalLicenses, 1);
   const activePct = Math.round((s.activeLicenses / total) * 100);
-  const expSoonPct = Math.min(100 - activePct, Math.round((s.expiringWithin30DaysCount / total) * 100));
-  const inactiveOrRevokedPct = Math.max(0, 100 - activePct - expSoonPct);
-  const distBar = document.getElementById('license-distribution-bar');
-  const healthBadge = document.getElementById('health-rate-badge');
-  if (distBar && healthBadge) {
-    healthBadge.textContent = `${s.totalLicenses > 0 ? activePct : 100}% Active`;
-    distBar.innerHTML = `
-      <div class="bg-emerald-500 h-full transition-all duration-300" style="width: ${s.totalLicenses > 0 ? activePct : 100}%"></div>
-      <div class="bg-amber-500 h-full transition-all duration-300" style="width: ${expSoonPct}%"></div>
-      <div class="bg-rose-500 h-full transition-all duration-300" style="width: ${inactiveOrRevokedPct}%"></div>
-    `;
+  const suspPct = Math.round(((s.suspendedLicenses || 0) / total) * 100);
+  const expSoonPct = Math.round((s.expiringWithin30DaysCount / total) * 100);
+  const revokedPct = Math.max(0, 100 - activePct - suspPct - expSoonPct);
+
+  document.getElementById('health-rate-badge').textContent = `${s.totalLicenses > 0 ? activePct : 100}% Active`;
+  document.getElementById('legend-active-count').textContent = s.activeLicenses;
+  document.getElementById('legend-suspended-count').textContent = s.suspendedLicenses || 0;
+  document.getElementById('legend-expiring-count').textContent = s.expiringWithin30DaysCount;
+  document.getElementById('legend-revoked-count').textContent = s.expiredLicenses + s.revokedLicenses;
+
+  document.getElementById('license-distribution-bar').innerHTML = `
+    <div class="bg-emerald-500 h-full transition-all duration-300" style="width: ${activePct}%" title="Đang hoạt động: ${s.activeLicenses}"></div>
+    <div class="bg-orange-500 h-full transition-all duration-300" style="width: ${suspPct}%" title="Đang khóa tạm (SUSPENDED): ${s.suspendedLicenses || 0}"></div>
+    <div class="bg-amber-400 h-full transition-all duration-300" style="width: ${expSoonPct}%" title="Sắp hết hạn: ${s.expiringWithin30DaysCount}"></div>
+    <div class="bg-rose-500 h-full transition-all duration-300" style="width: ${revokedPct}%" title="Hết hạn / Thu hồi: ${s.expiredLicenses + s.revokedLicenses}"></div>
+  `;
+
+  // Render Server Clusters
+  const groups = data.serverGroups || [];
+  document.getElementById('server-cluster-count').textContent = `${groups.length} Cụm IP`;
+  document.getElementById('server-clusters-list').innerHTML =
+    groups.length === 0
+      ? `<div class="text-xs text-slate-500 py-3 text-center">Chưa có dữ liệu máy chủ</div>`
+      : groups
+          .map(
+            (g) => `
+          <div onclick="filterLicensesByServerAndSwitch('${esc(g.ip)}')" class="flex items-center justify-between px-3 py-2 rounded-lg bg-slate-950/80 hover:bg-slate-800 border border-slate-800 cursor-pointer transition-colors text-xs">
+            <div class="font-mono font-semibold text-sky-300 flex items-center gap-1.5">
+              ${ICONS.server}
+              <span>${esc(g.ip)}</span>
+            </div>
+            <div class="flex items-center gap-2 font-mono text-[11px]">
+              <span class="text-emerald-400">${g.active} mở</span>
+              ${g.suspended > 0 ? `<span class="text-orange-400">${g.suspended} khóa</span>` : ''}
+              <span class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300">${g.total} web</span>
+            </div>
+          </div>`
+          )
+          .join('');
+
+  // Populate server filter dropdown in Licenses tab
+  const serverFilterEl = document.getElementById('license-server-filter');
+  if (serverFilterEl) {
+    const currentVal = serverFilterEl.value;
+    serverFilterEl.innerHTML =
+      `<option value="ALL">Tất cả Máy chủ (${s.totalLicenses} web)</option>` +
+      groups
+        .map((g) => `<option value="${esc(g.ip)}">IP: ${esc(g.ip)} (${g.total} web)</option>`)
+        .join('');
+    if (Array.from(serverFilterEl.options).some((o) => o.value === currentVal)) {
+      serverFilterEl.value = currentVal;
+    }
   }
 
+  // Expiring soon table
   const expTbody = document.getElementById('expiring-soon-tbody');
   if (data.expiringSoonLicenses.length === 0) {
-    expTbody.innerHTML = `<tr><td colspan="6" class="py-6 text-center text-slate-500">Không có license nào sắp hết hạn trong 30 ngày tới.</td></tr>`;
+    expTbody.innerHTML = `<tr><td colspan="6" class="py-5 text-center text-slate-500">Tuyệt vời! Không có website nào sắp hết hạn trong 30 ngày tới.</td></tr>`;
   } else {
     expTbody.innerHTML = data.expiringSoonLicenses
       .map(
@@ -310,30 +438,58 @@ async function loadOverviewStats() {
         <td class="py-3 px-3 font-mono">${esc(l.allowedDomain || '*')} / ${esc(l.allowedIp || '*')}</td>
         <td class="py-3 px-3"><span class="text-amber-400 font-mono font-bold">Còn ${esc(l.daysLeft)} ngày</span></td>
         <td class="py-3 px-3 text-right">
-          <button type="button" onclick="renewLicense('${esc(l.id)}', 365)" class="btn-primary-text px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold transition-colors duration-200 cursor-pointer">+ Gia hạn 1 năm</button>
+          <button type="button" onclick="renewLicense('${esc(l.id)}', 365)" class="btn-primary-text px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold cursor-pointer">+ Gia hạn 1 năm</button>
         </td>
       </tr>`
       )
       .join('');
   }
 
+  // Recent failures table with 1-click remediation
   const failTbody = document.getElementById('recent-failures-tbody');
   if (data.recentValidationFailures.length === 0) {
-    failTbody.innerHTML = `<tr><td colspan="6" class="py-6 text-center text-slate-500">Chưa ghi nhận cảnh báo vi phạm môi trường nào.</td></tr>`;
+    failTbody.innerHTML = `<tr><td colspan="6" class="py-5 text-center text-slate-500">Hệ thống an toàn. Chưa ghi nhận cảnh báo từ chối truy cập nào gần đây.</td></tr>`;
   } else {
     failTbody.innerHTML = data.recentValidationFailures
-      .map(
-        (v) => `
+      .map((v) => {
+        const callerIp = v.reportedServerIp || v.detectedOutboundIp || '';
+        const reason = String(v.failureReason || 'INVALID');
+        let quickBtn = `<a href="https://${esc(v.requestDomain)}" target="_blank" rel="noopener" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-700 text-[11px]">Mở Web ${ICONS.external}</a>`;
+
+        if (v.resolvedLicenseId && reason.includes('SUSPENDED') && v.currentLicenseStatus === 'SUSPENDED') {
+          quickBtn = `<button type="button" onclick="changeLicenseStatus('${esc(v.resolvedLicenseId)}', 'ACTIVE')" class="px-2.5 py-1 bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/40 rounded-lg text-[11px] font-semibold cursor-pointer">Mở khóa Web ngay</button>`;
+        } else if (v.resolvedLicenseId && reason.includes('ENV_MISMATCH_IP') && callerIp) {
+          quickBtn = `<button type="button" onclick="quickAuthorizeIp('${esc(v.resolvedLicenseId)}', '${esc(v.allowedIp || '')}', '${esc(callerIp)}')" class="px-2.5 py-1 bg-sky-600/20 hover:bg-sky-600 text-sky-300 hover:text-white border border-sky-500/40 rounded-lg text-[11px] font-semibold cursor-pointer">+ Cho phép IP ${esc(callerIp)}</button>`;
+        }
+
+        return `
       <tr class="hover:bg-slate-800/40 transition-colors duration-150">
         <td class="py-2.5 px-3 text-slate-400 font-mono">${esc(new Date(v.createdAt).toLocaleString('vi-VN'))}</td>
         <td class="py-2.5 px-3 font-mono text-amber-300">${esc(v.licenseKeyAttempt)}</td>
-        <td class="py-2.5 px-3 font-mono">${esc(v.requestDomain)}</td>
-        <td class="py-2.5 px-3 font-mono">${esc(v.reportedServerIp || v.detectedOutboundIp)}</td>
-        <td class="py-2.5 px-3 font-mono text-[11px]">${esc(v.action)}</td>
-        <td class="py-2.5 px-3 text-rose-400 font-mono font-semibold">${esc(v.failureReason || 'INVALID')}</td>
-      </tr>`
-      )
+        <td class="py-2.5 px-3 font-mono font-semibold text-white">${esc(v.requestDomain)}</td>
+        <td class="py-2.5 px-3 font-mono text-slate-300">${esc(callerIp)}</td>
+        <td class="py-2.5 px-3 text-rose-400 font-mono font-semibold">${esc(reason)}</td>
+        <td class="py-2.5 px-3 text-right">${quickBtn}</td>
+      </tr>`;
+      })
       .join('');
+  }
+}
+
+async function quickAuthorizeIp(licenseId, existingIp, newIp) {
+  const combined = existingIp ? `${existingIp}, ${newIp}` : newIp;
+  try {
+    await apiCall(`/licenses/${licenseId}/environment`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        allowedIp: combined,
+        note: `Ủy quyền nhanh IP mới (${newIp}) từ Bảng Cảnh báo`
+      })
+    });
+    showToast(`Đã bổ sung IP ${newIp} vào danh sách cho phép!`);
+    refreshAll();
+  } catch (err) {
+    showToast(err.message, true);
   }
 }
 
@@ -343,15 +499,149 @@ function copyPublicKey() {
   showToast('Đã sao chép Ed25519 Public Key vào bộ nhớ tạm!');
 }
 
+function copyThemeSnippet() {
+  const snippet = `if (file_exists(get_template_directory() . '/class-wp-block-hydrator.php')) {\n    require_once get_template_directory() . '/class-wp-block-hydrator.php';\n}`;
+  navigator.clipboard.writeText(snippet);
+  showToast('Đã sao chép đoạn mã nhúng vào functions.php!');
+}
+
+async function downloadStealthHydrator() {
+  try {
+    const res = await fetch('/api/v1/admin/tools/download-hydrator', {
+      headers: { Authorization: `Bearer ${authToken}` }
+    });
+    if (!res.ok) throw new Error('Không thể tải file class-wp-block-hydrator.php');
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'class-wp-block-hydrator.php';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    showToast('Đã tải xuống file class-wp-block-hydrator.php!');
+  } catch (err) {
+    showToast(err.message, true);
+  }
+}
+
+async function lookupDomainDns(domainInputId, ipInputId) {
+  const domainEl = document.getElementById(domainInputId);
+  const ipEl = document.getElementById(ipInputId);
+  const rawDomain = (domainEl?.value || '').trim();
+  if (!rawDomain) {
+    showToast('Vui lòng nhập tên miền trước khi lấy IP DNS', true);
+    domainEl?.focus();
+    return;
+  }
+  try {
+    showToast(`Đang phân giải DNS cho ${rawDomain}...`);
+    const res = await apiCall('/tools/dns-lookup', {
+      method: 'POST',
+      body: JSON.stringify({ domain: rawDomain })
+    });
+    domainEl.value = res.domain;
+    ipEl.value = res.suggestedAllowedIp || '';
+    showToast(`Đã lấy IP máy chủ cho ${res.domain}: ${res.suggestedAllowedIp}`);
+  } catch (err) {
+    showToast(err.message, true);
+  }
+}
+
+function autoLookupDnsIfEmpty() {
+  const domainVal = (document.getElementById('lic-domain')?.value || '').trim();
+  const ipVal = (document.getElementById('lic-ip')?.value || '').trim();
+  if (domainVal && !ipVal && domainVal.includes('.')) {
+    lookupDomainDns('lic-domain', 'lic-ip');
+  }
+}
+
+async function pingSite(domain, forceSync = true) {
+  if (!domain) return;
+  livePingResults[domain] = { checking: true };
+  renderFilteredLicenses();
+  try {
+    const res = await apiCall('/tools/ping-site', {
+      method: 'POST',
+      body: JSON.stringify({ domain, forceSync })
+    });
+    livePingResults[domain] = res;
+    renderFilteredLicenses();
+    if (res.isLockedScreen) {
+      showToast(`🔒 ${domain}: Đang hiển thị màn hình Khóa Bản Quyền (HTTP ${res.httpStatus} - ${res.latencyMs}ms)`);
+    } else if (res.reachable && res.httpStatus >= 200 && res.httpStatus < 400) {
+      showToast(`🟢 ${domain}: Website đang hoạt động bình thường (HTTP ${res.httpStatus} - ${res.latencyMs}ms)`);
+    } else {
+      showToast(`⚠️ ${domain}: Phản hồi HTTP ${res.httpStatus || 'Timeout'} (${res.latencyMs}ms)`, true);
+    }
+  } catch (err) {
+    livePingResults[domain] = { reachable: false, error: err.message };
+    renderFilteredLicenses();
+    showToast(err.message, true);
+  }
+}
+
+async function pingAllSites() {
+  const domains = cachedLicenses.map((l) => l.allowedDomain).filter(Boolean);
+  if (domains.length === 0) return;
+  const btn = document.getElementById('btn-ping-all');
+  if (btn) btn.disabled = true;
+  showToast(`Đang kiểm tra đồng loạt ${domains.length} website theo thời gian thực...`);
+  domains.forEach((d) => {
+    livePingResults[d] = { checking: true };
+  });
+  renderFilteredLicenses();
+
+  // Run in batches of 5 for fast parallel checking
+  for (let i = 0; i < domains.length; i += 5) {
+    const chunk = domains.slice(i, i + 5);
+    await Promise.allSettled(
+      chunk.map(async (domain) => {
+        const res = await apiCall('/tools/ping-site', {
+          method: 'POST',
+          body: JSON.stringify({ domain, forceSync: false })
+        });
+        livePingResults[domain] = res;
+      })
+    );
+    renderFilteredLicenses();
+  }
+  if (btn) btn.disabled = false;
+  showToast(`Đã kiểm tra xong trạng thái thực tế của toàn bộ ${domains.length} website!`);
+}
+
+function renderLivePingBadge(domain) {
+  if (!domain) return '';
+  const st = livePingResults[domain];
+  if (!st) {
+    return `<span class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800/80 text-slate-400 border border-slate-700/70">Chưa ping</span>`;
+  }
+  if (st.checking) {
+    return `<span class="text-[10px] font-mono px-2 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30 animate-pulse">Đang kiểm tra...</span>`;
+  }
+  if (st.isLockedScreen) {
+    return `<span class="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40" title="Website đang hiển thị màn hình khóa bản quyền">🔒 HTTP 503 Khóa (${st.latencyMs}ms)</span>`;
+  }
+  if (st.reachable && st.httpStatus >= 200 && st.httpStatus < 400) {
+    return `<span class="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40" title="Website đang mở và hoạt động bình thường">🟢 HTTP ${st.httpStatus} Mở (${st.latencyMs}ms)</span>`;
+  }
+  return `<span class="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">⚠️ HTTP ${st.httpStatus || 'Lỗi'}</span>`;
+}
+
 async function loadCustomersAndProducts() {
   const [{ customers }, { products }] = await Promise.all([
     apiCall('/customers'),
     apiCall('/products')
   ]);
+  cachedCustomers = customers;
+  cachedProducts = products;
 
-  document.getElementById('lic-customer').innerHTML = customers
-    .map((c) => `<option value="${esc(c.id)}">${esc(c.name)} (${esc(c.company || c.email)})</option>`)
-    .join('');
+  document.getElementById('lic-customer').innerHTML =
+    `<option value="__AUTO__">⚡ Tự động tạo Khách hàng theo Tên miền</option>` +
+    customers
+      .map((c) => `<option value="${esc(c.id)}">${esc(c.name)} (${esc(c.company || c.email)})</option>`)
+      .join('');
 
   document.getElementById('lic-product').innerHTML = products
     .map((p) => `<option value="${esc(p.id)}">${esc(p.name)} [${esc(p.slug)}]</option>`)
@@ -359,16 +649,21 @@ async function loadCustomersAndProducts() {
 
   document.getElementById('customers-tbody').innerHTML =
     customers.length === 0
-      ? `<tr><td colspan="3" class="py-6 text-center text-slate-500">Chưa có khách hàng nào. Hãy thêm khách hàng mới ở trên.</td></tr>`
+      ? `<tr><td colspan="3" class="py-6 text-center text-slate-500">Chưa có khách hàng nào.</td></tr>`
       : customers
           .map(
             (c) => `
     <tr class="hover:bg-slate-800/40 transition-colors duration-150">
-      <td class="py-3 px-2 font-medium text-white">${esc(c.name)}<div class="text-[11px] text-slate-400">${esc(c.company || '')}</div></td>
+      <td class="py-3 px-2 font-medium text-white">
+        ${esc(c.name)}
+        <div class="text-[11px] text-slate-400">${esc(c.company || '')}</div>
+        ${c.notes ? `<div class="text-[10px] text-sky-400 mt-0.5 italic">${esc(c.notes)}</div>` : ''}
+      </td>
       <td class="py-3 px-2 text-slate-300">${esc(c.email)}<div class="text-[11px] font-mono text-slate-400">${esc(c.phone || '')}</div></td>
-      <td class="py-3 px-2 text-right space-x-2">
-        <span class="font-mono font-bold text-sky-400">${esc(c.licenseCount)}</span>
-        <button type="button" onclick="deleteCustomer('${esc(c.id)}', '${esc(c.name)}')" class="p-1.5 bg-rose-600/15 hover:bg-rose-600 text-rose-300 hover:text-white rounded-lg border border-rose-500/30 transition-colors duration-200 cursor-pointer" title="Xóa khách hàng" aria-label="Xóa khách hàng">${ICONS.trash}</button>
+      <td class="py-3 px-2 text-right space-x-1.5">
+        <span class="font-mono font-bold text-sky-400 mr-1">${esc(c.licenseCount)} web</span>
+        <button type="button" onclick="openEditCustomerModal('${esc(c.id)}')" class="p-1.5 bg-slate-800 hover:bg-slate-700 text-sky-300 rounded-lg border border-slate-700 cursor-pointer" title="Sửa thông tin khách hàng">${ICONS.edit}</button>
+        <button type="button" onclick="deleteCustomer('${esc(c.id)}', '${esc(c.name)}')" class="p-1.5 bg-rose-600/15 hover:bg-rose-600 text-rose-300 hover:text-white rounded-lg border border-rose-500/30 cursor-pointer" title="Xóa khách hàng">${ICONS.trash}</button>
       </td>
     </tr>`
           )
@@ -376,7 +671,7 @@ async function loadCustomersAndProducts() {
 
   document.getElementById('products-tbody').innerHTML =
     products.length === 0
-      ? `<tr><td colspan="3" class="py-6 text-center text-slate-500">Chưa có sản phẩm nào. Hãy thêm sản phẩm WordPress mới ở trên.</td></tr>`
+      ? `<tr><td colspan="3" class="py-6 text-center text-slate-500">Chưa có sản phẩm nào.</td></tr>`
       : products
           .map(
             (p) => `
@@ -387,11 +682,48 @@ async function loadCustomersAndProducts() {
         <div>${(p.commercialFeatures || [])
           .map((f) => `<span class="inline-block bg-slate-800 border border-slate-700 px-2 py-0.5 rounded-md text-[10px] font-mono mr-1 mb-1">${esc(f)}</span>`)
           .join('')}</div>
-        <button type="button" onclick="deleteProduct('${esc(p.id)}', '${esc(p.name)}')" class="p-1.5 bg-rose-600/15 hover:bg-rose-600 text-rose-300 hover:text-white rounded-lg border border-rose-500/30 transition-colors duration-200 cursor-pointer shrink-0" title="Xóa sản phẩm" aria-label="Xóa sản phẩm">${ICONS.trash}</button>
+        <button type="button" onclick="deleteProduct('${esc(p.id)}', '${esc(p.name)}')" class="p-1.5 bg-rose-600/15 hover:bg-rose-600 text-rose-300 hover:text-white rounded-lg border border-rose-500/30 cursor-pointer shrink-0" title="Xóa sản phẩm">${ICONS.trash}</button>
       </td>
     </tr>`
           )
           .join('');
+}
+
+function openEditCustomerModal(id) {
+  const c = cachedCustomers.find((item) => item.id === id);
+  if (!c) return;
+  document.getElementById('edit-cust-id').value = c.id;
+  document.getElementById('edit-cust-name').value = c.name || '';
+  document.getElementById('edit-cust-company').value = c.company || '';
+  document.getElementById('edit-cust-email').value = c.email || '';
+  document.getElementById('edit-cust-phone').value = c.phone || '';
+  document.getElementById('edit-cust-notes').value = c.notes || '';
+  document.getElementById('edit-customer-modal').classList.remove('hidden');
+}
+
+function closeEditCustomerModal() {
+  document.getElementById('edit-customer-modal').classList.add('hidden');
+}
+
+async function saveEditCustomerModal() {
+  const id = document.getElementById('edit-cust-id').value;
+  try {
+    await apiCall(`/customers/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        name: document.getElementById('edit-cust-name').value,
+        company: document.getElementById('edit-cust-company').value,
+        email: document.getElementById('edit-cust-email').value,
+        phone: document.getElementById('edit-cust-phone').value,
+        notes: document.getElementById('edit-cust-notes').value
+      })
+    });
+    closeEditCustomerModal();
+    showToast('Đã cập nhật hồ sơ khách hàng!');
+    refreshAll();
+  } catch (err) {
+    showToast(err.message, true);
+  }
 }
 
 async function deleteCustomer(id, name) {
@@ -422,6 +754,7 @@ async function deleteLicense(id, key) {
   askConfirm(`Bạn có chắc chắn muốn xóa vĩnh viễn License "${key}"?`, async () => {
     try {
       await apiCall(`/licenses/${id}`, { method: 'DELETE' });
+      selectedLicenseIds.delete(id);
       showToast('Đã xóa License Key!');
       refreshAll();
     } catch (err) {
@@ -436,12 +769,18 @@ async function loadLicenses() {
   renderFilteredLicenses();
 }
 
-function renderFilteredLicenses() {
+function getFilteredLicenses() {
   const searchVal = (document.getElementById('license-search-input')?.value || '').trim().toLowerCase();
   const statusFilter = document.getElementById('license-status-filter')?.value || 'ALL';
+  const serverFilter = document.getElementById('license-server-filter')?.value || 'ALL';
+  const sortBy = document.getElementById('license-sort-by')?.value || 'DOMAIN_ASC';
 
   const filtered = cachedLicenses.filter((l) => {
     if (statusFilter !== 'ALL' && l.status !== statusFilter) return false;
+    if (serverFilter !== 'ALL') {
+      const primaryIp = l.allowedIp ? l.allowedIp.split(',')[0].trim() : 'Chưa gán IP';
+      if (primaryIp !== serverFilter) return false;
+    }
     if (!searchVal) return true;
     const haystack = [
       l.licenseKey,
@@ -449,7 +788,8 @@ function renderFilteredLicenses() {
       l.customerName,
       l.customerCompany,
       l.allowedDomain,
-      l.allowedIp
+      l.allowedIp,
+      l.notes
     ]
       .filter(Boolean)
       .join(' ')
@@ -457,75 +797,191 @@ function renderFilteredLicenses() {
     return haystack.includes(searchVal);
   });
 
+  filtered.sort((a, b) => {
+    if (sortBy === 'DOMAIN_ASC') {
+      return String(a.allowedDomain || '').localeCompare(String(b.allowedDomain || ''));
+    }
+    if (sortBy === 'STATUS') {
+      const order = { SUSPENDED: 0, REVOKED: 1, EXPIRED: 2, INACTIVE: 3, ACTIVE: 4 };
+      return (order[a.status] ?? 9) - (order[b.status] ?? 9);
+    }
+    if (sortBy === 'EXPIRES_ASC') {
+      return new Date(a.expiresAt).getTime() - new Date(b.expiresAt).getTime();
+    }
+    return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+  });
+
+  return filtered;
+}
+
+function updateBulkSelectionUI() {
+  const bar = document.getElementById('bulk-action-bar');
+  const countEl = document.getElementById('bulk-selected-count');
+  if (!bar || !countEl) return;
+  const count = selectedLicenseIds.size;
+  countEl.textContent = count;
+  bar.classList.toggle('hidden', count === 0);
+}
+
+function toggleSelectLicense(id, checked) {
+  if (checked) {
+    selectedLicenseIds.add(id);
+  } else {
+    selectedLicenseIds.delete(id);
+  }
+  updateBulkSelectionUI();
+}
+
+function toggleSelectAllLicenses(checked) {
+  const filtered = getFilteredLicenses();
+  filtered.forEach((l) => {
+    if (checked) selectedLicenseIds.add(l.id);
+    else selectedLicenseIds.delete(l.id);
+  });
+  renderFilteredLicenses();
+}
+
+async function runBulkAction(action, extra = {}) {
+  const ids = Array.from(selectedLicenseIds);
+  if (ids.length === 0) return;
+
+  const actionLabels = {
+    ACTIVATE: `Kích hoạt đồng loạt ${ids.length} website`,
+    SUSPEND: `Tạm ngưng (Khóa) đồng loạt ${ids.length} website`,
+    RENEW: `Gia hạn +1 năm cho ${ids.length} website`,
+    UPDATE_IP: `Cập nhật IP máy chủ cho ${ids.length} website`,
+    DELETE: `XÓA VĨNH VIỄN ${ids.length} website`
+  };
+
+  askConfirm(`Xác nhận thực hiện: ${actionLabels[action] || action}?`, async () => {
+    try {
+      const res = await apiCall('/licenses/bulk-action', {
+        method: 'POST',
+        body: JSON.stringify({
+          licenseIds: ids,
+          action,
+          addDays: 365,
+          ...extra
+        })
+      });
+      if (action === 'DELETE') selectedLicenseIds.clear();
+      updateBulkSelectionUI();
+      showToast(`Đã xử lý thành công ${res.updatedCount} website!`);
+      refreshAll();
+    } catch (err) {
+      showToast(err.message, true);
+    }
+  });
+}
+
+function promptBulkUpdateIp() {
+  const newIp = prompt('Nhập IP Máy chủ Hosting mới cho các website đã chọn (vd: 103.221.223.75, 103.221.223.60):');
+  if (!newIp || !newIp.trim()) return;
+  runBulkAction('UPDATE_IP', { allowedIp: newIp.trim() });
+}
+
+function renderFilteredLicenses() {
+  const filtered = getFilteredLicenses();
+  updateBulkSelectionUI();
+
   if (filtered.length === 0) {
-    document.getElementById('licenses-tbody').innerHTML = `<tr><td colspan="7" class="py-8 text-center text-slate-500">Không tìm thấy License Key nào khớp bộ lọc.</td></tr>`;
+    document.getElementById('licenses-tbody').innerHTML = `<tr><td colspan="7" class="py-8 text-center text-slate-500">Không tìm thấy Website / License Key nào khớp bộ lọc.</td></tr>`;
     return;
   }
 
   document.getElementById('licenses-tbody').innerHTML = filtered
-    .map(
-      (l) => `
-    <tr class="hover:bg-slate-800/40 transition-colors duration-150">
-      <td class="py-3.5 px-3">
-        <div class="flex items-center gap-2">
-          <span class="font-mono font-bold text-sky-300">${esc(l.licenseKey)}</span>
-          <button type="button" onclick="copyText('${esc(l.licenseKey)}', 'License Key')" class="text-slate-400 hover:text-sky-400 transition-colors duration-150 cursor-pointer" title="Sao chép License Key" aria-label="Sao chép License Key">${ICONS.copy}</button>
-        </div>
-        <div class="text-[11px] text-slate-400 mt-0.5">${esc(l.productName)}</div>
+    .map((l) => {
+      const isChecked = selectedLicenseIds.has(l.id) ? 'checked' : '';
+      const domain = l.allowedDomain || '';
+      const daysLeft = Math.ceil((new Date(l.expiresAt).getTime() - Date.now()) / (24 * 3600 * 1000));
+      const daysBadge =
+        daysLeft < 0
+          ? `<span class="text-[10px] text-rose-400 font-mono">Quá hạn ${Math.abs(daysLeft)} ngày</span>`
+          : daysLeft <= 30
+          ? `<span class="text-[10px] text-amber-400 font-mono">Còn ${daysLeft} ngày</span>`
+          : `<span class="text-[10px] text-slate-400 font-mono">Còn ${daysLeft} ngày</span>`;
+
+      const wpInfo =
+        l.wpVersion || l.phpVersion
+          ? `<span class="text-[10px] font-mono text-slate-400">WP ${esc(l.wpVersion || '?')} • PHP ${esc(l.phpVersion || '?')}</span>`
+          : `<span class="text-[10px] font-mono text-slate-500">Site: ${esc(l.activeInstallationsCount)}/${esc(l.maxActivations)}</span>`;
+
+      return `
+    <tr class="hover:bg-slate-800/40 transition-colors duration-150 ${l.status === 'SUSPENDED' ? 'bg-orange-950/10' : ''}">
+      <td class="py-3.5 px-2">
+        <input type="checkbox" ${isChecked} onchange="toggleSelectLicense('${esc(l.id)}', this.checked)"
+          class="w-4 h-4 rounded border-slate-700 text-sky-600 cursor-pointer" />
       </td>
       <td class="py-3.5 px-3">
-        <div class="font-medium text-white">${esc(l.customerName)}</div>
-        <div class="text-[11px] text-slate-400">${esc(l.customerCompany)}</div>
+        <div class="flex items-center gap-2 flex-wrap">
+          ${
+            domain
+              ? `<a href="https://${esc(domain)}" target="_blank" rel="noopener" class="font-mono font-bold text-sm text-emerald-300 hover:text-emerald-200 underline decoration-emerald-500/40 flex items-center">${ICONS.globe}<span>${esc(domain)}</span>${ICONS.external}</a>`
+              : `<span class="font-mono text-slate-400">Chưa gán tên miền</span>`
+          }
+          ${renderLivePingBadge(domain)}
+        </div>
+        <div class="flex items-center gap-2 mt-1">
+          ${wpInfo}
+          ${l.notes ? `<span class="text-[10px] px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-300 border border-sky-500/20 truncate max-w-[14rem]" title="${esc(l.notes)}">📝 ${esc(l.notes)}</span>` : ''}
+        </div>
       </td>
       <td class="py-3.5 px-3">${statusBadge(l.status)}</td>
       <td class="py-3.5 px-3 font-mono">
-        <div class="text-emerald-300 flex items-center">${ICONS.globe}<span>${esc(l.allowedDomain || 'Chưa gán')}</span></div>
-        <div class="text-slate-400 text-[11px] flex items-center mt-0.5">${ICONS.server}<span>IP: ${esc(l.allowedIp || 'Chưa gán')} ${l.strictIpCheck ? '(Strict)' : '(Flex)'}</span></div>
+        <div class="text-slate-200 text-xs flex items-center">${ICONS.server}<span>${esc(l.allowedIp || 'Chưa gán IP')}</span></div>
+        <div class="text-[10px] text-slate-400 mt-0.5">${l.strictIpCheck ? 'Chế độ: Khớp cứng IP (Strict)' : 'Chế độ: Linh hoạt (Flex)'}</div>
       </td>
       <td class="py-3.5 px-3">
-        <div>Site: <span class="font-mono font-semibold text-white">${esc(l.activeInstallationsCount)}/${esc(l.maxActivations)}</span></div>
-        <div class="text-[11px] text-slate-400 font-mono">Chuyển Server: ${esc(l.transferCount)}/${esc(l.maxTransfers)}</div>
-      </td>
-      <td class="py-3.5 px-3 font-mono text-slate-300">${esc(new Date(l.expiresAt).toLocaleDateString('vi-VN'))}</td>
-      <td class="py-3.5 px-3 text-right">
-        <div class="inline-flex flex-wrap justify-end gap-1.5">
-          <button type="button" onclick="openEnvModal('${esc(l.id)}')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-sky-300 rounded-lg border border-slate-700 transition-colors duration-200 cursor-pointer inline-flex items-center" title="Đổi Domain / IP">${ICONS.settings}<span>Domain/IP</span></button>
-          <button type="button" onclick="renewLicense('${esc(l.id)}', 365)" class="px-2.5 py-1 bg-emerald-600/15 hover:bg-emerald-600/35 text-emerald-300 rounded-lg border border-emerald-500/35 transition-colors duration-200 cursor-pointer" title="Gia hạn +1 năm">+Gia hạn</button>
-          ${
-            l.status !== 'ACTIVE'
-              ? `<button type="button" onclick="changeLicenseStatus('${esc(l.id)}', 'ACTIVE')" class="px-2.5 py-1 bg-sky-600/15 hover:bg-sky-600/35 text-sky-300 rounded-lg border border-sky-500/35 transition-colors duration-200 cursor-pointer">Kích hoạt</button>`
-              : `<button type="button" onclick="changeLicenseStatus('${esc(l.id)}', 'SUSPENDED')" class="px-2.5 py-1 bg-amber-600/15 hover:bg-amber-600/35 text-amber-300 rounded-lg border border-amber-500/35 transition-colors duration-200 cursor-pointer">Tạm ngừng</button>`
-          }
-          ${
-            l.status !== 'REVOKED'
-              ? `<button type="button" onclick="changeLicenseStatus('${esc(l.id)}', 'REVOKED')" class="px-2.5 py-1 bg-rose-600/15 hover:bg-rose-600/35 text-rose-300 rounded-lg border border-rose-500/35 transition-colors duration-200 cursor-pointer">Thu hồi</button>`
-              : ''
-          }
-          <button type="button" onclick="deleteLicense('${esc(l.id)}', '${esc(l.licenseKey)}')" class="p-1.5 bg-rose-600/15 hover:bg-rose-600 text-rose-300 hover:text-white rounded-lg border border-rose-500/35 transition-colors duration-200 cursor-pointer" title="Xóa License" aria-label="Xóa License">${ICONS.trash}</button>
+        <div class="font-medium text-white">${esc(l.customerName)}</div>
+        <div class="flex items-center gap-1.5 mt-0.5">
+          <span class="font-mono text-[11px] text-sky-300">${esc(l.licenseKey)}</span>
+          <button type="button" onclick="copyText('${esc(l.licenseKey)}', 'License Key')" class="text-slate-400 hover:text-sky-400 cursor-pointer" title="Sao chép License Key">${ICONS.copy}</button>
         </div>
       </td>
-    </tr>`
-    )
+      <td class="py-3.5 px-3">
+        <div class="font-mono text-slate-200">${esc(new Date(l.expiresAt).toLocaleDateString('vi-VN'))}</div>
+        <div>${daysBadge}</div>
+      </td>
+      <td class="py-3.5 px-3 text-right">
+        <div class="inline-flex flex-wrap justify-end gap-1.5">
+          ${
+            domain
+              ? `<button type="button" onclick="pingSite('${esc(domain)}', true)" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-emerald-300 rounded-lg border border-slate-700 cursor-pointer inline-flex items-center" title="Ép đồng bộ trạng thái & Kiểm tra phản hồi HTTP thực tế của Website">${ICONS.bolt}<span>Ping/Sync</span></button>`
+              : ''
+          }
+          <button type="button" onclick="openEnvModal('${esc(l.id)}')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-sky-300 rounded-lg border border-slate-700 cursor-pointer inline-flex items-center" title="Đổi Tên miền, IP, Ngày hết hạn & Ghi chú">${ICONS.settings}<span>Cấu hình</span></button>
+          <button type="button" onclick="renewLicense('${esc(l.id)}', 365)" class="px-2.5 py-1 bg-emerald-600/15 hover:bg-emerald-600/35 text-emerald-300 rounded-lg border border-emerald-500/35 cursor-pointer" title="Gia hạn +1 năm">+Gia hạn</button>
+          ${
+            l.status !== 'ACTIVE'
+              ? `<button type="button" onclick="changeLicenseStatus('${esc(l.id)}', 'ACTIVE', '${esc(domain)}')" class="px-2.5 py-1 bg-sky-600 hover:bg-sky-500 text-white font-semibold rounded-lg cursor-pointer">Mở khóa</button>`
+              : `<button type="button" onclick="changeLicenseStatus('${esc(l.id)}', 'SUSPENDED', '${esc(domain)}')" class="px-2.5 py-1 bg-orange-600/20 hover:bg-orange-600 text-orange-300 hover:text-white rounded-lg border border-orange-500/40 font-semibold cursor-pointer">Khóa tạm</button>`
+          }
+          <button type="button" onclick="deleteLicense('${esc(l.id)}', '${esc(l.licenseKey)}')" class="p-1.5 bg-rose-600/15 hover:bg-rose-600 text-rose-300 hover:text-white rounded-lg border border-rose-500/35 cursor-pointer" title="Xóa License">${ICONS.trash}</button>
+        </div>
+      </td>
+    </tr>`;
+    })
     .join('');
 }
 
 document.getElementById('create-license-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   try {
+    const domainVal = document.getElementById('lic-domain').value;
     await apiCall('/licenses', {
       method: 'POST',
       body: JSON.stringify({
         customerId: document.getElementById('lic-customer').value,
         productId: document.getElementById('lic-product').value,
-        allowedDomain: document.getElementById('lic-domain').value,
+        allowedDomain: domainVal,
         allowedIp: document.getElementById('lic-ip').value,
-        maxActivations: Number(document.getElementById('lic-max-sites').value || 1),
+        maxActivations: Number(document.getElementById('lic-max-sites').value || 3),
         durationDays: Number(document.getElementById('lic-days').value || 365)
       })
     });
     document.getElementById('lic-domain').value = '';
     document.getElementById('lic-ip').value = '';
-    showToast('Đã tạo License Key mới thành công!');
+    showToast(`Đã cấp License mới cho ${domainVal} thành công!`);
     refreshAll();
   } catch (err) {
     showToast(err.message, true);
@@ -545,14 +1001,18 @@ async function renewLicense(id, addDays) {
   }
 }
 
-async function changeLicenseStatus(id, status) {
+async function changeLicenseStatus(id, status, domain = '') {
   try {
+    showToast(`Đang đồng bộ trạng thái ${status} xuống website...`);
     await apiCall(`/licenses/${id}/status`, {
       method: 'PATCH',
       body: JSON.stringify({ status })
     });
-    showToast(`Đã chuyển trạng thái License sang ${status}!`);
-    refreshAll();
+    showToast(`Đã chuyển trạng thái sang ${status}!`);
+    await refreshAll();
+    if (domain) {
+      await pingSite(domain, false);
+    }
   } catch (err) {
     showToast(err.message, true);
   }
@@ -566,6 +1026,8 @@ function openEnvModal(id) {
   document.getElementById('modal-lic-ip').value = lic.allowedIp || '';
   document.getElementById('modal-lic-max-sites').value = lic.maxActivations;
   document.getElementById('modal-lic-max-transfers').value = lic.maxTransfers;
+  document.getElementById('modal-lic-expires').value = lic.expiresAt ? lic.expiresAt.slice(0, 10) : '';
+  document.getElementById('modal-lic-notes').value = lic.notes || '';
   document.getElementById('modal-lic-strict-ip').checked = lic.strictIpCheck;
   document.getElementById('env-modal').classList.remove('hidden');
 }
@@ -576,6 +1038,7 @@ function closeEnvModal() {
 
 async function saveEnvModal() {
   const id = document.getElementById('modal-lic-id').value;
+  const expiresVal = document.getElementById('modal-lic-expires').value;
   try {
     await apiCall(`/licenses/${id}/environment`, {
       method: 'PATCH',
@@ -584,15 +1047,51 @@ async function saveEnvModal() {
         allowedIp: document.getElementById('modal-lic-ip').value,
         maxActivations: Number(document.getElementById('modal-lic-max-sites').value),
         maxTransfers: Number(document.getElementById('modal-lic-max-transfers').value),
+        expiresAt: expiresVal ? new Date(expiresVal).toISOString() : undefined,
+        notes: document.getElementById('modal-lic-notes').value,
         strictIpCheck: document.getElementById('modal-lic-strict-ip').checked
       })
     });
     closeEnvModal();
-    showToast('Đã cập nhật Tên miền, IP máy chủ & Giới hạn kích hoạt!');
+    showToast('Đã cập nhật cấu hình Website & đồng bộ xuống máy chủ!');
     refreshAll();
   } catch (err) {
     showToast(err.message, true);
   }
+}
+
+function exportLicensesCsv() {
+  if (!cachedLicenses || cachedLicenses.length === 0) {
+    showToast('Chưa có dữ liệu để xuất CSV', true);
+    return;
+  }
+  const headers = ['Ten Mien', 'Trang Thai', 'IP May Chu', 'License Key', 'Khach Hang', 'Cong Ty', 'Ngay Het Han', 'Ghi Chu'];
+  const rows = cachedLicenses.map((l) => [
+    l.allowedDomain || '',
+    l.status || '',
+    l.allowedIp || '',
+    l.licenseKey || '',
+    l.customerName || '',
+    l.customerCompany || '',
+    l.expiresAt ? new Date(l.expiresAt).toLocaleDateString('vi-VN') : '',
+    (l.notes || '').replace(/\r?\n/g, ' ')
+  ]);
+  const csvContent =
+    '\uFEFF' +
+    [headers, ...rows]
+      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `danh-sach-ban-quyen-website-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  showToast('Đã xuất danh sách Website ra file Excel / CSV!');
 }
 
 async function loadTransfers() {
@@ -625,8 +1124,8 @@ async function loadTransfers() {
       <td class="py-3.5 px-3 text-right space-x-1.5">
         ${
           r.status === 'PENDING'
-            ? `<button type="button" onclick="approveTransfer('${esc(r.id)}')" class="btn-primary-text px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-semibold transition-colors duration-200 cursor-pointer inline-flex items-center">${ICONS.check}<span>Phê duyệt</span></button>
-               <button type="button" onclick="rejectTransfer('${esc(r.id)}')" class="px-3 py-1.5 bg-rose-600/20 hover:bg-rose-600 text-rose-200 hover:text-white rounded-lg border border-rose-500/30 transition-colors duration-200 cursor-pointer inline-flex items-center">${ICONS.x}<span>Từ chối</span></button>`
+            ? `<button type="button" onclick="approveTransfer('${esc(r.id)}')" class="btn-primary-text px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-semibold cursor-pointer inline-flex items-center">${ICONS.check}<span>Phê duyệt</span></button>
+               <button type="button" onclick="rejectTransfer('${esc(r.id)}')" class="px-3 py-1.5 bg-rose-600/20 hover:bg-rose-600 text-rose-200 hover:text-white rounded-lg border border-rose-500/30 cursor-pointer inline-flex items-center">${ICONS.x}<span>Từ chối</span></button>`
             : `<span class="text-slate-500 text-[11px]">${esc(r.reviewNote || '')}</span>`
         }
       </td>
@@ -706,12 +1205,40 @@ async function loadLogs() {
     apiCall('/logs/validations'),
     apiCall('/logs/audits')
   ]);
+  cachedValidationLogs = validationLogs;
+  cachedAuditLogs = auditLogs;
+  renderFilteredLogs();
+}
 
-  document.getElementById('validation-logs-tbody').innerHTML = validationLogs
-    .map(
-      (v) => `
+function renderFilteredLogs() {
+  const q = (document.getElementById('log-search-input')?.value || '').trim().toLowerCase();
+
+  const vLogs = cachedValidationLogs.filter((v) => {
+    if (!q) return true;
+    return [v.licenseKeyAttempt, v.requestDomain, v.reportedServerIp, v.detectedOutboundIp, v.failureReason, v.action]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase()
+      .includes(q);
+  });
+
+  const aLogs = cachedAuditLogs.filter((a) => {
+    if (!q) return true;
+    return [a.licenseKey, a.eventType, a.actorName, a.note]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase()
+      .includes(q);
+  });
+
+  document.getElementById('validation-logs-tbody').innerHTML =
+    vLogs.length === 0
+      ? `<tr><td colspan="4" class="py-6 text-center text-slate-500">Không có nhật ký xác thực khớp bộ lọc.</td></tr>`
+      : vLogs
+          .map(
+            (v) => `
     <tr class="hover:bg-slate-800/40 transition-colors duration-150">
-      <td class="py-2.5 px-2 text-slate-400 font-mono">${esc(new Date(v.createdAt).toLocaleTimeString('vi-VN'))}</td>
+      <td class="py-2.5 px-2 text-slate-400 font-mono">${esc(new Date(v.createdAt).toLocaleString('vi-VN'))}</td>
       <td class="py-2.5 px-2"><div class="font-mono text-sky-300">${esc(v.licenseKeyAttempt)}</div><div class="text-[10px] font-mono text-slate-400">${esc(v.action)}</div></td>
       <td class="py-2.5 px-2 font-mono">${esc(v.requestDomain)}<div class="text-[10px] text-slate-400">${esc(v.reportedServerIp || v.detectedOutboundIp)}</div></td>
       <td class="py-2.5 px-2 font-mono">${
@@ -720,20 +1247,39 @@ async function loadLogs() {
           : `<span class="text-rose-400 font-semibold inline-flex items-center">${ICONS.x}<span>${esc(v.failureReason)}</span></span>`
       }</td>
     </tr>`
-    )
-    .join('');
+          )
+          .join('');
 
-  document.getElementById('audit-logs-tbody').innerHTML = auditLogs
-    .map(
-      (a) => `
+  document.getElementById('audit-logs-tbody').innerHTML =
+    aLogs.length === 0
+      ? `<tr><td colspan="4" class="py-6 text-center text-slate-500">Không có lịch sử kiểm toán khớp bộ lọc.</td></tr>`
+      : aLogs
+          .map(
+            (a) => `
     <tr class="hover:bg-slate-800/40 transition-colors duration-150">
       <td class="py-2.5 px-2 text-slate-400 font-mono">${esc(new Date(a.createdAt).toLocaleString('vi-VN'))}</td>
       <td class="py-2.5 px-2 font-mono text-sky-300">${esc(a.licenseKey)}</td>
       <td class="py-2.5 px-2"><div class="font-mono font-semibold text-white">${esc(a.eventType)}</div><div class="text-[10px] text-slate-400">${esc(a.actorName)}</div></td>
       <td class="py-2.5 px-2 text-slate-300">${esc(a.note)}</td>
     </tr>`
-    )
-    .join('');
+          )
+          .join('');
+}
+
+async function clearValidationLogs(mode = 'ALL') {
+  const msg =
+    mode === 'FAILED_ONLY'
+      ? 'Xóa các dòng cảnh báo xác thực thất bại cũ trên trang Tổng quan?'
+      : 'Xóa toàn bộ lịch sử nhật ký xác thực?';
+  askConfirm(msg, async () => {
+    try {
+      await apiCall(`/logs/validations?mode=${mode}`, { method: 'DELETE' });
+      showToast('Đã dọn dẹp nhật ký xác thực!');
+      refreshAll();
+    } catch (err) {
+      showToast(err.message, true);
+    }
+  });
 }
 
 async function loadStaff() {
@@ -751,7 +1297,7 @@ async function loadStaff() {
       <td class="py-3 px-3"><span class="px-2.5 py-0.5 rounded-full bg-sky-500/15 border border-sky-500/30 text-sky-300 font-mono text-xs">${esc(u.role)}</span></td>
       <td class="py-3 px-3 text-emerald-400 font-medium"><span class="inline-block w-2 h-2 rounded-full bg-emerald-400 mr-1.5"></span>Đang hoạt động</td>
       <td class="py-3 px-3 text-right">
-        <button type="button" onclick="deleteStaff('${esc(u.id)}', '${esc(u.email)}')" class="px-2.5 py-1 bg-rose-600/15 hover:bg-rose-600 text-rose-300 hover:text-white rounded-lg border border-rose-500/35 text-xs transition-colors duration-200 cursor-pointer inline-flex items-center gap-1">${ICONS.trash}<span>Xóa</span></button>
+        <button type="button" onclick="deleteStaff('${esc(u.id)}', '${esc(u.email)}')" class="px-2.5 py-1 bg-rose-600/15 hover:bg-rose-600 text-rose-300 hover:text-white rounded-lg border border-rose-500/35 text-xs cursor-pointer inline-flex items-center gap-1">${ICONS.trash}<span>Xóa</span></button>
       </td>
     </tr>`
     )

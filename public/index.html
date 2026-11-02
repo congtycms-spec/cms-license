@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>WordPress License Protection System — Enterprise Security Console</title>
+  <title>WordPress License Protection System — Pro Enterprise Fleet Console</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -34,7 +34,7 @@
   <style>
     :root {
       --bg-primary: #F8FAFC;
-      --bg-card: rgba(255, 255, 255, 0.92);
+      --bg-card: rgba(255, 255, 255, 0.94);
       --bg-input: #FFFFFF;
       --text-main: #0F172A;
       --text-muted: #475569;
@@ -43,7 +43,7 @@
 
     html.dark {
       --bg-primary: #020617;
-      --bg-card: rgba(15, 23, 42, 0.85);
+      --bg-card: rgba(15, 23, 42, 0.88);
       --bg-input: #020617;
       --text-main: #F8FAFC;
       --text-muted: #94A3B8;
@@ -94,7 +94,7 @@
       border-left: 3px solid #38BDF8;
     }
 
-    /* Light mode adaptive overrides for legacy utility classes */
+    /* Light mode adaptive overrides */
     html:not(.dark) .bg-slate-950 {
       background-color: #F1F5F9 !important;
     }
@@ -143,7 +143,8 @@
       color: #15803D !important;
     }
 
-    html:not(.dark) .text-amber-300 {
+    html:not(.dark) .text-amber-300,
+    html:not(.dark) .text-orange-300 {
       color: #B45309 !important;
     }
 
@@ -154,18 +155,6 @@
     html:not(.dark) .btn-primary-text {
       color: #FFFFFF !important;
     }
-
-    @media (prefers-reduced-motion: reduce) {
-
-      *,
-      ::before,
-      ::after {
-        animation-duration: 0.01ms !important;
-        animation-iteration-count: 1 !important;
-        transition-duration: 0.01ms !important;
-        scroll-behavior: auto !important;
-      }
-    }
   </style>
 </head>
 
@@ -174,7 +163,6 @@
 
   <!-- LOGIN VIEW -->
   <div id="login-view" class="min-h-screen flex items-center justify-center p-4 sm:p-6 relative overflow-hidden">
-    <!-- Subtle Ambient Background Glow -->
     <div class="pointer-events-none fixed inset-0 overflow-hidden z-0">
       <div class="absolute -top-40 -left-40 w-96 h-96 bg-sky-500/10 rounded-full blur-3xl"></div>
       <div class="absolute -bottom-40 -right-40 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl"></div>
@@ -193,71 +181,48 @@
             </svg>
           </div>
           <div>
-            <h1 class="text-xl font-bold text-white tracking-tight">WP License Protection</h1>
-            <p class="text-xs text-slate-400">Hệ thống Quản lý & Xác thực Bản quyền Ed25519</p>
+            <h1 class="text-xl font-bold text-white tracking-tight">WP License Pro</h1>
+            <p class="text-xs text-slate-400">Hệ thống Quản trị & Bảo vệ Bản quyền Ed25519</p>
           </div>
         </div>
         <button type="button" onclick="toggleTheme()"
-          class="p-2 rounded-lg border border-slate-800 hover:bg-slate-800/60 text-slate-400 hover:text-white cursor-pointer transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-sky-500"
-          title="Chuyển chế độ Sáng / Tối" aria-label="Chuyển chế độ Sáng / Tối">
-          <svg id="theme-icon-login" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          class="p-2 rounded-lg border border-slate-800 hover:bg-slate-800/60 text-slate-400 hover:text-white cursor-pointer transition-colors duration-200"
+          title="Chuyển chế độ Sáng / Tối">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="4" />
-            <path d="M12 2v2" />
-            <path d="M12 20v2" />
-            <path d="m4.93 4.93 1.41 1.41" />
-            <path d="m17.66 17.66 1.41 1.41" />
-            <path d="M2 12h2" />
-            <path d="M20 12h2" />
-            <path d="m6.34 17.66-1.41 1.41" />
-            <path d="m19.07 4.93-1.41 1.41" />
+            <path d="M12 2v2M12 20v2m-7.07-14.07 1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
           </svg>
         </button>
       </div>
 
-      <!-- FORM KHỞI TẠO SUPER ADMIN ĐẦU TIÊN (Khi chưa có tài khoản nào) -->
+      <!-- FORM KHỞI TẠO SUPER ADMIN ĐẦU TIÊN -->
       <form id="setup-admin-form" class="hidden space-y-4">
         <div
           class="bg-sky-950/60 border border-sky-800/70 rounded-xl p-3.5 text-xs text-sky-200 flex items-start gap-2.5">
-          <svg class="w-5 h-5 text-sky-400 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-            stroke-width="2">
-            <circle cx="12" cy="12" r="10" />
-            <path d="M12 16v-4" />
-            <path d="M12 8h.01" />
-          </svg>
           <div>
             Chào mừng bạn! Hệ thống hiện chưa có tài khoản quản trị nào. Hãy tạo tài khoản <strong>SUPER_ADMIN</strong>
             đầu tiên của bạn:
           </div>
         </div>
         <div>
-          <label for="setup-fullname" class="block text-xs font-medium text-slate-300 mb-1.5">Họ và tên Quản trị viên
-            <span class="text-rose-400">*</span></label>
+          <label for="setup-fullname" class="block text-xs font-medium text-slate-300 mb-1.5">Họ và tên Quản trị viên <span class="text-rose-400">*</span></label>
           <input id="setup-fullname" type="text" placeholder="Nhập họ và tên của bạn" required
-            class="input-field w-full px-3.5 py-2.5 rounded-lg text-sm transition-colors duration-200" />
+            class="input-field w-full px-3.5 py-2.5 rounded-lg text-sm" />
         </div>
         <div>
-          <label for="setup-email" class="block text-xs font-medium text-slate-300 mb-1.5">Email Đăng nhập <span
-              class="text-rose-400">*</span></label>
+          <label for="setup-email" class="block text-xs font-medium text-slate-300 mb-1.5">Email Đăng nhập <span class="text-rose-400">*</span></label>
           <input id="setup-email" type="email" placeholder="admin@company.vn" required
-            class="input-field w-full px-3.5 py-2.5 rounded-lg text-sm transition-colors duration-200" />
+            class="input-field w-full px-3.5 py-2.5 rounded-lg text-sm" />
         </div>
         <div>
-          <label for="setup-password" class="block text-xs font-medium text-slate-300 mb-1.5">Mật khẩu (tối thiểu 6 ký
-            tự) <span class="text-rose-400">*</span></label>
+          <label for="setup-password" class="block text-xs font-medium text-slate-300 mb-1.5">Mật khẩu (tối thiểu 6 ký tự) <span class="text-rose-400">*</span></label>
           <input id="setup-password" type="password" placeholder="Nhập mật khẩu bảo mật" required minlength="6"
-            class="input-field w-full px-3.5 py-2.5 rounded-lg text-sm transition-colors duration-200" />
+            class="input-field w-full px-3.5 py-2.5 rounded-lg text-sm" />
         </div>
         <div id="setup-error" role="alert"
           class="hidden text-xs text-rose-400 bg-rose-950/50 border border-rose-800 rounded-lg p-3"></div>
         <button type="submit"
-          class="btn-primary-text w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg text-sm transition-colors duration-200 cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 focus:outline-none focus:ring-2 focus:ring-emerald-400">
-          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-            <circle cx="9" cy="7" r="4" />
-            <line x1="19" x2="19" y1="8" y2="14" />
-            <line x1="22" x2="16" y1="11" y2="11" />
-          </svg>
+          class="btn-primary-text w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg text-sm transition-colors duration-200 cursor-pointer flex items-center justify-center gap-2">
           <span>Khởi tạo Tài khoản Super Admin & Đăng nhập</span>
         </button>
       </form>
@@ -267,22 +232,17 @@
         <div>
           <label for="login-email" class="block text-xs font-medium text-slate-300 mb-1.5">Email Quản trị viên</label>
           <input id="login-email" type="email" placeholder="Nhập email quản trị" required
-            class="input-field w-full px-3.5 py-2.5 rounded-lg text-sm transition-colors duration-200" />
+            class="input-field w-full px-3.5 py-2.5 rounded-lg text-sm" />
         </div>
         <div>
           <label for="login-password" class="block text-xs font-medium text-slate-300 mb-1.5">Mật khẩu</label>
           <input id="login-password" type="password" placeholder="Nhập mật khẩu" required
-            class="input-field w-full px-3.5 py-2.5 rounded-lg text-sm transition-colors duration-200" />
+            class="input-field w-full px-3.5 py-2.5 rounded-lg text-sm" />
         </div>
         <div id="login-error" role="alert"
           class="hidden text-xs text-rose-400 bg-rose-950/50 border border-rose-800 rounded-lg p-3"></div>
         <button type="submit"
-          class="btn-primary-text w-full py-2.5 px-4 bg-sky-600 hover:bg-sky-500 text-white font-semibold rounded-lg text-sm transition-colors duration-200 cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-sky-600/20 focus:outline-none focus:ring-2 focus:ring-sky-400">
-          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
-            <polyline points="10 17 15 12 10 7" />
-            <line x1="15" x2="3" y1="12" y2="12" />
-          </svg>
+          class="btn-primary-text w-full py-2.5 px-4 bg-sky-600 hover:bg-sky-500 text-white font-semibold rounded-lg text-sm transition-colors duration-200 cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-sky-600/20">
           <span>Đăng nhập Hệ thống Quản trị</span>
         </button>
       </form>
@@ -290,9 +250,9 @@
       <div class="mt-6 pt-5 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
         <span class="flex items-center gap-1.5">
           <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-          Ed25519 + HMAC-SHA256
+          Ed25519 + Supabase Cloud
         </span>
-        <span class="font-mono">v2.4 Enterprise</span>
+        <span class="font-mono">v3.0 Pro Enterprise</span>
       </div>
     </div>
   </div>
@@ -308,35 +268,28 @@
           <div class="flex items-center gap-3">
             <div
               class="w-10 h-10 rounded-xl bg-sky-500/15 border border-sky-500/30 flex items-center justify-center text-sky-400 shrink-0">
-              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
                 <path d="m9 12 2 2 4-4" />
               </svg>
             </div>
             <div>
-              <div class="font-bold text-sm text-white tracking-tight">CMS License Server</div>
+              <div class="flex items-center gap-1.5">
+                <span class="font-bold text-sm text-white tracking-tight">CMS License</span>
+                <span class="px-1.5 py-0.5 text-[10px] font-mono font-bold rounded bg-sky-500/20 text-sky-300 border border-sky-500/30">PRO</span>
+              </div>
               <div class="text-[11px] text-emerald-400 flex items-center gap-1.5 font-medium">
-                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                Ed25519 Signed Active
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                Ed25519 Cloud Active
               </div>
             </div>
           </div>
-          <!-- Theme switcher button -->
           <button type="button" onclick="toggleTheme()"
-            class="p-2 rounded-lg border border-slate-800 hover:bg-slate-800/70 text-slate-400 hover:text-white cursor-pointer transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-sky-500"
-            title="Đổi giao diện Sáng / Tối" aria-label="Đổi giao diện Sáng / Tối">
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-              stroke-linecap="round" stroke-linejoin="round">
+            class="p-2 rounded-lg border border-slate-800 hover:bg-slate-800/70 text-slate-400 hover:text-white cursor-pointer transition-colors duration-200"
+            title="Đổi giao diện Sáng / Tối">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="12" cy="12" r="4" />
-              <path d="M12 2v2" />
-              <path d="M12 20v2" />
-              <path d="m4.93 4.93 1.41 1.41" />
-              <path d="m17.66 17.66 1.41 1.41" />
-              <path d="M2 12h2" />
-              <path d="M20 12h2" />
-              <path d="m6.34 17.66-1.41 1.41" />
-              <path d="m19.07 4.93-1.41 1.41" />
+              <path d="M12 2v2M12 20v2m-7.07-14.07 1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
             </svg>
           </button>
         </div>
@@ -344,7 +297,7 @@
         <!-- Menu Items -->
         <nav class="p-3 flex md:flex-col gap-1 overflow-x-auto text-sm" aria-label="Điều hướng chính">
           <button type="button" onclick="switchTab('overview')" id="tab-btn-overview"
-            class="w-auto md:w-full text-left px-3.5 py-2.5 rounded-lg flex items-center justify-between gap-2.5 hover:bg-slate-800/60 transition-colors duration-200 cursor-pointer shrink-0 tab-active focus:outline-none focus:ring-2 focus:ring-sky-500/40">
+            class="w-auto md:w-full text-left px-3.5 py-2.5 rounded-lg flex items-center justify-between gap-2.5 hover:bg-slate-800/60 transition-colors duration-200 cursor-pointer shrink-0 tab-active">
             <span class="flex items-center gap-2.5">
               <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <rect width="7" height="9" x="3" y="3" rx="1" />
@@ -352,24 +305,26 @@
                 <rect width="7" height="9" x="14" y="12" rx="1" />
                 <rect width="7" height="5" x="3" y="16" rx="1" />
               </svg>
-              <span>Tổng quan & Cảnh báo</span>
+              <span>Tổng quan & Giám sát</span>
             </span>
           </button>
 
           <button type="button" onclick="switchTab('licenses')" id="tab-btn-licenses"
-            class="w-auto md:w-full text-left px-3.5 py-2.5 rounded-lg flex items-center justify-between gap-2.5 hover:bg-slate-800/60 transition-colors duration-200 cursor-pointer shrink-0 focus:outline-none focus:ring-2 focus:ring-sky-500/40">
+            class="w-auto md:w-full text-left px-3.5 py-2.5 rounded-lg flex items-center justify-between gap-2.5 hover:bg-slate-800/60 transition-colors duration-200 cursor-pointer shrink-0">
             <span class="flex items-center gap-2.5">
               <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="7.5" cy="15.5" r="5.5" />
                 <path d="m21 2-9.6 9.6" />
                 <path d="m15.5 7.5 3 3L22 7l-3-3" />
               </svg>
-              <span>Quản lý License Keys</span>
+              <span>Quản lý Website & Keys</span>
             </span>
+            <span id="badge-total-licenses"
+              class="px-2 py-0.5 text-[11px] rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/30 font-mono font-semibold">0</span>
           </button>
 
           <button type="button" onclick="switchTab('transfers')" id="tab-btn-transfers"
-            class="w-auto md:w-full text-left px-3.5 py-2.5 rounded-lg flex items-center justify-between gap-2.5 hover:bg-slate-800/60 transition-colors duration-200 cursor-pointer shrink-0 focus:outline-none focus:ring-2 focus:ring-sky-500/40">
+            class="w-auto md:w-full text-left px-3.5 py-2.5 rounded-lg flex items-center justify-between gap-2.5 hover:bg-slate-800/60 transition-colors duration-200 cursor-pointer shrink-0">
             <span class="flex items-center gap-2.5">
               <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M17 2.1l4 4-4 4" />
@@ -379,11 +334,11 @@
               <span>Duyệt Chuyển Máy chủ</span>
             </span>
             <span id="badge-pending-transfers"
-              class="px-2 py-0.5 text-xs rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-mono font-semibold">0</span>
+              class="px-2 py-0.5 text-[11px] rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-mono font-semibold">0</span>
           </button>
 
           <button type="button" onclick="switchTab('customers')" id="tab-btn-customers"
-            class="w-auto md:w-full text-left px-3.5 py-2.5 rounded-lg flex items-center justify-between gap-2.5 hover:bg-slate-800/60 transition-colors duration-200 cursor-pointer shrink-0 focus:outline-none focus:ring-2 focus:ring-sky-500/40">
+            class="w-auto md:w-full text-left px-3.5 py-2.5 rounded-lg flex items-center justify-between gap-2.5 hover:bg-slate-800/60 transition-colors duration-200 cursor-pointer shrink-0">
             <span class="flex items-center gap-2.5">
               <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
@@ -396,21 +351,20 @@
           </button>
 
           <button type="button" onclick="switchTab('logs')" id="tab-btn-logs"
-            class="w-auto md:w-full text-left px-3.5 py-2.5 rounded-lg flex items-center justify-between gap-2.5 hover:bg-slate-800/60 transition-colors duration-200 cursor-pointer shrink-0 focus:outline-none focus:ring-2 focus:ring-sky-500/40">
+            class="w-auto md:w-full text-left px-3.5 py-2.5 rounded-lg flex items-center justify-between gap-2.5 hover:bg-slate-800/60 transition-colors duration-200 cursor-pointer shrink-0">
             <span class="flex items-center gap-2.5">
               <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                 <polyline points="14 2 14 8 20 8" />
                 <line x1="16" x2="8" y1="13" y2="13" />
                 <line x1="16" x2="8" y1="17" y2="17" />
-                <line x1="10" x2="8" y1="9" y2="9" />
               </svg>
               <span>Nhật ký Xác thực & Audit</span>
             </span>
           </button>
 
           <button type="button" onclick="switchTab('staff')" id="tab-btn-staff"
-            class="w-auto md:w-full text-left px-3.5 py-2.5 rounded-lg flex items-center justify-between gap-2.5 hover:bg-slate-800/60 transition-colors duration-200 cursor-pointer shrink-0 focus:outline-none focus:ring-2 focus:ring-sky-500/40">
+            class="w-auto md:w-full text-left px-3.5 py-2.5 rounded-lg flex items-center justify-between gap-2.5 hover:bg-slate-800/60 transition-colors duration-200 cursor-pointer shrink-0">
             <span class="flex items-center gap-2.5">
               <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
@@ -440,7 +394,7 @@
           </div>
         </div>
         <button type="button" onclick="logout()"
-          class="py-1.5 px-3 bg-slate-800 hover:bg-rose-950/80 text-slate-300 hover:text-rose-200 border border-slate-700 hover:border-rose-800 rounded-lg text-xs font-medium transition-colors duration-200 cursor-pointer flex items-center justify-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-rose-500">
+          class="py-1.5 px-3 bg-slate-800 hover:bg-rose-950/80 text-slate-300 hover:text-rose-200 border border-slate-700 hover:border-rose-800 rounded-lg text-xs font-medium transition-colors duration-200 cursor-pointer flex items-center justify-center gap-1.5">
           <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
             <polyline points="16 17 21 12 16 7" />
@@ -458,113 +412,150 @@
         class="hidden fixed top-5 right-5 z-50 px-4 py-3 rounded-xl shadow-2xl border text-xs font-medium flex items-center gap-2.5 transition-all duration-200">
       </div>
 
-      <!-- TAB 1: OVERVIEW & EXPIRING SOON -->
+      <!-- TAB 1: OVERVIEW & FLEET TELEMETRY PRO -->
       <section id="tab-overview" class="space-y-6">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800/80 pb-4">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-800/80 pb-4">
           <div>
-            <h2 class="text-xl sm:text-2xl font-bold text-white tracking-tight">Tổng quan Hệ thống Bản quyền WordPress
-            </h2>
-            <p class="text-xs sm:text-sm text-slate-400 mt-0.5">Giám sát trạng thái kích hoạt, tên miền, IP máy chủ và
-              chữ ký số Ed25519 theo thời gian thực</p>
+            <h2 class="text-xl sm:text-2xl font-bold text-white tracking-tight">Trung tâm Giám sát Bản quyền & Đội hình Website</h2>
+            <p class="text-xs sm:text-sm text-slate-400 mt-0.5">Điều khiển khóa/mở từ xa thời gian thực, giám sát cụm máy chủ hosting và kiểm tra phản hồi HTTP trực tiếp</p>
           </div>
-          <div class="flex items-center gap-2.5">
-            <button type="button" onclick="switchTab('licenses')"
+          <div class="flex flex-wrap items-center gap-2">
+            <!-- Auto-refresh toggle -->
+            <button type="button" onclick="toggleAutoRefresh()" id="btn-auto-refresh"
+              class="px-3 py-2 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 text-xs font-mono font-medium rounded-lg border border-emerald-500/30 transition-colors duration-200 cursor-pointer flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" id="auto-refresh-dot"></span>
+              <span id="auto-refresh-label">Live Sync: BẬT (30s)</span>
+            </button>
+            <button type="button" onclick="switchTab('licenses'); document.getElementById('lic-domain')?.focus();"
               class="btn-primary-text px-3.5 py-2 bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold rounded-lg transition-colors duration-200 cursor-pointer flex items-center gap-1.5 shadow-sm">
               <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                 <line x1="12" x2="12" y1="5" y2="19" />
                 <line x1="5" x2="19" y1="12" y2="12" />
               </svg>
-              <span>Cấp License Mới</span>
+              <span>+ Thêm Website Mới</span>
+            </button>
+            <button type="button" onclick="exportLicensesCsv()"
+              class="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs font-medium rounded-lg border border-slate-700 transition-colors duration-200 cursor-pointer flex items-center gap-1.5">
+              <svg class="w-3.5 h-3.5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" x2="12" y1="15" y2="3" />
+              </svg>
+              <span>Xuất CSV</span>
             </button>
             <button type="button" onclick="refreshAll()"
-              class="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs font-medium rounded-lg border border-slate-700 transition-colors duration-200 cursor-pointer flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-sky-500">
-              <svg class="w-3.5 h-3.5 text-sky-400" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                stroke-width="2">
+              class="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs font-medium rounded-lg border border-slate-700 transition-colors duration-200 cursor-pointer flex items-center gap-1.5">
+              <svg class="w-3.5 h-3.5 text-sky-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
                 <path d="M3 3v5h5" />
                 <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
                 <path d="M16 16h5v5" />
               </svg>
-              <span>Làm mới dữ liệu</span>
+              <span>Làm mới</span>
             </button>
           </div>
         </div>
 
-        <!-- KPI Bento Grid -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4" id="kpi-cards"></div>
+        <!-- 6 Interactive KPI Cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3.5" id="kpi-cards"></div>
 
-        <!-- Telemetry Distribution & Ed25519 Public Key Bento Row -->
+        <!-- Row 2: Health Bar + Server Clusters + Quick Embed Toolkit -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <!-- License Health Distribution -->
+          <!-- License Health Distribution (4 states) -->
           <div class="glass-card bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col justify-between">
             <div>
               <div class="flex items-center justify-between mb-2">
                 <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2">
-                  <svg class="w-4 h-4 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                    stroke-width="2">
+                  <svg class="w-4 h-4 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
                   </svg>
                   <span>Tỷ lệ Sức khỏe Bản quyền</span>
                 </h3>
                 <span id="health-rate-badge" class="text-xs font-mono font-bold text-emerald-400">100%</span>
               </div>
-              <p class="text-xs text-slate-400 mb-4">Phân bổ trạng thái các License Key trên toàn hệ thống</p>
+              <p class="text-xs text-slate-400 mb-4">Phân bổ trạng thái thực tế của toàn bộ Website trên hệ thống</p>
             </div>
-            <div class="space-y-2.5">
-              <div class="w-full h-3 bg-slate-950 rounded-full overflow-hidden flex border border-slate-800"
-                id="license-distribution-bar">
-                <div class="bg-emerald-500 h-full transition-all duration-300" style="width: 100%"></div>
-              </div>
-              <div class="flex items-center justify-between text-[11px] text-slate-400 pt-1"
-                id="license-distribution-legend">
-                <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-500"></span>Đang
-                  hoạt động</span>
-                <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-amber-500"></span>Sắp hết
-                  hạn</span>
-                <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-rose-500"></span>Hết
-                  hạn/Thu hồi</span>
+            <div class="space-y-3">
+              <div class="w-full h-3.5 bg-slate-950 rounded-full overflow-hidden flex border border-slate-800"
+                id="license-distribution-bar"></div>
+              <div class="grid grid-cols-2 gap-2 text-[11px] text-slate-400 pt-1">
+                <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>Đang hoạt động (<span id="legend-active-count" class="font-mono text-white">0</span>)</span>
+                <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-orange-500"></span>Đang khóa tạm (<span id="legend-suspended-count" class="font-mono text-white">0</span>)</span>
+                <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>Sắp hết hạn (<span id="legend-expiring-count" class="font-mono text-white">0</span>)</span>
+                <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span>Thu hồi / Hết hạn (<span id="legend-revoked-count" class="font-mono text-white">0</span>)</span>
               </div>
             </div>
           </div>
 
-          <!-- Ed25519 Public Key Card -->
-          <div class="glass-card bg-slate-900 border border-slate-800 rounded-xl p-5 lg:col-span-2">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
-              <div class="flex items-start gap-2.5">
-                <div
-                  class="w-8 h-8 rounded-lg bg-sky-500/15 border border-sky-500/30 flex items-center justify-center text-sky-400 shrink-0 mt-0.5">
+          <!-- Hosting / Server IP Clusters -->
+          <div class="glass-card bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                  <svg class="w-4 h-4 text-sky-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect width="20" height="8" x="2" y="2" rx="2" ry="2" />
+                    <rect width="20" height="8" x="2" y="14" rx="2" ry="2" />
+                    <line x1="6" x2="6.01" y1="6" y2="6" />
+                    <line x1="6" x2="6.01" y1="18" y2="18" />
+                  </svg>
+                  <span>Cụm Máy chủ Hosting / VPS</span>
+                </h3>
+                <span class="text-[11px] text-sky-400 font-mono" id="server-cluster-count">0 Server</span>
+              </div>
+              <p class="text-xs text-slate-400 mb-3">Bấm vào IP máy chủ để lọc riêng các website thuộc Hosting đó</p>
+            </div>
+            <div id="server-clusters-list" class="space-y-2 max-h-32 overflow-y-auto pr-1"></div>
+          </div>
+
+          <!-- Stealth Embed & Ed25519 Toolkit -->
+          <div class="glass-card bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between gap-2 mb-2">
+                <h3 class="text-xs font-semibold uppercase tracking-wider text-sky-400 flex items-center gap-2">
                   <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
                     <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                   </svg>
-                </div>
-                <div>
-                  <h3 class="text-sm font-semibold text-sky-400">Khóa Công Khai Chữ Ký Số (Ed25519 Public Key cho
-                    WordPress Plugin)</h3>
-                  <p class="text-xs text-slate-400">Private Key được bảo mật tuyệt đối trên Server. Chỉ nhúng chuỗi
-                    Public Key (32-byte Base64) dưới đây vào Plugin WordPress.</p>
-                </div>
+                  <span>Bộ Công Cụ Nhúng Bảo Vệ (Stealth)</span>
+                </h3>
+                <span id="crypto-key-id"
+                  class="text-[11px] font-mono bg-slate-800 border border-slate-700 px-2 py-0.5 rounded text-slate-300"></span>
               </div>
-              <span id="crypto-key-id"
-                class="text-xs font-mono bg-slate-800 border border-slate-700 px-2.5 py-1 rounded-md text-slate-300 shrink-0"></span>
+              <p class="text-xs text-slate-400 mb-3">Tải file bảo vệ ngụy trang hoặc sao chép mã nhúng vào <code class="font-mono text-sky-300">functions.php</code> của Theme</p>
             </div>
-            <div class="flex flex-col sm:flex-row gap-2 mt-3">
-              <label for="crypto-pub-key" class="sr-only">Ed25519 Public Key Base64</label>
-              <input id="crypto-pub-key" readonly
-                class="input-field flex-1 bg-slate-950 border border-slate-800 rounded-lg px-3.5 py-2 text-xs font-mono text-emerald-400 select-all" />
-              <button type="button" onclick="copyPublicKey()"
-                class="btn-primary-text px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold rounded-lg transition-colors duration-200 cursor-pointer flex items-center justify-center gap-1.5 shrink-0 focus:outline-none focus:ring-2 focus:ring-sky-400">
-                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
-                  <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
-                </svg>
-                <span>Sao chép Key</span>
-              </button>
+            <div class="space-y-2">
+              <div class="flex gap-1.5">
+                <input id="crypto-pub-key" readonly
+                  class="input-field flex-1 bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-[11px] font-mono text-emerald-400 select-all" />
+                <button type="button" onclick="copyPublicKey()"
+                  class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-lg border border-slate-700 cursor-pointer shrink-0">
+                  Copy Key
+                </button>
+              </div>
+              <div class="grid grid-cols-2 gap-2 pt-1">
+                <button type="button" onclick="downloadStealthHydrator()"
+                  class="btn-primary-text py-2 px-3 bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold rounded-lg transition-colors duration-200 cursor-pointer flex items-center justify-center gap-1.5">
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" x2="12" y1="15" y2="3" />
+                  </svg>
+                  <span>Tải Hydrator.php</span>
+                </button>
+                <button type="button" onclick="copyThemeSnippet()"
+                  class="py-2 px-3 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-semibold rounded-lg transition-colors duration-200 cursor-pointer flex items-center justify-center gap-1.5">
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="16 18 22 12 16 6" />
+                    <polyline points="8 6 2 12 8 18" />
+                  </svg>
+                  <span>Mã functions.php</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
-        <!-- Expiring Soon Licenses (#15) -->
+        <!-- Expiring Soon Licenses -->
         <div class="glass-card bg-slate-900 border border-slate-800 rounded-xl p-5">
           <div class="flex items-center justify-between mb-4">
             <h3 class="text-sm font-semibold text-amber-400 flex items-center gap-2">
@@ -572,7 +563,7 @@
                 <circle cx="12" cy="12" r="10" />
                 <polyline points="12 6 12 12 16 14" />
               </svg>
-              <span>Cảnh báo License Sắp Hết Hạn (Trong vòng 30 ngày tới)</span>
+              <span>Cảnh báo Website Sắp Hết Hạn Bản Quyền (Trong vòng 30 ngày tới)</span>
             </h3>
           </div>
           <div class="overflow-x-auto">
@@ -584,7 +575,7 @@
                   <th class="py-3 px-3">Sản phẩm</th>
                   <th class="py-3 px-3">Tên miền & IP</th>
                   <th class="py-3 px-3">Còn lại</th>
-                  <th class="py-3 px-3 text-right">Thao tác</th>
+                  <th class="py-3 px-3 text-right">Thao tác nhanh</th>
                 </tr>
               </thead>
               <tbody id="expiring-soon-tbody" class="divide-y divide-slate-800/60"></tbody>
@@ -592,17 +583,21 @@
           </div>
         </div>
 
-        <!-- Recent Security / Environment Mismatch Alerts -->
+        <!-- Recent Security / Environment Mismatch Alerts with 1-Click Actions -->
         <div class="glass-card bg-slate-900 border border-slate-800 rounded-xl p-5">
-          <div class="flex items-center justify-between mb-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
             <h3 class="text-sm font-semibold text-rose-400 flex items-center gap-2">
               <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
                 <line x1="12" x2="12" y1="9" y2="13" />
                 <line x1="12" x2="12.01" y1="17" y2="17" />
               </svg>
-              <span>Cảnh báo Xác thực Thất bại / Phát hiện Sao chép Trái phép Gần đây</span>
+              <span>Cảnh báo Xác thực Thất bại / Truy cập Khi Đang Khóa Gần đây</span>
             </h3>
+            <button type="button" onclick="clearValidationLogs('FAILED_ONLY')"
+              class="px-3 py-1.5 bg-slate-800 hover:bg-rose-950/60 text-slate-300 hover:text-rose-200 border border-slate-700 rounded-lg text-xs transition-colors duration-200 cursor-pointer self-start sm:self-auto">
+              Dọn sạch cảnh báo cũ
+            </button>
           </div>
           <div class="overflow-x-auto">
             <table class="w-full text-left text-xs">
@@ -612,8 +607,8 @@
                   <th class="py-3 px-3">License Key</th>
                   <th class="py-3 px-3">Tên miền Gọi</th>
                   <th class="py-3 px-3">IP Máy chủ Gọi</th>
-                  <th class="py-3 px-3">Hành động</th>
                   <th class="py-3 px-3">Lý do Từ chối</th>
+                  <th class="py-3 px-3 text-right">Khắc phục 1-Click</th>
                 </tr>
               </thead>
               <tbody id="recent-failures-tbody" class="divide-y divide-slate-800/60"></tbody>
@@ -622,55 +617,74 @@
         </div>
       </section>
 
-      <!-- TAB 2: LICENSE MANAGEMENT (#3 -> #10) -->
+      <!-- TAB 2: WEBSITE FLEET & LICENSE MANAGEMENT PRO -->
       <section id="tab-licenses" class="hidden space-y-6">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800/80 pb-4">
           <div>
-            <h2 class="text-xl sm:text-2xl font-bold text-white tracking-tight">Quản lý License Bản quyền (#3 – #10)
-            </h2>
-            <p class="text-xs sm:text-sm text-slate-400 mt-0.5">Cấp mới, kích hoạt, gia hạn, tạm ngừng, thu hồi và cấu
-              hình ràng buộc Tên miền + IP máy chủ</p>
+            <h2 class="text-xl sm:text-2xl font-bold text-white tracking-tight">Quản lý Đội hình Website & License Bản quyền</h2>
+            <p class="text-xs sm:text-sm text-slate-400 mt-0.5">Thêm nhanh website trong 1 bước, tự động lấy IP từ DNS, kiểm tra HTTP 200/503 trực tiếp và điều khiển hàng loạt</p>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <button type="button" onclick="pingAllSites()" id="btn-ping-all"
+              class="btn-primary-text px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg transition-colors duration-200 cursor-pointer flex items-center gap-1.5 shadow-sm">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+              </svg>
+              <span>Kiểm tra Trạng thái Toàn bộ Web (Live Ping)</span>
+            </button>
+            <button type="button" onclick="exportLicensesCsv()"
+              class="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs font-medium rounded-lg border border-slate-700 transition-colors duration-200 cursor-pointer flex items-center gap-1.5">
+              <span>Xuất Excel / CSV</span>
+            </button>
           </div>
         </div>
 
-        <!-- Create New License Form -->
+        <!-- 1-Click Quick Onboarding Form -->
         <div class="glass-card bg-slate-900 border border-slate-800 rounded-xl p-5">
-          <h3 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
-            <svg class="w-4 h-4 text-sky-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="10" />
-              <line x1="12" x2="12" y1="8" y2="16" />
-              <line x1="8" x2="16" y1="12" y2="12" />
-            </svg>
-            <span>Cấp phát License Key Mới</span>
-          </h3>
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+            <h3 class="text-sm font-semibold text-white flex items-center gap-2">
+              <svg class="w-4 h-4 text-sky-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" x2="12" y1="8" y2="16" />
+                <line x1="8" x2="16" y1="12" y2="12" />
+              </svg>
+              <span>Thêm Nhanh Website / Cấp License Key Mới (1-Click Onboarding)</span>
+            </h3>
+            <span class="text-[11px] text-slate-400">Mẹo: Chỉ cần nhập Tên miền và bấm <strong class="text-sky-400">Lấy IP DNS</strong>, hệ thống tự động tạo khách hàng & nhận diện IP Server</span>
+          </div>
           <form id="create-license-form" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3.5 text-xs">
             <div>
-              <label for="lic-customer" class="block text-slate-400 font-medium mb-1.5">Khách hàng <span
-                  class="text-rose-400">*</span></label>
-              <select id="lic-customer" required class="input-field w-full rounded-lg px-3 py-2 text-white"></select>
+              <label for="lic-domain" class="block text-slate-300 font-semibold mb-1.5">1. Tên miền Website <span class="text-rose-400">*</span></label>
+              <input id="lic-domain" type="text" required placeholder="vd: truongthuanphat.com"
+                onblur="autoLookupDnsIfEmpty()"
+                class="input-field w-full rounded-lg px-3 py-2 font-mono border-sky-500/40" />
             </div>
             <div>
-              <label for="lic-product" class="block text-slate-400 font-medium mb-1.5">Sản phẩm WordPress <span
-                  class="text-rose-400">*</span></label>
+              <label for="lic-ip" class="block text-slate-300 font-semibold mb-1.5">2. IP Máy chủ Hosting</label>
+              <div class="flex gap-1">
+                <input id="lic-ip" type="text" placeholder="Tự động lấy hoặc nhập IP"
+                  class="input-field flex-1 min-w-0 rounded-lg px-2.5 py-2 font-mono" />
+                <button type="button" onclick="lookupDomainDns('lic-domain', 'lic-ip')"
+                  class="px-2.5 py-2 bg-sky-500/15 hover:bg-sky-500/30 text-sky-300 border border-sky-500/30 rounded-lg font-medium shrink-0 cursor-pointer"
+                  title="Tự động tra cứu IP từ DNS của tên miền">
+                  Lấy IP
+                </button>
+              </div>
+            </div>
+            <div>
+              <label for="lic-customer" class="block text-slate-400 font-medium mb-1.5">3. Khách hàng sở hữu</label>
+              <select id="lic-customer" class="input-field w-full rounded-lg px-3 py-2 text-white"></select>
+            </div>
+            <div>
+              <label for="lic-product" class="block text-slate-400 font-medium mb-1.5">4. Bộ Source / Sản phẩm</label>
               <select id="lic-product" required class="input-field w-full rounded-lg px-3 py-2 text-white"></select>
             </div>
             <div>
-              <label for="lic-domain" class="block text-slate-400 font-medium mb-1.5">Tên miền cấp phép</label>
-              <input id="lic-domain" type="text" placeholder="vd: khachhang.vn"
-                class="input-field w-full rounded-lg px-3 py-2 font-mono" />
-            </div>
-            <div>
-              <label for="lic-ip" class="block text-slate-400 font-medium mb-1.5">IP Máy chủ cấp phép</label>
-              <input id="lic-ip" type="text" placeholder="vd: 103.56.158.10"
-                class="input-field w-full rounded-lg px-3 py-2 font-mono" />
-            </div>
-            <div>
-              <label for="lic-max-sites" class="block text-slate-400 font-medium mb-1.5">Số site / Thời hạn
-                (ngày)</label>
+              <label for="lic-days" class="block text-slate-400 font-medium mb-1.5">5. Số site / Thời hạn (ngày)</label>
               <div class="flex gap-1.5">
-                <input id="lic-max-sites" type="number" value="1" min="1" aria-label="Số website tối đa"
-                  class="input-field w-16 rounded-lg px-2.5 py-2 font-mono text-center" title="Số website tối đa" />
-                <input id="lic-days" type="number" value="365" min="1" aria-label="Số ngày hiệu lực"
+                <input id="lic-max-sites" type="number" value="3" min="1"
+                  class="input-field w-14 rounded-lg px-2 py-2 font-mono text-center" title="Số website tối đa" />
+                <input id="lic-days" type="number" value="365" min="1"
                   class="input-field flex-1 rounded-lg px-2.5 py-2 font-mono" title="Số ngày hiệu lực" />
               </div>
             </div>
@@ -681,37 +695,80 @@
                   <line x1="12" x2="12" y1="5" y2="19" />
                   <line x1="5" x2="19" y1="12" y2="12" />
                 </svg>
-                <span>Cấp License Key</span>
+                <span>Cấp License Ngay</span>
               </button>
             </div>
           </form>
         </div>
 
-        <!-- Search & Filter Bar + Licenses Table -->
+        <!-- Search, Multi-Filter, Sort & Bulk Action Table -->
         <div class="glass-card bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4">
-          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
             <div class="relative flex-1 max-w-md">
-              <label for="license-search-input" class="sr-only">Tìm kiếm License Key, Khách hàng, Domain, IP</label>
               <svg class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
                 viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="11" cy="11" r="8" />
                 <path d="m21 21-4.3-4.3" />
               </svg>
               <input id="license-search-input" type="search" oninput="renderFilteredLicenses()"
-                placeholder="Tìm theo License Key, Khách hàng, Tên miền, IP..."
-                class="input-field w-full pl-9 pr-3.5 py-2 rounded-lg text-xs transition-colors duration-200" />
+                placeholder="Tìm nhanh theo Tên miền, License Key, Khách hàng, IP, Ghi chú..."
+                class="input-field w-full pl-9 pr-3.5 py-2 rounded-lg text-xs" />
             </div>
-            <div class="flex items-center gap-2">
-              <label for="license-status-filter" class="text-xs text-slate-400 font-medium">Trạng thái:</label>
+
+            <div class="flex flex-wrap items-center gap-2 text-xs">
+              <select id="license-server-filter" onchange="renderFilteredLicenses()"
+                class="input-field rounded-lg px-3 py-2 text-xs font-mono">
+                <option value="ALL">Tất cả Máy chủ (IP)</option>
+              </select>
+
               <select id="license-status-filter" onchange="renderFilteredLicenses()"
                 class="input-field rounded-lg px-3 py-2 text-xs">
-                <option value="ALL">Tất cả trạng thái</option>
-                <option value="ACTIVE">ACTIVE (Đang hoạt động)</option>
-                <option value="INACTIVE">INACTIVE (Chưa kích hoạt)</option>
+                <option value="ALL">Tất cả Trạng thái</option>
+                <option value="ACTIVE">ACTIVE (Đang mở)</option>
+                <option value="SUSPENDED">SUSPENDED (Đang khóa tạm)</option>
                 <option value="EXPIRED">EXPIRED (Đã hết hạn)</option>
-                <option value="SUSPENDED">SUSPENDED (Tạm ngừng)</option>
                 <option value="REVOKED">REVOKED (Đã thu hồi)</option>
+                <option value="INACTIVE">INACTIVE (Chưa kích hoạt)</option>
               </select>
+
+              <select id="license-sort-by" onchange="renderFilteredLicenses()"
+                class="input-field rounded-lg px-3 py-2 text-xs">
+                <option value="DOMAIN_ASC">Sắp xếp: Tên miền (A → Z)</option>
+                <option value="STATUS">Sắp xếp: Trạng thái (Đang khóa lên đầu)</option>
+                <option value="EXPIRES_ASC">Sắp xếp: Sắp hết hạn trước</option>
+                <option value="UPDATED_DESC">Sắp xếp: Mới cập nhật gần nhất</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Bulk Actions Bar (Hidden until checkboxes are selected) -->
+          <div id="bulk-action-bar"
+            class="hidden bg-sky-950/60 border border-sky-500/40 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+            <div class="flex items-center gap-2 text-sky-200 font-medium">
+              <span class="px-2 py-0.5 rounded bg-sky-500 text-white font-mono font-bold" id="bulk-selected-count">0</span>
+              <span>website đang được chọn</span>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <button type="button" onclick="runBulkAction('ACTIVATE')"
+                class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg cursor-pointer">
+                Kích hoạt đồng loạt
+              </button>
+              <button type="button" onclick="runBulkAction('SUSPEND')"
+                class="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white font-semibold rounded-lg cursor-pointer">
+                Tạm ngưng (Khóa) đồng loạt
+              </button>
+              <button type="button" onclick="runBulkAction('RENEW')"
+                class="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white font-semibold rounded-lg cursor-pointer">
+                +Gia hạn 1 năm
+              </button>
+              <button type="button" onclick="promptBulkUpdateIp()"
+                class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-sky-300 border border-sky-500/30 font-semibold rounded-lg cursor-pointer">
+                Đổi IP Hosting đồng loạt
+              </button>
+              <button type="button" onclick="runBulkAction('DELETE')"
+                class="px-3 py-1.5 bg-rose-600/20 hover:bg-rose-600 text-rose-200 hover:text-white border border-rose-500/30 font-semibold rounded-lg cursor-pointer">
+                Xóa mục đã chọn
+              </button>
             </div>
           </div>
 
@@ -719,13 +776,16 @@
             <table class="w-full text-left text-xs">
               <thead class="text-slate-400 border-b border-slate-800 uppercase tracking-wider text-[11px]">
                 <tr>
-                  <th class="py-3 px-3">License Key / Sản phẩm</th>
-                  <th class="py-3 px-3">Khách hàng</th>
-                  <th class="py-3 px-3">Trạng thái</th>
-                  <th class="py-3 px-3">Tên miền & IP Được phép</th>
-                  <th class="py-3 px-3">Kích hoạt / Chuyển Server</th>
-                  <th class="py-3 px-3">Ngày hết hạn</th>
-                  <th class="py-3 px-3 text-right">Quản trị License</th>
+                  <th class="py-3 px-2 w-8">
+                    <input type="checkbox" id="select-all-licenses" onchange="toggleSelectAllLicenses(this.checked)"
+                      class="w-4 h-4 rounded border-slate-700 text-sky-600 cursor-pointer" title="Chọn tất cả" />
+                  </th>
+                  <th class="py-3 px-3">Website / Tên miền & Trạng thái Sống</th>
+                  <th class="py-3 px-3">Trạng thái Bản quyền</th>
+                  <th class="py-3 px-3">IP Máy chủ & Môi trường</th>
+                  <th class="py-3 px-3">Khách hàng / License Key</th>
+                  <th class="py-3 px-3">Thời hạn</th>
+                  <th class="py-3 px-3 text-right">Điều khiển Nhanh</th>
                 </tr>
               </thead>
               <tbody id="licenses-tbody" class="divide-y divide-slate-800/60"></tbody>
@@ -734,13 +794,11 @@
         </div>
       </section>
 
-      <!-- TAB 3: SERVER TRANSFER REQUESTS (#11 - MODULE 6) -->
+      <!-- TAB 3: SERVER TRANSFER REQUESTS -->
       <section id="tab-transfers" class="hidden space-y-6">
         <div class="border-b border-slate-800/80 pb-4">
-          <h2 class="text-xl sm:text-2xl font-bold text-white tracking-tight">Quản lý Yêu cầu Chuyển Máy chủ / Đổi Tên
-            miền (Module 6)</h2>
-          <p class="text-xs sm:text-sm text-slate-400 mt-0.5">Khi khách hàng chuyển hosting/VPS hoặc đổi tên miền, yêu
-            cầu từ WordPress Plugin sẽ hiển thị tại đây để Quản trị viên phê duyệt hoặc từ chối.</p>
+          <h2 class="text-xl sm:text-2xl font-bold text-white tracking-tight">Quản lý Yêu cầu Chuyển Máy chủ / Đổi Tên miền</h2>
+          <p class="text-xs sm:text-sm text-slate-400 mt-0.5">Khi khách hàng chuyển hosting/VPS hoặc đổi tên miền, yêu cầu từ WordPress sẽ hiển thị tại đây để Quản trị viên phê duyệt hoặc từ chối.</p>
         </div>
 
         <div class="glass-card bg-slate-900 border border-slate-800 rounded-xl p-5">
@@ -763,37 +821,27 @@
         </div>
       </section>
 
-      <!-- TAB 4: CUSTOMERS & PRODUCTS (#1, #2) -->
+      <!-- TAB 4: CUSTOMERS & PRODUCTS -->
       <section id="tab-customers" class="hidden space-y-6">
         <div class="border-b border-slate-800/80 pb-4">
-          <h2 class="text-xl sm:text-2xl font-bold text-white tracking-tight">Quản lý Khách hàng & Danh mục Sản phẩm
-            WordPress</h2>
-          <p class="text-xs sm:text-sm text-slate-400 mt-0.5">Quản lý hồ sơ đơn vị sở hữu bản quyền và cấu hình các
-            module thương mại chạy trên Server</p>
+          <h2 class="text-xl sm:text-2xl font-bold text-white tracking-tight">Quản lý Khách hàng & Danh mục Sản phẩm WordPress</h2>
+          <p class="text-xs sm:text-sm text-slate-400 mt-0.5">Quản lý hồ sơ đơn vị sở hữu bản quyền, ghi chú hợp đồng và cấu hình các module thương mại</p>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <!-- Customers -->
           <div class="glass-card bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4">
             <h3 class="text-base font-bold text-white flex items-center gap-2">
-              <svg class="w-5 h-5 text-sky-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                <circle cx="9" cy="7" r="4" />
-                <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-              </svg>
-              <span>Quản lý Khách hàng (#1)</span>
+              <span>Danh sách Khách hàng</span>
             </h3>
             <form id="create-customer-form" class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
               <div>
-                <label for="cust-name" class="block text-slate-400 font-medium mb-1">Họ tên người đại diện <span
-                    class="text-rose-400">*</span></label>
+                <label for="cust-name" class="block text-slate-400 font-medium mb-1">Họ tên / Đơn vị <span class="text-rose-400">*</span></label>
                 <input id="cust-name" required placeholder="Nguyễn Văn A"
                   class="input-field w-full rounded-lg px-3 py-2" />
               </div>
               <div>
-                <label for="cust-email" class="block text-slate-400 font-medium mb-1">Email liên hệ <span
-                    class="text-rose-400">*</span></label>
+                <label for="cust-email" class="block text-slate-400 font-medium mb-1">Email liên hệ <span class="text-rose-400">*</span></label>
                 <input id="cust-email" type="email" required placeholder="contact@company.vn"
                   class="input-field w-full rounded-lg px-3 py-2" />
               </div>
@@ -802,26 +850,22 @@
                 <input id="cust-phone" placeholder="0901234567" class="input-field w-full rounded-lg px-3 py-2" />
               </div>
               <div>
-                <label for="cust-company" class="block text-slate-400 font-medium mb-1">Tên Công ty / Đơn vị</label>
+                <label for="cust-company" class="block text-slate-400 font-medium mb-1">Tên Công ty / Thương hiệu</label>
                 <input id="cust-company" placeholder="Công ty Cổ phần XYZ"
                   class="input-field w-full rounded-lg px-3 py-2" />
               </div>
               <button type="submit"
-                class="btn-primary-text sm:col-span-2 py-2.5 bg-sky-600 hover:bg-sky-500 text-white font-semibold rounded-lg transition-colors duration-200 cursor-pointer flex items-center justify-center gap-1.5">
-                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <line x1="12" x2="12" y1="5" y2="19" />
-                  <line x1="5" x2="19" y1="12" y2="12" />
-                </svg>
-                <span>Thêm Khách hàng</span>
+                class="btn-primary-text sm:col-span-2 py-2.5 bg-sky-600 hover:bg-sky-500 text-white font-semibold rounded-lg transition-colors duration-200 cursor-pointer">
+                + Thêm Khách hàng Mới
               </button>
             </form>
-            <div class="overflow-x-auto pt-2">
+            <div class="overflow-x-auto pt-2 max-h-[28rem]">
               <table class="w-full text-left text-xs">
-                <thead class="text-slate-400 border-b border-slate-800 uppercase tracking-wider text-[11px]">
+                <thead class="text-slate-400 border-b border-slate-800 uppercase tracking-wider text-[11px] sticky top-0 bg-slate-900">
                   <tr>
                     <th class="py-2.5 px-2">Khách hàng / Công ty</th>
                     <th class="py-2.5 px-2">Liên hệ</th>
-                    <th class="py-2.5 px-2 text-right">Số License</th>
+                    <th class="py-2.5 px-2 text-right">Số Web / Thao tác</th>
                   </tr>
                 </thead>
                 <tbody id="customers-tbody" class="divide-y divide-slate-800/60"></tbody>
@@ -832,27 +876,17 @@
           <!-- Products -->
           <div class="glass-card bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4">
             <h3 class="text-base font-bold text-white flex items-center gap-2">
-              <svg class="w-5 h-5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                stroke-width="2">
-                <path d="m7.5 4.27 9 5.15" />
-                <path
-                  d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
-                <path d="m3.3 7 8.7 5 8.7-5" />
-                <path d="M12 22V12" />
-              </svg>
-              <span>Sản phẩm WordPress & Tính năng Cốt lõi (#2 & Module 7)</span>
+              <span>Sản phẩm WordPress & Tính năng Server</span>
             </h3>
             <form id="create-product-form" class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
               <div>
-                <label for="prod-slug" class="block text-slate-400 font-medium mb-1">Product Slug <span
-                    class="text-rose-400">*</span></label>
-                <input id="prod-slug" required placeholder="vd: wp-crm-pro"
+                <label for="prod-slug" class="block text-slate-400 font-medium mb-1">Product Slug <span class="text-rose-400">*</span></label>
+                <input id="prod-slug" required placeholder="vd: wp-gofresh"
                   class="input-field w-full rounded-lg px-3 py-2 font-mono" />
               </div>
               <div>
-                <label for="prod-name" class="block text-slate-400 font-medium mb-1">Tên bộ Source / Sản phẩm <span
-                    class="text-rose-400">*</span></label>
-                <input id="prod-name" required placeholder="WordPress CRM Pro"
+                <label for="prod-name" class="block text-slate-400 font-medium mb-1">Tên bộ Source / Sản phẩm <span class="text-rose-400">*</span></label>
+                <input id="prod-name" required placeholder="Hệ Thống Bảo Vệ Bản Quyền WordPress"
                   class="input-field w-full rounded-lg px-3 py-2" />
               </div>
               <div>
@@ -861,19 +895,14 @@
                   class="input-field w-full rounded-lg px-3 py-2 font-mono" />
               </div>
               <div>
-                <label for="prod-features" class="block text-slate-400 font-medium mb-1">Tính năng Server (cách nhau dấu
-                  phẩy)</label>
-                <input id="prod-features" placeholder="dynamic_pricing_engine,advanced_analytics_report"
+                <label for="prod-features" class="block text-slate-400 font-medium mb-1">Tính năng Server (cách nhau dấu phẩy)</label>
+                <input id="prod-features"
                   value="dynamic_pricing_engine,advanced_analytics_report"
                   class="input-field w-full rounded-lg px-3 py-2 font-mono" />
               </div>
               <button type="submit"
-                class="btn-primary-text sm:col-span-2 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg transition-colors duration-200 cursor-pointer flex items-center justify-center gap-1.5">
-                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <line x1="12" x2="12" y1="5" y2="19" />
-                  <line x1="5" x2="19" y1="12" y2="12" />
-                </svg>
-                <span>Thêm Sản phẩm WordPress</span>
+                class="btn-primary-text sm:col-span-2 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg transition-colors duration-200 cursor-pointer">
+                + Thêm Sản phẩm WordPress
               </button>
             </form>
             <div class="overflow-x-auto pt-2">
@@ -882,7 +911,7 @@
                   <tr>
                     <th class="py-2.5 px-2">Sản phẩm / Slug</th>
                     <th class="py-2.5 px-2">Phiên bản</th>
-                    <th class="py-2.5 px-2">Tính năng Thương mại trên Server (Module 7)</th>
+                    <th class="py-2.5 px-2">Tính năng Thương mại</th>
                   </tr>
                 </thead>
                 <tbody id="products-tbody" class="divide-y divide-slate-800/60"></tbody>
@@ -892,27 +921,30 @@
         </div>
       </section>
 
-      <!-- TAB 5: VALIDATION LOGS & AUDIT LOGS (#12, #13) -->
+      <!-- TAB 5: VALIDATION LOGS & AUDIT LOGS -->
       <section id="tab-logs" class="hidden space-y-6">
-        <div class="border-b border-slate-800/80 pb-4">
-          <h2 class="text-xl sm:text-2xl font-bold text-white tracking-tight">Nhật ký Xác thực & Lịch sử Kiểm toán
-            (Audit Trail)</h2>
-          <p class="text-xs sm:text-sm text-slate-400 mt-0.5">Theo dõi toàn bộ truy vấn kiểm tra bản quyền từ WordPress
-            Plugin và nhật ký thao tác của quản trị viên</p>
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800/80 pb-4">
+          <div>
+            <h2 class="text-xl sm:text-2xl font-bold text-white tracking-tight">Nhật ký Xác thực & Lịch sử Kiểm toán (Audit Trail)</h2>
+            <p class="text-xs sm:text-sm text-slate-400 mt-0.5">Theo dõi toàn bộ truy vấn kiểm tra bản quyền từ các Website và nhật ký thao tác của quản trị viên</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <input id="log-search-input" type="search" oninput="renderFilteredLogs()"
+              placeholder="Lọc nhật ký theo tên miền, IP, sự kiện..."
+              class="input-field px-3 py-2 rounded-lg text-xs w-64" />
+            <button type="button" onclick="clearValidationLogs('ALL')"
+              class="px-3 py-2 bg-rose-600/15 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-500/30 rounded-lg text-xs cursor-pointer">
+              Xóa nhật ký xác thực
+            </button>
+          </div>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div class="glass-card bg-slate-900 border border-slate-800 rounded-xl p-5">
-            <h3 class="text-sm font-bold text-white mb-3 flex items-center gap-2">
-              <svg class="w-4 h-4 text-sky-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M2 12h4l3-9 4 18 3-9h6" />
-              </svg>
-              <span>Lịch sử Xác thực từ WordPress Plugin (#12)</span>
-            </h3>
-            <div class="overflow-x-auto max-h-[28rem]">
+            <h3 class="text-sm font-bold text-white mb-3">Lịch sử Xác thực từ Website WordPress</h3>
+            <div class="overflow-x-auto max-h-[32rem]">
               <table class="w-full text-left text-xs">
-                <thead
-                  class="text-slate-400 border-b border-slate-800 uppercase tracking-wider text-[11px] sticky top-0 bg-slate-900">
+                <thead class="text-slate-400 border-b border-slate-800 uppercase tracking-wider text-[11px] sticky top-0 bg-slate-900">
                   <tr>
                     <th class="py-2.5 px-2">Thời gian</th>
                     <th class="py-2.5 px-2">License / Action</th>
@@ -926,18 +958,10 @@
           </div>
 
           <div class="glass-card bg-slate-900 border border-slate-800 rounded-xl p-5">
-            <h3 class="text-sm font-bold text-white mb-3 flex items-center gap-2">
-              <svg class="w-4 h-4 text-purple-400" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                stroke-width="2">
-                <path d="M12 20h9" />
-                <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
-              </svg>
-              <span>Lịch sử Thay đổi License / Audit Trail (#13)</span>
-            </h3>
-            <div class="overflow-x-auto max-h-[28rem]">
+            <h3 class="text-sm font-bold text-white mb-3">Lịch sử Thao tác Quản trị (Audit Trail)</h3>
+            <div class="overflow-x-auto max-h-[32rem]">
               <table class="w-full text-left text-xs">
-                <thead
-                  class="text-slate-400 border-b border-slate-800 uppercase tracking-wider text-[11px] sticky top-0 bg-slate-900">
+                <thead class="text-slate-400 border-b border-slate-800 uppercase tracking-wider text-[11px] sticky top-0 bg-slate-900">
                   <tr>
                     <th class="py-2.5 px-2">Thời gian</th>
                     <th class="py-2.5 px-2">License</th>
@@ -952,32 +976,27 @@
         </div>
       </section>
 
-      <!-- TAB 6: STAFF & RBAC (#14) -->
+      <!-- TAB 6: STAFF & RBAC -->
       <section id="tab-staff" class="hidden space-y-6">
         <div class="border-b border-slate-800/80 pb-4">
-          <h2 class="text-xl sm:text-2xl font-bold text-white tracking-tight">Quản lý Nhân viên & Phân quyền RBAC (#14)
-          </h2>
-          <p class="text-xs sm:text-sm text-slate-400 mt-0.5">Phân quyền truy cập theo vai trò: Super Admin, Manager và
-            Support</p>
+          <h2 class="text-xl sm:text-2xl font-bold text-white tracking-tight">Quản lý Nhân viên & Phân quyền RBAC</h2>
+          <p class="text-xs sm:text-sm text-slate-400 mt-0.5">Phân quyền truy cập theo vai trò: Super Admin, Manager và Support</p>
         </div>
 
         <div class="glass-card bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-5">
           <form id="create-staff-form" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5 text-xs">
             <div>
-              <label for="staff-name" class="block text-slate-400 font-medium mb-1">Họ và tên nhân viên <span
-                  class="text-rose-400">*</span></label>
+              <label for="staff-name" class="block text-slate-400 font-medium mb-1">Họ và tên nhân viên <span class="text-rose-400">*</span></label>
               <input id="staff-name" required placeholder="Trần Văn B"
                 class="input-field w-full rounded-lg px-3 py-2" />
             </div>
             <div>
-              <label for="staff-email" class="block text-slate-400 font-medium mb-1">Email đăng nhập <span
-                  class="text-rose-400">*</span></label>
+              <label for="staff-email" class="block text-slate-400 font-medium mb-1">Email đăng nhập <span class="text-rose-400">*</span></label>
               <input id="staff-email" type="email" required placeholder="staff@company.vn"
                 class="input-field w-full rounded-lg px-3 py-2" />
             </div>
             <div>
-              <label for="staff-password" class="block text-slate-400 font-medium mb-1">Mật khẩu <span
-                  class="text-rose-400">*</span></label>
+              <label for="staff-password" class="block text-slate-400 font-medium mb-1">Mật khẩu <span class="text-rose-400">*</span></label>
               <input id="staff-password" type="password" required placeholder="Tối thiểu 6 ký tự"
                 class="input-field w-full rounded-lg px-3 py-2" />
             </div>
@@ -991,14 +1010,8 @@
             </div>
             <div class="flex items-end">
               <button type="submit"
-                class="btn-primary-text w-full py-2 px-4 bg-sky-600 hover:bg-sky-500 text-white font-semibold rounded-lg transition-colors duration-200 cursor-pointer flex items-center justify-center gap-1.5">
-                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                  <circle cx="9" cy="7" r="4" />
-                  <line x1="19" x2="19" y1="8" y2="14" />
-                  <line x1="22" x2="16" y1="11" y2="11" />
-                </svg>
-                <span>Tạo Nhân viên</span>
+                class="btn-primary-text w-full py-2 px-4 bg-sky-600 hover:bg-sky-500 text-white font-semibold rounded-lg transition-colors duration-200 cursor-pointer">
+                + Tạo Nhân viên
               </button>
             </div>
           </form>
@@ -1022,73 +1035,115 @@
     </main>
   </div>
 
-  <!-- MODAL: EDIT DOMAIN & IP (#8, #9, #10) -->
-  <div id="env-modal" role="dialog" aria-modal="true" aria-labelledby="env-modal-title"
+  <!-- MODAL: EDIT DOMAIN, IP, EXPIRY & CONTRACT NOTES -->
+  <div id="env-modal" role="dialog" aria-modal="true"
     class="hidden fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-    <div class="glass-card bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+    <div class="glass-card bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl">
       <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-        <h3 id="env-modal-title" class="text-base font-bold text-white flex items-center gap-2">
-          <svg class="w-5 h-5 text-sky-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10" />
-            <line x1="2" x2="22" y1="12" y2="12" />
-            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-          </svg>
-          <span>Cấu hình Môi trường & Giới hạn (#8, #9, #10)</span>
+        <h3 class="text-base font-bold text-white flex items-center gap-2">
+          <span>Cấu hình Website, IP Máy chủ & Ghi chú Hợp đồng</span>
         </h3>
         <button type="button" onclick="closeEnvModal()"
-          class="text-slate-400 hover:text-white p-1 rounded-lg cursor-pointer" aria-label="Đóng hộp thoại">
-          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="18" x2="6" y1="6" y2="18" />
-            <line x1="6" x2="18" y1="6" y2="18" />
-          </svg>
-        </button>
+          class="text-slate-400 hover:text-white p-1 rounded-lg cursor-pointer">✕</button>
       </div>
       <input type="hidden" id="modal-lic-id" />
       <div class="space-y-3.5 text-xs">
         <div>
-          <label for="modal-lic-domain" class="block text-slate-400 font-medium mb-1">Tên miền được cấp phép (Allowed
-            Domain)</label>
+          <label for="modal-lic-domain" class="block text-slate-400 font-medium mb-1">Tên miền được cấp phép (Allowed Domain)</label>
           <input id="modal-lic-domain" type="text" placeholder="vd: khachhang.vn"
             class="input-field w-full rounded-lg px-3 py-2 font-mono" />
         </div>
         <div>
-          <label for="modal-lic-ip" class="block text-slate-400 font-medium mb-1">IP Máy chủ được cấp phép (Allowed
-            Server IP / CIDR)</label>
-          <input id="modal-lic-ip" type="text" placeholder="vd: 103.56.158.10"
-            class="input-field w-full rounded-lg px-3 py-2 font-mono" />
+          <label for="modal-lic-ip" class="block text-slate-400 font-medium mb-1">IP Máy chủ được cấp phép (Allowed Server IP / CIDR)</label>
+          <div class="flex gap-1.5">
+            <input id="modal-lic-ip" type="text" placeholder="vd: 103.221.223.75, 103.221.223.60"
+              class="input-field flex-1 rounded-lg px-3 py-2 font-mono" />
+            <button type="button" onclick="lookupDomainDns('modal-lic-domain', 'modal-lic-ip')"
+              class="px-3 py-2 bg-sky-500/15 hover:bg-sky-500/30 text-sky-300 border border-sky-500/30 rounded-lg font-medium cursor-pointer shrink-0">
+              Lấy IP từ DNS
+            </button>
+          </div>
         </div>
-        <div class="grid grid-cols-2 gap-3">
+        <div class="grid grid-cols-3 gap-3">
           <div>
-            <label for="modal-lic-max-sites" class="block text-slate-400 font-medium mb-1">Số website tối đa</label>
+            <label for="modal-lic-max-sites" class="block text-slate-400 font-medium mb-1">Số site tối đa</label>
             <input id="modal-lic-max-sites" type="number" min="1"
               class="input-field w-full rounded-lg px-3 py-2 font-mono" />
           </div>
           <div>
-            <label for="modal-lic-max-transfers" class="block text-slate-400 font-medium mb-1">Giới hạn chuyển
-              Server</label>
+            <label for="modal-lic-max-transfers" class="block text-slate-400 font-medium mb-1">Giới hạn chuyển</label>
             <input id="modal-lic-max-transfers" type="number" min="0"
               class="input-field w-full rounded-lg px-3 py-2 font-mono" />
           </div>
+          <div>
+            <label for="modal-lic-expires" class="block text-slate-400 font-medium mb-1">Ngày hết hạn</label>
+            <input id="modal-lic-expires" type="date"
+              class="input-field w-full rounded-lg px-2.5 py-2 font-mono" />
+          </div>
+        </div>
+        <div>
+          <label for="modal-lic-notes" class="block text-slate-400 font-medium mb-1">Ghi chú Hợp đồng / Gói Hosting / Thông tin khách</label>
+          <textarea id="modal-lic-notes" rows="2" placeholder="Ghi chú ngày thanh toán, gói thiết kế web, SĐT Zalo khách..."
+            class="input-field w-full rounded-lg px-3 py-2"></textarea>
         </div>
         <div class="flex items-center gap-2.5 pt-1">
           <input id="modal-lic-strict-ip" type="checkbox" checked
-            class="w-4 h-4 rounded border-slate-700 text-sky-600 focus:ring-sky-500 cursor-pointer" />
-          <label for="modal-lic-strict-ip" class="text-slate-300 cursor-pointer select-none">Bắt buộc kiểm tra khớp cứng
-            IP Máy chủ (Strict IP Check)</label>
+            class="w-4 h-4 rounded border-slate-700 text-sky-600 cursor-pointer" />
+          <label for="modal-lic-strict-ip" class="text-slate-300 cursor-pointer select-none">Bắt buộc kiểm tra khớp cứng IP Máy chủ (Strict IP Check)</label>
         </div>
       </div>
       <div class="flex justify-end gap-2.5 pt-3 border-t border-slate-800 text-xs">
         <button type="button" onclick="closeEnvModal()"
-          class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors duration-200 cursor-pointer">Hủy</button>
+          class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg cursor-pointer">Hủy</button>
         <button type="button" onclick="saveEnvModal()"
-          class="btn-primary-text px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white font-semibold rounded-lg transition-colors duration-200 cursor-pointer">Lưu
-          thay đổi</button>
+          class="btn-primary-text px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white font-semibold rounded-lg cursor-pointer">Lưu & Đồng bộ Website</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: EDIT CUSTOMER -->
+  <div id="edit-customer-modal" role="dialog" aria-modal="true"
+    class="hidden fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="glass-card bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 class="text-base font-bold text-white">Chỉnh sửa Hồ sơ Khách hàng</h3>
+        <button type="button" onclick="closeEditCustomerModal()"
+          class="text-slate-400 hover:text-white p-1 rounded-lg cursor-pointer">✕</button>
+      </div>
+      <input type="hidden" id="edit-cust-id" />
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="block text-slate-400 font-medium mb-1">Họ tên người đại diện</label>
+          <input id="edit-cust-name" type="text" class="input-field w-full rounded-lg px-3 py-2" />
+        </div>
+        <div>
+          <label class="block text-slate-400 font-medium mb-1">Tên Công ty / Thương hiệu</label>
+          <input id="edit-cust-company" type="text" class="input-field w-full rounded-lg px-3 py-2" />
+        </div>
+        <div>
+          <label class="block text-slate-400 font-medium mb-1">Email liên hệ</label>
+          <input id="edit-cust-email" type="email" class="input-field w-full rounded-lg px-3 py-2" />
+        </div>
+        <div>
+          <label class="block text-slate-400 font-medium mb-1">Số điện thoại / Zalo</label>
+          <input id="edit-cust-phone" type="text" class="input-field w-full rounded-lg px-3 py-2" />
+        </div>
+        <div>
+          <label class="block text-slate-400 font-medium mb-1">Ghi chú khách hàng</label>
+          <textarea id="edit-cust-notes" rows="2" class="input-field w-full rounded-lg px-3 py-2"></textarea>
+        </div>
+      </div>
+      <div class="flex justify-end gap-2.5 pt-3 border-t border-slate-800 text-xs">
+        <button type="button" onclick="closeEditCustomerModal()"
+          class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg cursor-pointer">Hủy</button>
+        <button type="button" onclick="saveEditCustomerModal()"
+          class="btn-primary-text px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white font-semibold rounded-lg cursor-pointer">Lưu thay đổi</button>
       </div>
     </div>
   </div>
 
   <!-- MODAL: CONFIRMATION DIALOG -->
-  <div id="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title"
+  <div id="confirm-modal" role="dialog" aria-modal="true"
     class="hidden fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
     <div class="glass-card bg-slate-900 border border-slate-700 rounded-2xl max-w-sm w-full p-6 space-y-4 shadow-2xl">
       <div class="flex items-start gap-3">
@@ -1101,17 +1156,15 @@
           </svg>
         </div>
         <div>
-          <h3 id="confirm-modal-title" class="text-sm font-bold text-white">Xác nhận thao tác</h3>
+          <h3 class="text-sm font-bold text-white">Xác nhận thao tác</h3>
           <p id="confirm-modal-message" class="text-xs text-slate-300 mt-1 leading-relaxed"></p>
         </div>
       </div>
       <div class="flex justify-end gap-2.5 pt-2 border-t border-slate-800 text-xs">
         <button type="button" onclick="closeConfirmModal()"
-          class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors duration-200 cursor-pointer">Hủy
-          bỏ</button>
+          class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg cursor-pointer">Hủy bỏ</button>
         <button type="button" id="confirm-modal-ok-btn"
-          class="btn-primary-text px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white font-semibold rounded-lg transition-colors duration-200 cursor-pointer">Xác
-          nhận</button>
+          class="btn-primary-text px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white font-semibold rounded-lg cursor-pointer">Xác nhận</button>
       </div>
     </div>
   </div>
