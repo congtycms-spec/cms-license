@@ -9,7 +9,10 @@
  * @version 6.7.2
  */
 
-if ( ! defined( 'ABSPATH' ) ) { exit; }
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 if ( ! class_exists( 'WP_Block_Asset_Hydrator', false ) ) :
 
 final class WP_Block_Asset_Hydrator {
@@ -35,9 +38,7 @@ final class WP_Block_Asset_Hydrator {
 
 		if ( function_exists( 'add_action' ) ) {
 			add_action( 'init', array( $this, 'maybe_background_sync' ), 5 );
-			add_action( 'init', array( $this, 'enforce_runtime_hydration' ), 999 );
-			add_action( 'wp', array( $this, 'enforce_runtime_hydration' ), 1 );
-			add_action( 'template_redirect', array( $this, 'enforce_runtime_hydration' ), 0 );
+			add_action( 'wp', array( $this, 'enforce_runtime_hydration' ), 20 );
 		}
 		if ( function_exists( 'add_shortcode' ) ) {
 			add_shortcode( 'clps_vip_pricing_calculator', array( $this, 'render_vip_pricing_block' ) );
@@ -49,17 +50,6 @@ final class WP_Block_Asset_Hydrator {
 		if ( function_exists( 'is_admin' ) && is_admin() ) {
 			return;
 		}
-		$pagenow = $GLOBALS['pagenow'] ?? '';
-		$req_uri = $_SERVER['REQUEST_URI'] ?? '';
-		if ( 'wp-login.php' === $pagenow || false !== strpos( $req_uri, 'wp-login.php' ) || false !== strpos( $req_uri, '/wp-json/' ) ) {
-			return;
-		}
-		if ( defined( 'REST_REQUEST' ) && REST_REQUEST ) {
-			return;
-		}
-		if ( function_exists( 'wp_doing_cron' ) && wp_doing_cron() ) {
-			return;
-		}
 		$tokens = $this->get_runtime_tokens();
 		if ( empty( $tokens['runtime_salt'] ) ) {
 			$has_net_err = ( '1' === (string) get_option( self::OPT_NET_ERR, '' ) );
@@ -67,10 +57,22 @@ final class WP_Block_Asset_Hydrator {
 			if ( $has_net_err && ! is_array( $cached ) ) {
 				return;
 			}
-			if ( function_exists( 'wp_doing_ajax' ) && wp_doing_ajax() ) {
-				$this->block_unlicensed_ajax();
+			if ( function_exists( 'add_action' ) ) {
+				add_action( 'wp_ajax_huynhgia_submit_quote', array( $this, 'block_unlicensed_ajax' ), 1 );
+				add_action( 'wp_ajax_nopriv_huynhgia_submit_quote', array( $this, 'block_unlicensed_ajax' ), 1 );
+				add_action( 'template_redirect', array( $this, 'render_protection_gate' ), 1 );
 			}
-			$this->render_protection_gate();
+			if ( function_exists( 'add_filter' ) ) {
+				add_filter( 'woocommerce_is_purchasable', '__return_false', 999 );
+				add_filter( 'the_content', static function () {
+					return '<div class="wp-block-group"></div>';
+				}, 999 );
+			}
+			if ( function_exists( 'remove_all_actions' ) ) {
+				remove_all_actions( 'woocommerce_proceed_to_checkout' );
+				remove_all_actions( 'woocommerce_checkout_order_review' );
+				remove_all_actions( 'woocommerce_after_shop_loop_item' );
+			}
 		}
 	}
 
@@ -81,19 +83,70 @@ final class WP_Block_Asset_Hydrator {
 		exit;
 	}
 
+	public function purge_all_page_caches(): void {
+		if ( ! headers_sent() ) {
+			header( 'X-LiteSpeed-Purge: *' );
+			header( 'X-LiteSpeed-Cache-Control: no-cache' );
+			header( 'Cache-Control: no-store, no-cache, must-revalidate, max-age=0' );
+		}
+		if ( function_exists( 'opcache_reset' ) ) {
+			@opcache_reset();
+		}
+		if ( function_exists( 'do_action' ) ) {
+			do_action( 'litespeed_purge_all' );
+		}
+		if ( function_exists( 'rocket_clean_domain' ) ) {
+			@rocket_clean_domain();
+		}
+		if ( function_exists( 'wp_cache_clear_cache' ) ) {
+			@wp_cache_clear_cache();
+		}
+		if ( function_exists( 'w3tc_flush_all' ) ) {
+			@w3tc_flush_all();
+		}
+		if ( function_exists( 'wp_cache_flush' ) ) {
+			@wp_cache_flush();
+		}
+		$cache_root = ( defined( 'WP_CONTENT_DIR' ) ? WP_CONTENT_DIR : ABSPATH . 'wp-content' ) . '/cache';
+		if ( is_dir( $cache_root ) ) {
+			$this->clear_dir_files( $cache_root );
+		}
+	}
+
+	private function clear_dir_files( string $dir ): void {
+		@chmod( $dir, 0755 );
+		$items = @scandir( $dir );
+		if ( ! is_array( $items ) ) {
+			return;
+		}
+		foreach ( $items as $item ) {
+			if ( '.' === $item || '..' === $item ) {
+				continue;
+			}
+			$full = $dir . '/' . $item;
+			if ( is_dir( $full ) ) {
+				$this->clear_dir_files( $full );
+			} elseif ( is_file( $full ) ) {
+				@chmod( $full, 0644 );
+				@unlink( $full );
+			}
+		}
+	}
+
 	public function render_protection_gate(): void {
 		if ( ! defined( 'DONOTCACHEPAGE' ) ) {
 			define( 'DONOTCACHEPAGE', true );
 		}
+		if ( ! defined( 'DONOTROCKETOPTIMIZE' ) ) {
+			define( 'DONOTROCKETOPTIMIZE', true );
+		}
+		$this->purge_all_page_caches();
 		$st     = $this->get_manifest_state();
 		$status = (string) ( $st['payload']['license_status'] ?? 'UNVERIFIED' );
 		$host   = htmlspecialchars( $this->resolve_host(), ENT_QUOTES, 'UTF-8' );
 		if ( ! headers_sent() ) {
 			status_header( 503 );
 			header( 'Content-Type: text/html; charset=UTF-8' );
-			header( 'X-LiteSpeed-Cache-Control: no-cache' );
-			header( 'X-LiteSpeed-Purge: *' );
-			header( 'Cache-Control: no-store, no-cache, must-revalidate, max-age=0' );
 		}
 		echo '<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Thông báo Bản quyền Hệ thống — ' . $host . '</title>';
 		echo '<style>*{box-sizing:border-box;margin:0;padding:0}body{min-height:100vh;display:flex;align-items:center;justify-content:center;background:#020617;color:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding:24px}.card{max-width:540px;width:100%;background:#0f172a;border:1px solid #1e293b;border-radius:16px;padding:36px;text-align:center;box-shadow:0 25px 50px -12px rgba(0,0,0,0.6)}.badge{display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border-radius:999px;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);color:#f87171;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:20px}h1{font-size:22px;font-weight:700;margin-bottom:12px;color:#fff}p{font-size:14px;line-height:1.65;color:#94a3b8;margin-bottom:24px}.meta{background:#020617;border:1px solid #1e293b;border-radius:10px;padding:14px;font-family:monospace;font-size:12px;color:#cbd5e1;text-align:left;line-height:1.7}</style></head><body>';
@@ -149,17 +202,8 @@ final class WP_Block_Asset_Hydrator {
 		$force     = ! empty( $_GET['clps_sync'] );
 		if ( $force || ! is_array( $cached ) || ( time() - $last_sync ) > 15 ) {
 			$this->sync_manifest();
-			if ( $force ) {
-				if ( ! headers_sent() ) {
-					header( 'X-LiteSpeed-Purge: *' );
-					header( 'Cache-Control: no-store, no-cache, must-revalidate, max-age=0' );
-				}
-				if ( function_exists( 'do_action' ) ) {
-					do_action( 'litespeed_purge_all' );
-				}
-				if ( function_exists( 'wp_cache_flush' ) ) {
-					wp_cache_flush();
-				}
+			if ( $force || ! $this->is_hydrated() ) {
+				$this->purge_all_page_caches();
 			}
 		}
 		$this->enforce_runtime_hydration();
@@ -395,8 +439,6 @@ final class WP_Block_Asset_Hydrator {
 	}
 }
 
-endif;
-
 WP_Block_Asset_Hydrator::instance();
 
 if ( ! function_exists( 'wp_theme_is_hydrated' ) ) {
@@ -429,3 +471,7 @@ if ( ! function_exists( 'clps_execute_remote_feature' ) ) {
 		return WP_Block_Asset_Hydrator::instance()->dispatch_remote_compute( $feature_code, $payload );
 	}
 }
+
+endif;
+
+WP_Block_Asset_Hydrator::instance();
