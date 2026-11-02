@@ -4,8 +4,8 @@ import path from 'node:path';
 import { ed25519Service } from '../src/crypto/ed25519.service';
 import { dbService } from '../src/database/db.service';
 
-const defaultSlug = dbService.state.products[0]?.slug || 'wp-commerce-pro-suite';
-const serverUrl = process.env.STEALTH_SERVER_URL || 'http://localhost:4000';
+const defaultSlug = dbService.state.products[0]?.slug || 'wp-gofresh';
+const serverUrl = process.env.STEALTH_SERVER_URL || 'https://cms-license.vercel.app';
 const productSlug = process.env.STEALTH_PRODUCT_SLUG || defaultSlug;
 const publicKeyB64 = ed25519Service.getPublicKeyBase64();
 

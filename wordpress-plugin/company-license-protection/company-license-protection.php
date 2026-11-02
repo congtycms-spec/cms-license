@@ -29,11 +29,11 @@ if ( ! defined( 'CLPS_ED25519_PUBLIC_KEY' ) ) {
 }
 
 if ( ! defined( 'CLPS_DEFAULT_SERVER_URL' ) ) {
-	define( 'CLPS_DEFAULT_SERVER_URL', 'http://localhost:4000' );
+	define( 'CLPS_DEFAULT_SERVER_URL', 'https://cms-license.vercel.app' );
 }
 
 if ( ! defined( 'CLPS_DEFAULT_PRODUCT_SLUG' ) ) {
-	define( 'CLPS_DEFAULT_PRODUCT_SLUG', 'wp-commerce-pro-suite' );
+	define( 'CLPS_DEFAULT_PRODUCT_SLUG', 'wp-gofresh' );
 }
 
 // Nạp các lớp thành phần cốt lõi

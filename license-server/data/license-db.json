@@ -48,7 +48,7 @@
       "licenseKey": "CLPS-U82N-CBPV-HSGY-RRYZ",
       "customerId": "b7f80d30-50a8-4324-9602-1f14307561dd",
       "productId": "c28670e2-f7f7-469e-baeb-0505da72d5ea",
-      "status": "SUSPENDED",
+      "status": "ACTIVE",
       "allowedDomain": "gofresh.vn",
       "allowedIp": "103.221.223.75",
       "strictIpCheck": true,
