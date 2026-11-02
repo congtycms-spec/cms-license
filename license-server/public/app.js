@@ -5,11 +5,14 @@ let cachedCustomers = [];
 let cachedProducts = [];
 let cachedValidationLogs = [];
 let cachedAuditLogs = [];
+let cachedMonitoredSites = [];
 let selectedLicenseIds = new Set();
-let livePingResults = {}; // domain -> { httpStatus, latencyMs, isLockedScreen, reachable, checking }
+let livePingResults = {}; // domain -> { status, httpStatus, latencyMs, isLockedScreen, reachable, error, checking }
 let pendingConfirmAction = null;
 let autoRefreshEnabled = true;
 let autoRefreshTimer = null;
+let currentMonitorFilter = 'ALL';
+let isSweepingAll = false;
 
 // Initialize theme preference (Default: OLED Dark Mode)
 (function initTheme() {
@@ -107,14 +110,94 @@ async function apiCall(path, options = {}) {
   return data;
 }
 
+// ==========================================================
+// HỆ THỐNG THÔNG BÁO ĐẨY TRÌNH DUYỆT (WEB PUSH) & CHUÔNG BÁO ĐỘNG
+// ==========================================================
+function playAlertSiren() {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const tones = [880, 660, 880, 660];
+    tones.forEach((freq, idx) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.12, ctx.currentTime + idx * 0.18);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + (idx + 1) * 0.17);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(ctx.currentTime + idx * 0.18);
+      osc.stop(ctx.currentTime + (idx + 1) * 0.18);
+    });
+  } catch {
+    // Ignore audio context restriction
+  }
+}
+
+function updateBrowserPushButtonUI() {
+  const btn = document.getElementById('btn-browser-push');
+  const label = document.getElementById('browser-push-label');
+  if (!btn || !label || !('Notification' in window)) return;
+  if (Notification.permission === 'granted') {
+    btn.className =
+      'px-3 py-2 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 text-xs font-medium rounded-lg border border-emerald-500/30 transition-colors duration-200 cursor-pointer flex items-center gap-1.5';
+    label.textContent = 'Thông báo Máy tính: ĐÃ BẬT';
+  } else if (Notification.permission === 'denied') {
+    btn.className =
+      'px-3 py-2 bg-rose-500/15 text-rose-300 text-xs font-medium rounded-lg border border-rose-500/30 flex items-center gap-1.5';
+    label.textContent = 'Thông báo Máy tính: Đã chặn';
+  }
+}
+
+async function enableBrowserPushNotifications() {
+  if (!('Notification' in window)) {
+    showToast('Trình duyệt của bạn không hỗ trợ Web Push Notification', true);
+    return;
+  }
+  const perm = await Notification.requestPermission();
+  updateBrowserPushButtonUI();
+  if (perm === 'granted') {
+    playAlertSiren();
+    new Notification('✅ Đã Bật Cảnh Báo Website Sập (CMS License Pro)', {
+      body: 'Khi có bất kỳ Website nào bị lỗi hoặc không truy cập được, thông báo đẩy sẽ hiện ngay tại góc màn hình của bạn!',
+      tag: 'clps-test-push'
+    });
+    showToast('Đã bật Thông báo đẩy trên máy tính kèm âm thanh báo động!');
+  } else {
+    showToast('Bạn cần bấm Cho phép (Allow) thông báo trên thanh địa chỉ trình duyệt.', true);
+  }
+}
+
+function fireDesktopDownAlert(downRecords) {
+  if (!Array.isArray(downRecords) || downRecords.length === 0) return;
+  playAlertSiren();
+  const names = downRecords.map((r) => r.domain).join(', ');
+  const detail = downRecords[0].errorDetail || `HTTP ${downRecords[0].httpStatus || 'Timeout'}`;
+  showToast(`🚨 CẢNH BÁO KHẨN: Website ${names} đang bị lỗi (${detail})!`, true);
+
+  if ('Notification' in window && Notification.permission === 'granted') {
+    try {
+      new Notification(`🚨 CẢNH BÁO WEBSITE LỖI: ${names}`, {
+        body: `Tình trạng: ${detail}\nBấm vào đây để mở bảng kiểm soát và xử lý ngay!`,
+        tag: `clps-down-${names}`,
+        requireInteraction: true
+      });
+    } catch {
+      // Ignore notification error
+    }
+  }
+}
+
 function startAutoRefreshLoop() {
   clearInterval(autoRefreshTimer);
   if (!autoRefreshEnabled) return;
-  autoRefreshTimer = setInterval(() => {
+  autoRefreshTimer = setInterval(async () => {
     if (authToken && !document.hidden) {
-      refreshAll(true);
+      await runFullHealthSweep(false);
     }
-  }, 30000);
+  }, 60000);
 }
 
 function toggleAutoRefresh() {
@@ -125,15 +208,15 @@ function toggleAutoRefresh() {
   if (autoRefreshEnabled) {
     btn.className = 'px-3 py-2 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 text-xs font-mono font-medium rounded-lg border border-emerald-500/30 transition-colors duration-200 cursor-pointer flex items-center gap-1.5';
     dot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
-    label.textContent = 'Live Sync: BẬT (30s)';
+    label.textContent = 'Giám sát Tự động: BẬT (60s)';
     startAutoRefreshLoop();
-    showToast('Đã bật tự động đồng bộ dữ liệu mỗi 30 giây');
+    showToast('Đã bật tự động quét kiểm tra lỗi Website mỗi 60 giây');
   } else {
     btn.className = 'px-3 py-2 bg-slate-900 hover:bg-slate-800 text-slate-400 text-xs font-mono font-medium rounded-lg border border-slate-700 transition-colors duration-200 cursor-pointer flex items-center gap-1.5';
     dot.className = 'w-2 h-2 rounded-full bg-slate-500';
-    label.textContent = 'Live Sync: TẮT';
+    label.textContent = 'Giám sát Tự động: TẮT';
     clearInterval(autoRefreshTimer);
-    showToast('Đã tạm tắt tự động làm mới');
+    showToast('Đã tạm tắt tự động quét ngầm');
   }
 }
 
@@ -216,7 +299,13 @@ function enterDashboard() {
   document.getElementById('dashboard-view').classList.remove('hidden');
   document.getElementById('current-user-name').textContent = currentUser?.fullName || 'Admin';
   document.getElementById('current-user-role').textContent = currentUser?.role || 'SUPER_ADMIN';
-  refreshAll();
+  updateBrowserPushButtonUI();
+  refreshAll().then(() => {
+    // Nếu có website chưa được quét sức khỏe lần nào, tự động quét ngay khi mở Dashboard
+    if (cachedMonitoredSites.some((m) => !m.health)) {
+      runFullHealthSweep(false);
+    }
+  });
   startAutoRefreshLoop();
 }
 
@@ -250,7 +339,6 @@ function statusBadge(status) {
   const map = {
     ACTIVE: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/35',
     INACTIVE: 'bg-slate-700/40 text-slate-300 border-slate-600',
-    EXPIRED: 'bg-amber-500/15 text-amber-300 border-amber-500/35',
     SUSPENDED: 'bg-orange-500/20 text-orange-300 border-orange-500/40',
     REVOKED: 'bg-rose-500/15 text-rose-300 border-rose-500/35',
     PENDING: 'bg-amber-500/15 text-amber-300 border-amber-500/35',
@@ -258,9 +346,8 @@ function statusBadge(status) {
     REJECTED: 'bg-rose-500/15 text-rose-300 border-rose-500/35'
   };
   const labelMap = {
-    ACTIVE: '● ACTIVE (Đang mở)',
+    ACTIVE: '● ACTIVE (Vĩnh viễn)',
     SUSPENDED: '🔒 SUSPENDED (Đã khóa)',
-    EXPIRED: '⏰ EXPIRED (Hết hạn)',
     REVOKED: '⛔ REVOKED (Thu hồi)',
     INACTIVE: '○ INACTIVE'
   };
@@ -289,57 +376,110 @@ async function refreshAll(silent = false) {
 async function loadOverviewStats() {
   const data = await apiCall('/dashboard/stats');
   const s = data.summary;
+  cachedMonitoredSites = data.monitoredSites || [];
+
+  // Đồng bộ kết quả sức khỏe vào bộ nhớ đệm livePingResults
+  for (const item of cachedMonitoredSites) {
+    if (item.health && !livePingResults[item.domain]?.checking) {
+      livePingResults[item.domain] = {
+        status: item.health.status,
+        reachable: item.health.status !== 'DOWN' || item.health.httpStatus > 0,
+        httpStatus: item.health.httpStatus,
+        latencyMs: item.health.latencyMs,
+        isLockedScreen: item.health.status === 'LOCKED',
+        error: item.health.errorDetail,
+        checkedAt: item.health.checkedAt
+      };
+    }
+  }
 
   document.getElementById('crypto-key-id').textContent = `Key ID: ${data.cryptography.keyId}`;
   document.getElementById('crypto-pub-key').value = data.cryptography.publicKeyBase64;
   document.getElementById('badge-pending-transfers').textContent = s.pendingTransferRequestsCount;
   document.getElementById('badge-total-licenses').textContent = s.totalLicenses;
 
+  // Điền cấu hình Telegram Bot (chỉ điền nếu người dùng không đang gõ)
+  const ms = data.monitorSettings || {};
+  const tokenInput = document.getElementById('tg-bot-token');
+  const chatInput = document.getElementById('tg-chat-id');
+  const enabledInput = document.getElementById('tg-enabled');
+  const tgBadge = document.getElementById('telegram-status-badge');
+  if (tokenInput && document.activeElement !== tokenInput) {
+    tokenInput.value = ms.telegramBotToken || '';
+  }
+  if (chatInput && document.activeElement !== chatInput) {
+    chatInput.value = ms.telegramChatId || '';
+  }
+  if (enabledInput && document.activeElement !== enabledInput) {
+    enabledInput.checked = ms.enabled !== false;
+  }
+  if (tgBadge) {
+    if (ms.telegramBotToken && ms.telegramChatId && ms.enabled !== false) {
+      tgBadge.className = 'text-[11px] font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-semibold';
+      tgBadge.textContent = '● Đã kết nối 24/7';
+    } else {
+      tgBadge.className = 'text-[11px] font-mono px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40';
+      tgBadge.textContent = 'Chưa gắn Bot Token';
+    }
+  }
+
+  const lastSweepEl = document.getElementById('last-sweep-time');
+  if (lastSweepEl) {
+    lastSweepEl.textContent = ms.lastSweepAt
+      ? new Date(ms.lastSweepAt).toLocaleString('vi-VN')
+      : 'Chưa quét — bấm Quét Sức Khỏe Toàn Bộ Web Ngay';
+  }
+
+  const downCount = s.downCount || 0;
+  const upCount = s.upCount || 0;
+  const slowCount = s.slowCount || 0;
+  const lockedCount = s.lockedCount || 0;
+
   const kpis = [
     {
-      label: 'Đang Hoạt Động',
+      label: 'Website Đang Mở',
       val: `${s.activeLicenses} / ${s.totalLicenses}`,
-      sub: 'Bấm để xem các web đang mở',
+      sub: 'Bản quyền Vĩnh viễn (Active)',
       color: 'text-emerald-400',
       border: 'border-emerald-500/30 hover:border-emerald-400',
       onclick: "filterLicensesByStatusAndSwitch('ACTIVE')",
       icon: `<svg class="w-4 h-4 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>`
     },
     {
-      label: 'Đang Tạm Ngưng (Khóa)',
+      label: 'Web Hoạt Động Tốt (UP)',
+      val: upCount,
+      sub: `${slowCount > 0 ? `${slowCount} web phản hồi chậm` : 'Phản hồi HTTP 200 nhanh'}`,
+      color: 'text-sky-400',
+      border: 'border-sky-500/30 hover:border-sky-400',
+      onclick: "setMonitorFilter('UP')",
+      icon: `<svg class="w-4 h-4 text-sky-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>`
+    },
+    {
+      label: 'Website Đang Lỗi / Sập',
+      val: downCount,
+      sub: downCount > 0 ? '🚨 BẤM ĐỂ KIỂM TRA NGAY!' : 'An toàn — 0 website bị lỗi',
+      color: downCount > 0 ? 'text-rose-400 animate-pulse' : 'text-emerald-400',
+      border: downCount > 0 ? 'border-rose-500 bg-rose-950/25' : 'border-slate-800 hover:border-rose-400/50',
+      onclick: "setMonitorFilter('DOWN')",
+      icon: `<svg class="w-4 h-4 text-rose-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>`
+    },
+    {
+      label: 'Đang Khóa Chủ Động (503)',
       val: s.suspendedLicenses || 0,
-      sub: 'Bấm để xem web đang khóa',
+      sub: 'Bấm để xem web đang khóa tạm',
       color: 'text-orange-400',
       border: 'border-orange-500/30 hover:border-orange-400',
       onclick: "filterLicensesByStatusAndSwitch('SUSPENDED')",
       icon: `<svg class="w-4 h-4 text-orange-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`
     },
     {
-      label: 'Sắp Hết Hạn (<30 ngày)',
-      val: s.expiringWithin30DaysCount,
-      sub: 'Cần gia hạn hợp đồng',
-      color: 'text-amber-400',
-      border: 'border-amber-500/30 hover:border-amber-400',
-      onclick: "filterLicensesByStatusAndSwitch('ALL')",
-      icon: `<svg class="w-4 h-4 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`
-    },
-    {
-      label: 'Hết Hạn / Thu Hồi',
-      val: s.expiredLicenses + s.revokedLicenses,
-      sub: 'Web đã ngưng vĩnh viễn',
-      color: 'text-rose-400',
-      border: 'border-rose-500/30 hover:border-rose-400',
-      onclick: "filterLicensesByStatusAndSwitch('REVOKED')",
-      icon: `<svg class="w-4 h-4 text-rose-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" x2="9" y1="9" y2="15"/><line x1="9" x2="15" y1="9" y2="15"/></svg>`
-    },
-    {
       label: 'Cụm Máy Chủ Hosting',
       val: s.serverCount || 1,
       sub: `${s.pendingTransferRequestsCount} yêu cầu chuyển chờ duyệt`,
-      color: 'text-sky-400',
-      border: 'border-sky-500/30 hover:border-sky-400',
+      color: 'text-cyan-400',
+      border: 'border-cyan-500/30 hover:border-cyan-400',
       onclick: "switchTab('licenses')",
-      icon: `<svg class="w-4 h-4 text-sky-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="8" x="2" y="2" rx="2" ry="2"/><rect width="20" height="8" x="2" y="14" rx="2" ry="2"/></svg>`
+      icon: `<svg class="w-4 h-4 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="8" x="2" y="2" rx="2" ry="2"/><rect width="20" height="8" x="2" y="14" rx="2" ry="2"/></svg>`
     },
     {
       label: 'Xác Thực 24h Qua',
@@ -366,24 +506,29 @@ async function loadOverviewStats() {
     )
     .join('');
 
-  // Update 4-segment distribution bar
-  const total = Math.max(s.totalLicenses, 1);
-  const activePct = Math.round((s.activeLicenses / total) * 100);
-  const suspPct = Math.round(((s.suspendedLicenses || 0) / total) * 100);
-  const expSoonPct = Math.round((s.expiringWithin30DaysCount / total) * 100);
-  const revokedPct = Math.max(0, 100 - activePct - suspPct - expSoonPct);
+  // Update 4-segment Uptime Health distribution bar
+  const totalMonitored = Math.max(upCount + downCount + slowCount + lockedCount, 1);
+  const upPct = Math.round((upCount / totalMonitored) * 100);
+  const downPct = Math.round((downCount / totalMonitored) * 100);
+  const slowPct = Math.round((slowCount / totalMonitored) * 100);
+  const lockPct = Math.max(0, 100 - upPct - downPct - slowPct);
 
-  document.getElementById('health-rate-badge').textContent = `${s.totalLicenses > 0 ? activePct : 100}% Active`;
-  document.getElementById('legend-active-count').textContent = s.activeLicenses;
-  document.getElementById('legend-suspended-count').textContent = s.suspendedLicenses || 0;
-  document.getElementById('legend-expiring-count').textContent = s.expiringWithin30DaysCount;
-  document.getElementById('legend-revoked-count').textContent = s.expiredLicenses + s.revokedLicenses;
+  const healthyPct = Math.round(((upCount + lockedCount + slowCount) / totalMonitored) * 100);
+  document.getElementById('health-rate-badge').textContent =
+    downCount > 0 ? `🚨 ${downCount} Web Lỗi` : `${healthyPct}% Uptime`;
+  document.getElementById('health-rate-badge').className =
+    downCount > 0 ? 'text-xs font-mono font-bold text-rose-400 animate-pulse' : 'text-xs font-mono font-bold text-emerald-400';
+
+  document.getElementById('legend-up-count').textContent = upCount;
+  document.getElementById('legend-down-count').textContent = downCount;
+  document.getElementById('legend-slow-count').textContent = slowCount;
+  document.getElementById('legend-locked-count').textContent = lockedCount;
 
   document.getElementById('license-distribution-bar').innerHTML = `
-    <div class="bg-emerald-500 h-full transition-all duration-300" style="width: ${activePct}%" title="Đang hoạt động: ${s.activeLicenses}"></div>
-    <div class="bg-orange-500 h-full transition-all duration-300" style="width: ${suspPct}%" title="Đang khóa tạm (SUSPENDED): ${s.suspendedLicenses || 0}"></div>
-    <div class="bg-amber-400 h-full transition-all duration-300" style="width: ${expSoonPct}%" title="Sắp hết hạn: ${s.expiringWithin30DaysCount}"></div>
-    <div class="bg-rose-500 h-full transition-all duration-300" style="width: ${revokedPct}%" title="Hết hạn / Thu hồi: ${s.expiredLicenses + s.revokedLicenses}"></div>
+    <div class="bg-emerald-500 h-full transition-all duration-300" style="width: ${upPct}%" title="Hoạt động tốt (UP): ${upCount}"></div>
+    <div class="bg-rose-500 h-full transition-all duration-300" style="width: ${downPct}%" title="Đang lỗi / Sập (DOWN): ${downCount}"></div>
+    <div class="bg-amber-400 h-full transition-all duration-300" style="width: ${slowPct}%" title="Phản hồi chậm (SLOW): ${slowCount}"></div>
+    <div class="bg-orange-500 h-full transition-all duration-300" style="width: ${lockPct}%" title="Đang khóa chủ động (HTTP 503): ${lockedCount}"></div>
   `;
 
   // Render Server Clusters
@@ -395,15 +540,14 @@ async function loadOverviewStats() {
       : groups
           .map(
             (g) => `
-          <div onclick="filterLicensesByServerAndSwitch('${esc(g.ip)}')" class="flex items-center justify-between px-3 py-2 rounded-lg bg-slate-950/80 hover:bg-slate-800 border border-slate-800 cursor-pointer transition-colors text-xs">
-            <div class="font-mono font-semibold text-sky-300 flex items-center gap-1.5">
+          <div onclick="filterLicensesByServerAndSwitch('${esc(g.ip)}')" class="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-slate-950/80 hover:bg-slate-800 border border-slate-800 cursor-pointer transition-colors text-xs">
+            <div class="font-mono font-semibold text-sky-300 flex items-center gap-1 truncate">
               ${ICONS.server}
-              <span>${esc(g.ip)}</span>
+              <span class="truncate">${esc(g.ip)}</span>
             </div>
-            <div class="flex items-center gap-2 font-mono text-[11px]">
+            <div class="flex items-center gap-1.5 font-mono text-[10px] shrink-0">
               <span class="text-emerald-400">${g.active} mở</span>
               ${g.suspended > 0 ? `<span class="text-orange-400">${g.suspended} khóa</span>` : ''}
-              <span class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300">${g.total} web</span>
             </div>
           </div>`
           )
@@ -423,27 +567,8 @@ async function loadOverviewStats() {
     }
   }
 
-  // Expiring soon table
-  const expTbody = document.getElementById('expiring-soon-tbody');
-  if (data.expiringSoonLicenses.length === 0) {
-    expTbody.innerHTML = `<tr><td colspan="6" class="py-5 text-center text-slate-500">Tuyệt vời! Không có website nào sắp hết hạn trong 30 ngày tới.</td></tr>`;
-  } else {
-    expTbody.innerHTML = data.expiringSoonLicenses
-      .map(
-        (l) => `
-      <tr class="hover:bg-slate-800/40 transition-colors duration-150">
-        <td class="py-3 px-3 font-mono font-semibold text-sky-300">${esc(l.licenseKey)}</td>
-        <td class="py-3 px-3"><div class="font-medium text-white">${esc(l.customerName)}</div><div class="text-[11px] text-slate-400">${esc(l.customerCompany)}</div></td>
-        <td class="py-3 px-3">${esc(l.productName)}</td>
-        <td class="py-3 px-3 font-mono">${esc(l.allowedDomain || '*')} / ${esc(l.allowedIp || '*')}</td>
-        <td class="py-3 px-3"><span class="text-amber-400 font-mono font-bold">Còn ${esc(l.daysLeft)} ngày</span></td>
-        <td class="py-3 px-3 text-right">
-          <button type="button" onclick="renewLicense('${esc(l.id)}', 365)" class="btn-primary-text px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold cursor-pointer">+ Gia hạn 1 năm</button>
-        </td>
-      </tr>`
-      )
-      .join('');
-  }
+  // Render Real-Time Uptime Monitor Table
+  renderUptimeMonitorTable();
 
   // Recent failures table with 1-click remediation
   const failTbody = document.getElementById('recent-failures-tbody');
@@ -473,6 +598,215 @@ async function loadOverviewStats() {
       </tr>`;
       })
       .join('');
+  }
+}
+
+function toggleTelegramGuide() {
+  const box = document.getElementById('telegram-guide-box');
+  if (box) box.classList.toggle('hidden');
+}
+
+async function saveMonitorSettings() {
+  const telegramBotToken = (document.getElementById('tg-bot-token')?.value || '').trim();
+  const telegramChatId = (document.getElementById('tg-chat-id')?.value || '').trim();
+  const enabled = Boolean(document.getElementById('tg-enabled')?.checked);
+
+  try {
+    await apiCall('/monitor/settings', {
+      method: 'PUT',
+      body: JSON.stringify({
+        enabled,
+        telegramBotToken,
+        telegramChatId,
+        notifyOnRecovery: true
+      })
+    });
+    showToast('Đã lưu cấu hình Thông báo đẩy Telegram 24/7!');
+    await loadOverviewStats();
+  } catch (err) {
+    showToast(err.message, true);
+  }
+}
+
+async function testTelegramPush() {
+  const telegramBotToken = (document.getElementById('tg-bot-token')?.value || '').trim();
+  const telegramChatId = (document.getElementById('tg-chat-id')?.value || '').trim();
+  if (!telegramBotToken || !telegramChatId) {
+    showToast('Vui lòng nhập Telegram Bot Token và Chat ID trước khi gửi thử!', true);
+    document.getElementById('telegram-guide-box')?.classList.remove('hidden');
+    return;
+  }
+
+  const btn = document.getElementById('btn-test-tg');
+  if (btn) btn.disabled = true;
+  try {
+    await saveMonitorSettings();
+    const res = await apiCall('/monitor/test-telegram', {
+      method: 'POST',
+      body: JSON.stringify({ telegramBotToken, telegramChatId })
+    });
+    showToast(res.message || 'Đã gửi tin nhắn thử nghiệm tới Telegram!');
+  } catch (err) {
+    showToast(err.message, true);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+function setMonitorFilter(filter) {
+  currentMonitorFilter = filter;
+  ['ALL', 'DOWN', 'SLOW', 'UP', 'LOCKED'].forEach((f) => {
+    const btn = document.getElementById(`mon-filter-${f}`);
+    if (!btn) return;
+    if (f === filter) {
+      btn.className = 'px-2.5 py-1.5 rounded-lg bg-sky-500/25 text-sky-200 border border-sky-400 font-semibold cursor-pointer';
+    } else {
+      btn.className = 'px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-medium cursor-pointer';
+    }
+  });
+  renderUptimeMonitorTable();
+}
+
+function renderUptimeMonitorTable() {
+  const tbody = document.getElementById('uptime-monitor-tbody');
+  if (!tbody) return;
+
+  const all = cachedMonitoredSites || [];
+  const downList = all.filter((m) => m.health?.status === 'DOWN');
+  const slowList = all.filter((m) => m.health?.status === 'SLOW');
+  const upList = all.filter((m) => m.health?.status === 'UP');
+  const lockedList = all.filter((m) => m.health?.status === 'LOCKED');
+
+  const setTxt = (id, val) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = val;
+  };
+  setTxt('mon-count-all', all.length);
+  setTxt('mon-count-down', downList.length);
+  setTxt('mon-count-slow', slowList.length);
+  setTxt('mon-count-up', upList.length);
+  setTxt('mon-count-locked', lockedList.length);
+
+  let rows = [...all];
+  if (currentMonitorFilter !== 'ALL') {
+    rows = rows.filter((m) => m.health?.status === currentMonitorFilter);
+  }
+
+  // Luôn ưu tiên đưa website đang DOWN hoặc SLOW lên đầu danh sách
+  const weight = { DOWN: 0, SLOW: 1, LOCKED: 2, UP: 3 };
+  rows.sort((a, b) => {
+    const wa = a.health ? (weight[a.health.status] ?? 4) : 5;
+    const wb = b.health ? (weight[b.health.status] ?? 4) : 5;
+    if (wa !== wb) return wa - wb;
+    return (b.health?.latencyMs || 0) - (a.health?.latencyMs || 0);
+  });
+
+  if (rows.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" class="py-6 text-center text-slate-400">Không có website nào trong nhóm bộ lọc này. Hệ thống đang hoạt động ổn định!</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = rows
+    .map((m) => {
+      const h = m.health;
+      let statusBadgeHtml = `<span class="px-2 py-0.5 rounded bg-slate-800 text-slate-400 font-mono text-[11px]">Chưa quét</span>`;
+      let latencyHtml = `<span class="text-slate-500 font-mono">—</span>`;
+      let detailHtml = `<span class="text-slate-400">Bấm "Quét Sức Khỏe" để kiểm tra</span>`;
+      let rowBg = '';
+
+      if (h) {
+        const ms = h.latencyMs || 0;
+        const barWidth = Math.min(100, Math.max(8, Math.round((ms / 4000) * 100)));
+        const barColor =
+          h.status === 'DOWN'
+            ? 'bg-rose-500'
+            : h.status === 'SLOW'
+              ? 'bg-amber-400'
+              : h.status === 'LOCKED'
+                ? 'bg-orange-400'
+                : 'bg-emerald-400';
+
+        latencyHtml = `
+          <div class="font-mono font-semibold text-slate-200">${ms} ms</div>
+          <div class="w-24 h-1.5 bg-slate-950 rounded-full overflow-hidden mt-1 border border-slate-800">
+            <div class="${barColor} h-full" style="width:${barWidth}%"></div>
+          </div>`;
+
+        if (h.status === 'DOWN') {
+          rowBg = 'bg-rose-950/25';
+          statusBadgeHtml = `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/50 font-mono font-bold text-[11px] animate-pulse">🚨 LỖI / SẬP (HTTP ${h.httpStatus || 'ERR'})</span>`;
+          detailHtml = `<span class="text-rose-300 font-semibold">${esc(h.errorDetail || 'Không thể kết nối tới Website')}</span>`;
+        } else if (h.status === 'SLOW') {
+          rowBg = 'bg-amber-950/15';
+          statusBadgeHtml = `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 font-mono font-semibold text-[11px]">🐢 CHẬM (HTTP ${h.httpStatus})</span>`;
+          detailHtml = `<span class="text-amber-300">${esc(h.errorDetail || 'Máy chủ phản hồi chậm')}</span>`;
+        } else if (h.status === 'LOCKED') {
+          statusBadgeHtml = `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-orange-500/20 text-orange-300 border border-orange-500/40 font-mono font-semibold text-[11px]">🔒 ĐANG KHÓA (HTTP 503)</span>`;
+          detailHtml = `<span class="text-orange-300">${esc(h.errorDetail)}</span>`;
+        } else {
+          statusBadgeHtml = `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-mono font-semibold text-[11px]">🟢 HOẠT ĐỘNG TỐT (HTTP ${h.httpStatus})</span>`;
+          detailHtml = `<span class="text-emerald-400">Trang chủ tải thành công, không có lỗi</span>`;
+        }
+      }
+
+      const checkedTime = h?.checkedAt
+        ? new Date(h.checkedAt).toLocaleTimeString('vi-VN')
+        : '—';
+
+      return `
+      <tr class="hover:bg-slate-800/40 transition-colors duration-150 ${rowBg}">
+        <td class="py-3 px-3">
+          <a href="https://${esc(m.domain)}" target="_blank" rel="noopener" class="font-mono font-bold text-sm text-white hover:text-sky-300 flex items-center">
+            ${ICONS.globe}<span>${esc(m.domain)}</span>${ICONS.external}
+          </a>
+          <div class="text-[11px] text-slate-400 font-mono mt-0.5">${esc(m.allowedIp || 'Chưa gán IP')} • ${esc(m.customerName)}</div>
+        </td>
+        <td class="py-3 px-3">${statusBadgeHtml}</td>
+        <td class="py-3 px-3">${latencyHtml}</td>
+        <td class="py-3 px-3 max-w-xs">${detailHtml}</td>
+        <td class="py-3 px-3 font-mono text-slate-400">${esc(checkedTime)}</td>
+        <td class="py-3 px-3 text-right space-x-1.5">
+          <button type="button" onclick="pingSite('${esc(m.domain)}', true)" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-emerald-300 rounded-lg border border-slate-700 cursor-pointer text-[11px] font-medium">
+            🔄 Kiểm tra ngay
+          </button>
+          <a href="https://${esc(m.domain)}" target="_blank" rel="noopener" class="px-2.5 py-1 bg-sky-600/20 hover:bg-sky-600 text-sky-300 hover:text-white rounded-lg border border-sky-500/30 text-[11px] font-medium inline-block">
+            Mở Web
+          </a>
+        </td>
+      </tr>`;
+    })
+    .join('');
+}
+
+async function runFullHealthSweep(manual = true) {
+  if (isSweepingAll) return;
+  isSweepingAll = true;
+  const btn1 = document.getElementById('btn-overview-sweep');
+  const btn2 = document.getElementById('btn-ping-all');
+  if (btn1) btn1.disabled = true;
+  if (btn2) btn2.disabled = true;
+
+  if (manual) {
+    showToast('Đang quét kiểm tra sức khỏe toàn bộ Website theo thời gian thực...');
+  }
+
+  try {
+    const res = await apiCall('/monitor/sweep', { method: 'POST' });
+    await Promise.all([loadOverviewStats(), loadLicenses()]);
+
+    if (res.newlyDownSites && res.newlyDownSites.length > 0) {
+      fireDesktopDownAlert(res.newlyDownSites);
+    } else if (res.downSites && res.downSites.length > 0 && manual) {
+      fireDesktopDownAlert(res.downSites);
+    } else if (manual) {
+      showToast(`✅ Hoàn tất quét ${res.checkedCount} Website: Tất cả đều phản hồi tốt!`);
+    }
+  } catch (err) {
+    if (manual) showToast(err.message, true);
+  } finally {
+    isSweepingAll = false;
+    if (btn1) btn1.disabled = false;
+    if (btn2) btn2.disabled = false;
   }
 }
 
@@ -567,66 +901,44 @@ async function pingSite(domain, forceSync = true) {
       body: JSON.stringify({ domain, forceSync })
     });
     livePingResults[domain] = res;
-    renderFilteredLicenses();
-    if (res.isLockedScreen) {
+    await Promise.all([loadOverviewStats(), loadLicenses()]);
+    if (res.status === 'DOWN') {
+      fireDesktopDownAlert([{ domain, errorDetail: res.error, httpStatus: res.httpStatus }]);
+    } else if (res.isLockedScreen) {
       showToast(`🔒 ${domain}: Đang hiển thị màn hình Khóa Bản Quyền (HTTP ${res.httpStatus} - ${res.latencyMs}ms)`);
-    } else if (res.reachable && res.httpStatus >= 200 && res.httpStatus < 400) {
-      showToast(`🟢 ${domain}: Website đang hoạt động bình thường (HTTP ${res.httpStatus} - ${res.latencyMs}ms)`);
     } else {
-      showToast(`⚠️ ${domain}: Phản hồi HTTP ${res.httpStatus || 'Timeout'} (${res.latencyMs}ms)`, true);
+      showToast(`🟢 ${domain}: Website đang hoạt động tốt (HTTP ${res.httpStatus} - ${res.latencyMs}ms)`);
     }
   } catch (err) {
-    livePingResults[domain] = { reachable: false, error: err.message };
+    livePingResults[domain] = { status: 'DOWN', reachable: false, error: err.message };
     renderFilteredLicenses();
     showToast(err.message, true);
   }
 }
 
 async function pingAllSites() {
-  const domains = cachedLicenses.map((l) => l.allowedDomain).filter(Boolean);
-  if (domains.length === 0) return;
-  const btn = document.getElementById('btn-ping-all');
-  if (btn) btn.disabled = true;
-  showToast(`Đang kiểm tra đồng loạt ${domains.length} website theo thời gian thực...`);
-  domains.forEach((d) => {
-    livePingResults[d] = { checking: true };
-  });
-  renderFilteredLicenses();
-
-  // Run in batches of 5 for fast parallel checking
-  for (let i = 0; i < domains.length; i += 5) {
-    const chunk = domains.slice(i, i + 5);
-    await Promise.allSettled(
-      chunk.map(async (domain) => {
-        const res = await apiCall('/tools/ping-site', {
-          method: 'POST',
-          body: JSON.stringify({ domain, forceSync: false })
-        });
-        livePingResults[domain] = res;
-      })
-    );
-    renderFilteredLicenses();
-  }
-  if (btn) btn.disabled = false;
-  showToast(`Đã kiểm tra xong trạng thái thực tế của toàn bộ ${domains.length} website!`);
+  await runFullHealthSweep(true);
 }
 
 function renderLivePingBadge(domain) {
   if (!domain) return '';
   const st = livePingResults[domain];
   if (!st) {
-    return `<span class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800/80 text-slate-400 border border-slate-700/70">Chưa ping</span>`;
+    return `<span class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800/80 text-slate-400 border border-slate-700/70">Chưa quét</span>`;
   }
   if (st.checking) {
     return `<span class="text-[10px] font-mono px-2 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30 animate-pulse">Đang kiểm tra...</span>`;
   }
-  if (st.isLockedScreen) {
-    return `<span class="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40" title="Website đang hiển thị màn hình khóa bản quyền">🔒 HTTP 503 Khóa (${st.latencyMs}ms)</span>`;
+  if (st.status === 'DOWN' || (!st.reachable && !st.isLockedScreen)) {
+    return `<span class="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-rose-500/25 text-rose-300 border border-rose-500/50 animate-pulse" title="${esc(st.error || 'Website không truy cập được')}">🚨 LỖI ${st.httpStatus || 'KẾT NỐI'} (${st.latencyMs || 0}ms)</span>`;
   }
-  if (st.reachable && st.httpStatus >= 200 && st.httpStatus < 400) {
-    return `<span class="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40" title="Website đang mở và hoạt động bình thường">🟢 HTTP ${st.httpStatus} Mở (${st.latencyMs}ms)</span>`;
+  if (st.isLockedScreen || st.status === 'LOCKED') {
+    return `<span class="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-orange-500/20 text-orange-300 border border-orange-500/40" title="Website đang hiển thị màn hình khóa bản quyền">🔒 Khóa 503 (${st.latencyMs}ms)</span>`;
   }
-  return `<span class="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">⚠️ HTTP ${st.httpStatus || 'Lỗi'}</span>`;
+  if (st.status === 'SLOW') {
+    return `<span class="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40" title="Website phản hồi chậm">🐢 Chậm ${st.httpStatus} (${st.latencyMs}ms)</span>`;
+  }
+  return `<span class="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40" title="Website đang mở và hoạt động bình thường">🟢 HTTP ${st.httpStatus} (${st.latencyMs}ms)</span>`;
 }
 
 async function loadCustomersAndProducts() {
@@ -766,6 +1078,19 @@ async function deleteLicense(id, key) {
 async function loadLicenses() {
   const { licenses } = await apiCall('/licenses');
   cachedLicenses = licenses;
+  for (const l of licenses) {
+    if (l.allowedDomain && l.health && !livePingResults[l.allowedDomain]?.checking) {
+      livePingResults[l.allowedDomain] = {
+        status: l.health.status,
+        reachable: l.health.status !== 'DOWN' || l.health.httpStatus > 0,
+        httpStatus: l.health.httpStatus,
+        latencyMs: l.health.latencyMs,
+        isLockedScreen: l.health.status === 'LOCKED',
+        error: l.health.errorDetail,
+        checkedAt: l.health.checkedAt
+      };
+    }
+  }
   renderFilteredLicenses();
 }
 
@@ -773,10 +1098,18 @@ function getFilteredLicenses() {
   const searchVal = (document.getElementById('license-search-input')?.value || '').trim().toLowerCase();
   const statusFilter = document.getElementById('license-status-filter')?.value || 'ALL';
   const serverFilter = document.getElementById('license-server-filter')?.value || 'ALL';
-  const sortBy = document.getElementById('license-sort-by')?.value || 'DOMAIN_ASC';
+  const sortBy = document.getElementById('license-sort-by')?.value || 'HEALTH_DOWN_FIRST';
 
   const filtered = cachedLicenses.filter((l) => {
-    if (statusFilter !== 'ALL' && l.status !== statusFilter) return false;
+    const hStatus = l.health?.status || livePingResults[l.allowedDomain]?.status || null;
+    if (statusFilter === 'HEALTH_DOWN') {
+      if (hStatus !== 'DOWN') return false;
+    } else if (statusFilter === 'HEALTH_SLOW') {
+      if (hStatus !== 'SLOW') return false;
+    } else if (statusFilter !== 'ALL' && l.status !== statusFilter) {
+      return false;
+    }
+
     if (serverFilter !== 'ALL') {
       const primaryIp = l.allowedIp ? l.allowedIp.split(',')[0].trim() : 'Chưa gán IP';
       if (primaryIp !== serverFilter) return false;
@@ -789,7 +1122,8 @@ function getFilteredLicenses() {
       l.customerCompany,
       l.allowedDomain,
       l.allowedIp,
-      l.notes
+      l.notes,
+      l.health?.errorDetail
     ]
       .filter(Boolean)
       .join(' ')
@@ -798,15 +1132,25 @@ function getFilteredLicenses() {
   });
 
   filtered.sort((a, b) => {
+    if (sortBy === 'HEALTH_DOWN_FIRST') {
+      const weight = { DOWN: 0, SLOW: 1, LOCKED: 2, UP: 3 };
+      const ha = a.health?.status || livePingResults[a.allowedDomain]?.status || 'UP';
+      const hb = b.health?.status || livePingResults[b.allowedDomain]?.status || 'UP';
+      const diff = (weight[ha] ?? 4) - (weight[hb] ?? 4);
+      if (diff !== 0) return diff;
+      return String(a.allowedDomain || '').localeCompare(String(b.allowedDomain || ''));
+    }
     if (sortBy === 'DOMAIN_ASC') {
       return String(a.allowedDomain || '').localeCompare(String(b.allowedDomain || ''));
     }
     if (sortBy === 'STATUS') {
-      const order = { SUSPENDED: 0, REVOKED: 1, EXPIRED: 2, INACTIVE: 3, ACTIVE: 4 };
+      const order = { SUSPENDED: 0, REVOKED: 1, INACTIVE: 2, ACTIVE: 3 };
       return (order[a.status] ?? 9) - (order[b.status] ?? 9);
     }
-    if (sortBy === 'EXPIRES_ASC') {
-      return new Date(a.expiresAt).getTime() - new Date(b.expiresAt).getTime();
+    if (sortBy === 'LATENCY_DESC') {
+      const la = a.health?.latencyMs || livePingResults[a.allowedDomain]?.latencyMs || 0;
+      const lb = b.health?.latencyMs || livePingResults[b.allowedDomain]?.latencyMs || 0;
+      return lb - la;
     }
     return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
   });
@@ -848,7 +1192,6 @@ async function runBulkAction(action, extra = {}) {
   const actionLabels = {
     ACTIVATE: `Kích hoạt đồng loạt ${ids.length} website`,
     SUSPEND: `Tạm ngưng (Khóa) đồng loạt ${ids.length} website`,
-    RENEW: `Gia hạn +1 năm cho ${ids.length} website`,
     UPDATE_IP: `Cập nhật IP máy chủ cho ${ids.length} website`,
     DELETE: `XÓA VĨNH VIỄN ${ids.length} website`
   };
@@ -860,7 +1203,6 @@ async function runBulkAction(action, extra = {}) {
         body: JSON.stringify({
           licenseIds: ids,
           action,
-          addDays: 365,
           ...extra
         })
       });
@@ -893,13 +1235,32 @@ function renderFilteredLicenses() {
     .map((l) => {
       const isChecked = selectedLicenseIds.has(l.id) ? 'checked' : '';
       const domain = l.allowedDomain || '';
-      const daysLeft = Math.ceil((new Date(l.expiresAt).getTime() - Date.now()) / (24 * 3600 * 1000));
-      const daysBadge =
-        daysLeft < 0
-          ? `<span class="text-[10px] text-rose-400 font-mono">Quá hạn ${Math.abs(daysLeft)} ngày</span>`
-          : daysLeft <= 30
-          ? `<span class="text-[10px] text-amber-400 font-mono">Còn ${daysLeft} ngày</span>`
-          : `<span class="text-[10px] text-slate-400 font-mono">Còn ${daysLeft} ngày</span>`;
+      const h = l.health || livePingResults[domain] || null;
+      const isDown = h?.status === 'DOWN';
+
+      let healthColHtml = `<span class="text-slate-500 font-mono text-[11px]">Chưa kiểm tra</span>`;
+      if (h) {
+        const checkedTime = h.checkedAt
+          ? new Date(h.checkedAt).toLocaleTimeString('vi-VN')
+          : '';
+        if (h.status === 'DOWN') {
+          healthColHtml = `
+            <div class="text-rose-400 font-mono font-bold text-xs animate-pulse">🚨 LỖI (${h.httpStatus || 'ERR'})</div>
+            <div class="text-[10px] text-rose-300 truncate max-w-[13rem]" title="${esc(h.errorDetail || h.error || '')}">${esc(h.errorDetail || h.error || 'Không thể truy cập')}</div>`;
+        } else if (h.status === 'SLOW') {
+          healthColHtml = `
+            <div class="text-amber-300 font-mono font-semibold text-xs">🐢 Chậm • ${h.latencyMs}ms</div>
+            <div class="text-[10px] text-slate-400 font-mono">HTTP ${h.httpStatus} • ${checkedTime}</div>`;
+        } else if (h.status === 'LOCKED' || h.isLockedScreen) {
+          healthColHtml = `
+            <div class="text-orange-300 font-mono font-semibold text-xs">🔒 Khóa 503 • ${h.latencyMs}ms</div>
+            <div class="text-[10px] text-slate-400 font-mono">Đang khóa chủ động • ${checkedTime}</div>`;
+        } else {
+          healthColHtml = `
+            <div class="text-emerald-400 font-mono font-semibold text-xs">🟢 Tốt • ${h.latencyMs}ms</div>
+            <div class="text-[10px] text-slate-400 font-mono">HTTP ${h.httpStatus} • ${checkedTime}</div>`;
+        }
+      }
 
       const wpInfo =
         l.wpVersion || l.phpVersion
@@ -907,7 +1268,7 @@ function renderFilteredLicenses() {
           : `<span class="text-[10px] font-mono text-slate-500">Site: ${esc(l.activeInstallationsCount)}/${esc(l.maxActivations)}</span>`;
 
       return `
-    <tr class="hover:bg-slate-800/40 transition-colors duration-150 ${l.status === 'SUSPENDED' ? 'bg-orange-950/10' : ''}">
+    <tr class="hover:bg-slate-800/40 transition-colors duration-150 ${isDown ? 'bg-rose-950/20' : l.status === 'SUSPENDED' ? 'bg-orange-950/10' : ''}">
       <td class="py-3.5 px-2">
         <input type="checkbox" ${isChecked} onchange="toggleSelectLicense('${esc(l.id)}', this.checked)"
           class="w-4 h-4 rounded border-slate-700 text-sky-600 cursor-pointer" />
@@ -939,18 +1300,16 @@ function renderFilteredLicenses() {
         </div>
       </td>
       <td class="py-3.5 px-3">
-        <div class="font-mono text-slate-200">${esc(new Date(l.expiresAt).toLocaleDateString('vi-VN'))}</div>
-        <div>${daysBadge}</div>
+        ${healthColHtml}
       </td>
       <td class="py-3.5 px-3 text-right">
         <div class="inline-flex flex-wrap justify-end gap-1.5">
           ${
             domain
-              ? `<button type="button" onclick="pingSite('${esc(domain)}', true)" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-emerald-300 rounded-lg border border-slate-700 cursor-pointer inline-flex items-center" title="Ép đồng bộ trạng thái & Kiểm tra phản hồi HTTP thực tế của Website">${ICONS.bolt}<span>Ping/Sync</span></button>`
+              ? `<button type="button" onclick="pingSite('${esc(domain)}', true)" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-emerald-300 rounded-lg border border-slate-700 cursor-pointer inline-flex items-center" title="Kiểm tra sức khỏe & phản hồi HTTP thực tế của Website">${ICONS.bolt}<span>Kiểm tra Web</span></button>`
               : ''
           }
-          <button type="button" onclick="openEnvModal('${esc(l.id)}')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-sky-300 rounded-lg border border-slate-700 cursor-pointer inline-flex items-center" title="Đổi Tên miền, IP, Ngày hết hạn & Ghi chú">${ICONS.settings}<span>Cấu hình</span></button>
-          <button type="button" onclick="renewLicense('${esc(l.id)}', 365)" class="px-2.5 py-1 bg-emerald-600/15 hover:bg-emerald-600/35 text-emerald-300 rounded-lg border border-emerald-500/35 cursor-pointer" title="Gia hạn +1 năm">+Gia hạn</button>
+          <button type="button" onclick="openEnvModal('${esc(l.id)}')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-sky-300 rounded-lg border border-slate-700 cursor-pointer inline-flex items-center" title="Đổi Tên miền, IP & Ghi chú">${ICONS.settings}<span>Cấu hình</span></button>
           ${
             l.status !== 'ACTIVE'
               ? `<button type="button" onclick="changeLicenseStatus('${esc(l.id)}', 'ACTIVE', '${esc(domain)}')" class="px-2.5 py-1 bg-sky-600 hover:bg-sky-500 text-white font-semibold rounded-lg cursor-pointer">Mở khóa</button>`
@@ -975,31 +1334,17 @@ document.getElementById('create-license-form').addEventListener('submit', async 
         productId: document.getElementById('lic-product').value,
         allowedDomain: domainVal,
         allowedIp: document.getElementById('lic-ip').value,
-        maxActivations: Number(document.getElementById('lic-max-sites').value || 3),
-        durationDays: Number(document.getElementById('lic-days').value || 365)
+        maxActivations: Number(document.getElementById('lic-max-sites').value || 3)
       })
     });
     document.getElementById('lic-domain').value = '';
     document.getElementById('lic-ip').value = '';
-    showToast(`Đã cấp License mới cho ${domainVal} thành công!`);
+    showToast(`Đã cấp License vĩnh viễn cho ${domainVal} thành công!`);
     refreshAll();
   } catch (err) {
     showToast(err.message, true);
   }
 });
-
-async function renewLicense(id, addDays) {
-  try {
-    await apiCall(`/licenses/${id}/renew`, {
-      method: 'PATCH',
-      body: JSON.stringify({ addDays })
-    });
-    showToast(`Đã gia hạn License thêm ${addDays} ngày!`);
-    refreshAll();
-  } catch (err) {
-    showToast(err.message, true);
-  }
-}
 
 async function changeLicenseStatus(id, status, domain = '') {
   try {
@@ -1026,7 +1371,6 @@ function openEnvModal(id) {
   document.getElementById('modal-lic-ip').value = lic.allowedIp || '';
   document.getElementById('modal-lic-max-sites').value = lic.maxActivations;
   document.getElementById('modal-lic-max-transfers').value = lic.maxTransfers;
-  document.getElementById('modal-lic-expires').value = lic.expiresAt ? lic.expiresAt.slice(0, 10) : '';
   document.getElementById('modal-lic-notes').value = lic.notes || '';
   document.getElementById('modal-lic-strict-ip').checked = lic.strictIpCheck;
   document.getElementById('env-modal').classList.remove('hidden');
@@ -1038,7 +1382,6 @@ function closeEnvModal() {
 
 async function saveEnvModal() {
   const id = document.getElementById('modal-lic-id').value;
-  const expiresVal = document.getElementById('modal-lic-expires').value;
   try {
     await apiCall(`/licenses/${id}/environment`, {
       method: 'PATCH',
@@ -1047,7 +1390,6 @@ async function saveEnvModal() {
         allowedIp: document.getElementById('modal-lic-ip').value,
         maxActivations: Number(document.getElementById('modal-lic-max-sites').value),
         maxTransfers: Number(document.getElementById('modal-lic-max-transfers').value),
-        expiresAt: expiresVal ? new Date(expiresVal).toISOString() : undefined,
         notes: document.getElementById('modal-lic-notes').value,
         strictIpCheck: document.getElementById('modal-lic-strict-ip').checked
       })
@@ -1065,15 +1407,15 @@ function exportLicensesCsv() {
     showToast('Chưa có dữ liệu để xuất CSV', true);
     return;
   }
-  const headers = ['Ten Mien', 'Trang Thai', 'IP May Chu', 'License Key', 'Khach Hang', 'Cong Ty', 'Ngay Het Han', 'Ghi Chu'];
+  const headers = ['Ten Mien', 'Trang Thai Ban Quyen', 'Suc Khoe Website', 'Toc Do (ms)', 'IP May Chu', 'License Key', 'Khach Hang', 'Ghi Chu'];
   const rows = cachedLicenses.map((l) => [
     l.allowedDomain || '',
     l.status || '',
+    l.health?.status || 'CHUA_QUET',
+    l.health?.latencyMs || 0,
     l.allowedIp || '',
     l.licenseKey || '',
     l.customerName || '',
-    l.customerCompany || '',
-    l.expiresAt ? new Date(l.expiresAt).toLocaleDateString('vi-VN') : '',
     (l.notes || '').replace(/\r?\n/g, ' ')
   ]);
   const csvContent =

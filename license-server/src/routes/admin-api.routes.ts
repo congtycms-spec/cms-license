@@ -9,7 +9,10 @@ import {
   dbService,
   DatabaseService,
   StaffRole,
-  LicenseStatus
+  LicenseStatus,
+  LicenseRecord,
+  MonitorSettingsRecord,
+  SiteHealthRecord
 } from '../database/db.service';
 import { NetworkNormalizer } from '../utils/network-normalizer';
 import { ed25519Service } from '../crypto/ed25519.service';
@@ -262,31 +265,236 @@ adminApiRouter.delete(
 );
 
 // ==========================================================
-// 15. THỐNG KÊ TỔNG QUAN & LICENSE SẮP HẾT HẠN (DASHBOARD STATS PRO)
+// HỆ THỐNG GIÁM SÁT SỨC KHỎE WEBSITE & THÔNG BÁO ĐẨY TELEGRAM 24/7
+// ==========================================================
+const PERMANENT_EXPIRES_AT = '2099-12-31T23:59:59.000Z';
+
+function getMonitorSettings(): MonitorSettingsRecord {
+  if (!dbService.state.monitorSettings) {
+    dbService.state.monitorSettings = {
+      enabled: true,
+      telegramBotToken: process.env.TELEGRAM_BOT_TOKEN || '',
+      telegramChatId: process.env.TELEGRAM_CHAT_ID || '',
+      notifyOnRecovery: true,
+      slowThresholdMs: 3500,
+      lastSweepAt: null
+    };
+  }
+  return dbService.state.monitorSettings;
+}
+
+function getSiteHealthMap(): Record<string, SiteHealthRecord> {
+  if (!dbService.state.siteHealth) {
+    dbService.state.siteHealth = {};
+  }
+  return dbService.state.siteHealth;
+}
+
+async function sendTelegramAlert(
+  htmlMessage: string,
+  overrideToken?: string,
+  overrideChatId?: string
+): Promise<{ sent: boolean; error?: string }> {
+  const settings = getMonitorSettings();
+  const botToken = (overrideToken ?? settings.telegramBotToken ?? '').trim();
+  const chatId = (overrideChatId ?? settings.telegramChatId ?? '').trim();
+  if (!botToken || !chatId) {
+    return { sent: false, error: 'Chưa cấu hình Telegram Bot Token hoặc Chat ID.' };
+  }
+
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    const resp = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: htmlMessage,
+        parse_mode: 'HTML',
+        disable_web_page_preview: true
+      }),
+      signal: controller.signal
+    });
+    clearTimeout(timer);
+    const data = (await resp.json().catch(() => ({}))) as { ok?: boolean; description?: string };
+    if (!resp.ok || !data.ok) {
+      return { sent: false, error: data.description || `HTTP ${resp.status}` };
+    }
+    return { sent: true };
+  } catch (err) {
+    return { sent: false, error: (err as Error).message };
+  }
+}
+
+async function checkWebsiteHealth(
+  domainRaw: string,
+  lic?: LicenseRecord,
+  options?: { forceSync?: boolean; sendNotifications?: boolean }
+): Promise<{ record: SiteHealthRecord; stateChangedToDown: boolean; stateChangedToUp: boolean }> {
+  const domain = NetworkNormalizer.normalizeDomain(domainRaw, true);
+  const settings = getMonitorSettings();
+  const healthMap = getSiteHealthMap();
+  const prev = healthMap[domain];
+  const nowIso = new Date().toISOString();
+
+  if (options?.forceSync) {
+    await triggerRemoteClientSync(domain);
+  }
+
+  const startMs = Date.now();
+  let status: SiteHealthRecord['status'] = 'UP';
+  let httpStatus = 0;
+  let latencyMs = 0;
+  let errorDetail: string | null = null;
+
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 9000);
+    const response = await fetch(`https://${domain}/`, {
+      method: 'GET',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; CLPS-Uptime-Monitor/3.5)',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        Pragma: 'no-cache'
+      },
+      signal: controller.signal
+    });
+    clearTimeout(timer);
+
+    latencyMs = Date.now() - startMs;
+    httpStatus = response.status;
+    const bodySnippet = (await response.text().catch(() => '')).slice(0, 8000);
+
+    const isIntentionalLock =
+      bodySnippet.includes('Ed25519 Hardware/Domain Lock') ||
+      bodySnippet.includes('Website đang tạm ngưng hoạt động') ||
+      (httpStatus === 503 && (lic?.status === 'SUSPENDED' || lic?.status === 'REVOKED'));
+
+    const hasWpDbError =
+      bodySnippet.includes('Error establishing a database connection') ||
+      bodySnippet.includes('Lỗi thiết lập kết nối cơ sở dữ liệu');
+    const hasWpCriticalError =
+      bodySnippet.includes('There has been a critical error on this website') ||
+      bodySnippet.includes('Đã có lỗi nghiêm trọng trên trang web này') ||
+      bodySnippet.includes('Fatal error:') ||
+      bodySnippet.includes('Parse error:');
+
+    if (isIntentionalLock) {
+      status = 'LOCKED';
+      errorDetail = 'Đang hiển thị màn hình khóa bản quyền chủ động (HTTP 503)';
+    } else if (hasWpDbError) {
+      status = 'DOWN';
+      errorDetail = 'Lỗi cơ sở dữ liệu WordPress (Database Connection Error)';
+    } else if (hasWpCriticalError) {
+      status = 'DOWN';
+      errorDetail = 'Lỗi PHP nghiêm trọng trên WordPress (Critical / Fatal Error)';
+    } else if (httpStatus >= 500) {
+      status = 'DOWN';
+      errorDetail = `Máy chủ trả về lỗi HTTP ${httpStatus} (Server Error)`;
+    } else if (httpStatus === 403 || httpStatus === 404) {
+      status = 'DOWN';
+      errorDetail = `Không thể truy cập trang chủ (HTTP ${httpStatus})`;
+    } else if (httpStatus >= 400) {
+      status = 'DOWN';
+      errorDetail = `Lỗi phản hồi HTTP ${httpStatus}`;
+    } else if (latencyMs >= (settings.slowThresholdMs || 3500)) {
+      status = 'SLOW';
+      errorDetail = `Phản hồi chậm (${latencyMs}ms)`;
+    } else {
+      status = 'UP';
+      errorDetail = null;
+    }
+  } catch (err) {
+    latencyMs = Date.now() - startMs;
+    status = 'DOWN';
+    const rawMsg = (err as Error).message || 'Unknown error';
+    if (rawMsg.includes('aborted') || rawMsg.includes('timeout')) {
+      errorDetail = `Quá thời gian phản hồi (Timeout > 9s)`;
+    } else if (rawMsg.includes('ENOTFOUND') || rawMsg.includes('getaddrinfo')) {
+      errorDetail = 'Không phân giải được tên miền (Lỗi DNS)';
+    } else if (rawMsg.includes('ECONNREFUSED')) {
+      errorDetail = 'Máy chủ từ chối kết nối (Connection Refused)';
+    } else if (rawMsg.includes('certificate') || rawMsg.includes('SSL') || rawMsg.includes('TLS')) {
+      errorDetail = `Lỗi chứng chỉ bảo mật SSL (${rawMsg})`;
+    } else {
+      errorDetail = `Không thể kết nối tới Website (${rawMsg})`;
+    }
+  }
+
+  const prevAlerted = prev?.lastAlertedState || 'UP';
+  const stateChangedToDown = status === 'DOWN' && prevAlerted !== 'DOWN';
+  const stateChangedToUp =
+    (status === 'UP' || status === 'LOCKED') && prevAlerted === 'DOWN';
+
+  const record: SiteHealthRecord = {
+    domain,
+    status,
+    httpStatus,
+    latencyMs,
+    errorDetail,
+    checkedAt: nowIso,
+    lastIncidentAt: status === 'DOWN' ? nowIso : prev?.lastIncidentAt || null,
+    lastAlertedState:
+      status === 'DOWN'
+        ? 'DOWN'
+        : status === 'UP' || status === 'LOCKED'
+          ? 'UP'
+          : prevAlerted
+  };
+
+  healthMap[domain] = record;
+
+  if (options?.sendNotifications !== false && settings.enabled) {
+    const serverIp = lic?.allowedIp ? lic.allowedIp.split(',')[0].trim() : 'N/A';
+    const timeStr = new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
+    if (stateChangedToDown) {
+      const msg =
+        `🚨 <b>CẢNH BÁO WEBSITE SẬP / LỖI TRUY CẬP!</b>\n` +
+        `━━━━━━━━━━━━━━━━━━\n` +
+        `🌐 <b>Website:</b> <a href="https://${domain}">${domain}</a>\n` +
+        `🖥 <b>Server IP:</b> <code>${serverIp}</code>\n` +
+        `⚠️ <b>Tình trạng:</b> <b>${errorDetail || 'Không thể truy cập'}</b>\n` +
+        `📡 <b>Mã HTTP:</b> <code>${httpStatus || 'ERR_CONNECTION_FAILED'}</code> (${latencyMs}ms)\n` +
+        `🕒 <b>Thời gian phát hiện:</b> ${timeStr}\n` +
+        `━━━━━━━━━━━━━━━━━━\n` +
+        `👉 <i>Vui lòng kiểm tra hosting hoặc mở CMS License Dashboard ngay!</i>`;
+      await sendTelegramAlert(msg);
+    } else if (stateChangedToUp && settings.notifyOnRecovery) {
+      const msg =
+        `✅ <b>WEBSITE ĐÃ KHÔI PHỤC HOẠT ĐỘNG!</b>\n` +
+        `━━━━━━━━━━━━━━━━━━\n` +
+        `🌐 <b>Website:</b> <a href="https://${domain}">${domain}</a>\n` +
+        `🖥 <b>Server IP:</b> <code>${serverIp}</code>\n` +
+        `🟢 <b>Trạng thái:</b> Hoạt động bình thường (HTTP ${httpStatus} • ${latencyMs}ms)\n` +
+        `🕒 <b>Thời gian khôi phục:</b> ${timeStr}`;
+      await sendTelegramAlert(msg);
+    }
+  }
+
+  return { record, stateChangedToDown, stateChangedToUp };
+}
+
+// ==========================================================
+// 15. THỐNG KÊ TỔNG QUAN & GIÁM SÁT SỨC KHỎE WEBSITE (DASHBOARD STATS PRO)
 // ==========================================================
 adminApiRouter.get('/dashboard/stats', requireAuth(), (_req, res) => {
   const nowMs = Date.now();
-  const in30DaysMs = nowMs + 30 * 24 * 3600 * 1000;
   const last24hMs = nowMs - 24 * 3600 * 1000;
 
   const licenses = dbService.state.licenses;
-  const expiringSoon = licenses
-    .filter((l) => {
-      const expMs = new Date(l.expiresAt).getTime();
-      return l.status === 'ACTIVE' && expMs > nowMs && expMs <= in30DaysMs;
-    })
-    .map((l) => {
-      const customer = dbService.state.customers.find((c) => c.id === l.customerId);
-      const product = dbService.state.products.find((p) => p.id === l.productId);
-      const daysLeft = Math.ceil((new Date(l.expiresAt).getTime() - nowMs) / (24 * 3600 * 1000));
-      return {
-        ...l,
-        customerName: customer?.name || 'N/A',
-        customerCompany: customer?.company || '',
-        productName: product?.name || 'N/A',
-        daysLeft
-      };
-    });
+  // Đảm bảo toàn bộ license là vĩnh viễn (không bao giờ tự hết hạn)
+  let migratedPermanent = false;
+  for (const l of licenses) {
+    if (!l.expiresAt || new Date(l.expiresAt).getFullYear() < 2090) {
+      l.expiresAt = PERMANENT_EXPIRES_AT;
+      if (l.status === 'EXPIRED') l.status = 'ACTIVE';
+      migratedPermanent = true;
+    }
+  }
+  if (migratedPermanent) {
+    dbService.save();
+  }
 
   const pendingTransfers = dbService.state.transferRequests.filter((t) => t.status === 'PENDING');
 
@@ -325,6 +533,43 @@ adminApiRouter.get('/dashboard/stats', requireAuth(), (_req, res) => {
       };
     });
 
+  // Tổng hợp sức khỏe website thời gian thực
+  const settings = getMonitorSettings();
+  const healthMap = getSiteHealthMap();
+  let upCount = 0;
+  let downCount = 0;
+  let slowCount = 0;
+  let lockedCount = 0;
+  let uncheckedCount = 0;
+
+  const monitoredSites = licenses
+    .filter((l) => Boolean(l.allowedDomain))
+    .map((l) => {
+      const domain = l.allowedDomain!;
+      const h = healthMap[domain] || null;
+      const customer = dbService.state.customers.find((c) => c.id === l.customerId);
+      if (!h) {
+        uncheckedCount += 1;
+      } else if (h.status === 'DOWN') {
+        downCount += 1;
+      } else if (h.status === 'SLOW') {
+        slowCount += 1;
+      } else if (h.status === 'LOCKED') {
+        lockedCount += 1;
+      } else {
+        upCount += 1;
+      }
+      return {
+        licenseId: l.id,
+        licenseKey: l.licenseKey,
+        licenseStatus: l.status,
+        domain,
+        allowedIp: l.allowedIp || '',
+        customerName: customer?.name || 'N/A',
+        health: h
+      };
+    });
+
   res.json({
     summary: {
       totalCustomers: dbService.state.customers.length,
@@ -332,24 +577,28 @@ adminApiRouter.get('/dashboard/stats', requireAuth(), (_req, res) => {
       totalLicenses: licenses.length,
       activeLicenses: licenses.filter((l) => l.status === 'ACTIVE').length,
       inactiveLicenses: licenses.filter((l) => l.status === 'INACTIVE').length,
-      expiredLicenses: licenses.filter((l) => l.status === 'EXPIRED').length,
       suspendedLicenses: licenses.filter((l) => l.status === 'SUSPENDED').length,
       revokedLicenses: licenses.filter((l) => l.status === 'REVOKED').length,
-      expiringWithin30DaysCount: expiringSoon.length,
       pendingTransferRequestsCount: pendingTransfers.length,
       totalRemoteFeatureCalls: dbService.state.remoteFeatureLogs.length,
       serverCount: serverMap.size,
       validations24hTotal: logs24h.length,
       validations24hValid: valid24h,
-      validations24hInvalid: invalid24h
+      validations24hInvalid: invalid24h,
+      upCount,
+      downCount,
+      slowCount,
+      lockedCount,
+      uncheckedCount
     },
+    monitorSettings: settings,
+    monitoredSites,
     serverGroups: Array.from(serverMap.values()).sort((a, b) => b.total - a.total),
     cryptography: {
       algorithm: 'Ed25519 (RFC 8032)',
       keyId: ed25519Service.getKeyId(),
       publicKeyBase64: ed25519Service.getPublicKeyBase64()
     },
-    expiringSoonLicenses: expiringSoon,
     recentValidationFailures
   });
 });
@@ -534,12 +783,14 @@ adminApiRouter.delete(
 // 3 -> 10. QUẢN LÝ LICENSE (TẠO, KÍCH HOẠT, GIA HẠN, TẠM NGỪNG, THU HỒI, ĐỔI DOMAIN/IP, GIỚI HẠN)
 // ==========================================================
 adminApiRouter.get('/licenses', requireAuth(), (_req, res) => {
+  const healthMap = getSiteHealthMap();
   const enriched = dbService.state.licenses.map((l) => {
     const customer = dbService.state.customers.find((c) => c.id === l.customerId);
     const product = dbService.state.products.find((p) => p.id === l.productId);
     const activations = dbService.state.activations.filter((a) => a.licenseId === l.id);
     const transfers = dbService.state.transferRequests.filter((t) => t.licenseId === l.id);
     const latestActivation = activations[activations.length - 1] || null;
+    const health = l.allowedDomain ? healthMap[l.allowedDomain] || null : null;
     return {
       ...l,
       customerName: customer?.name || 'N/A',
@@ -552,6 +803,7 @@ adminApiRouter.get('/licenses', requireAuth(), (_req, res) => {
       lastVerifiedAt: latestActivation?.lastVerifiedAt || null,
       wpVersion: latestActivation?.wpVersion || null,
       phpVersion: latestActivation?.phpVersion || null,
+      health,
       activations,
       transfers
     };
@@ -622,8 +874,7 @@ adminApiRouter.post(
     }
 
     const now = new Date();
-    const days = Math.max(1, Number(durationDays || 365));
-    const expiresAt = new Date(now.getTime() + days * 24 * 3600 * 1000).toISOString();
+    const expiresAt = PERMANENT_EXPIRES_AT;
     const normIp = resolvedIpStr
       ? NetworkNormalizer.normalizeIp(resolvedIpStr) || resolvedIpStr
       : null;
@@ -973,51 +1224,132 @@ adminApiRouter.post('/tools/ping-site', requireAuth(), async (req: Request, res:
     return;
   }
 
-  const startMs = Date.now();
-  try {
-    if (forceSync) {
-      await triggerRemoteClientSync(domain);
+  const lic = dbService.state.licenses.find((l) => l.allowedDomain === domain);
+  const { record, stateChangedToDown } = await checkWebsiteHealth(domain, lic, {
+    forceSync,
+    sendNotifications: true
+  });
+  dbService.save();
+  await dbService.flush();
+
+  res.json({
+    domain: record.domain,
+    reachable: record.status !== 'DOWN' || record.httpStatus > 0,
+    status: record.status,
+    httpStatus: record.httpStatus,
+    latencyMs: record.latencyMs,
+    isLockedScreen: record.status === 'LOCKED',
+    error: record.errorDetail,
+    stateChangedToDown,
+    checkedAt: record.checkedAt
+  });
+});
+
+// Cấu hình Thông báo đẩy Telegram Bot & Hệ thống Giám sát Website
+adminApiRouter.put(
+  '/monitor/settings',
+  requireAuth(['SUPER_ADMIN', 'MANAGER']),
+  async (req: AuthenticatedAdminRequest, res: Response) => {
+    const settings = getMonitorSettings();
+    const { enabled, telegramBotToken, telegramChatId, notifyOnRecovery, slowThresholdMs } =
+      req.body || {};
+
+    if (enabled !== undefined) settings.enabled = Boolean(enabled);
+    if (telegramBotToken !== undefined) settings.telegramBotToken = String(telegramBotToken).trim();
+    if (telegramChatId !== undefined) settings.telegramChatId = String(telegramChatId).trim();
+    if (notifyOnRecovery !== undefined) settings.notifyOnRecovery = Boolean(notifyOnRecovery);
+    if (slowThresholdMs !== undefined) {
+      settings.slowThresholdMs = Math.max(500, Number(slowThresholdMs) || 3500);
     }
 
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 10000);
-    const response = await fetch(`https://${domain}/`, {
-      method: 'GET',
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; CLPS-Live-Monitor/3.0)',
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        Pragma: 'no-cache'
-      },
-      signal: controller.signal
-    });
-    clearTimeout(timer);
+    dbService.save();
+    await dbService.flush();
+    res.json({ success: true, monitorSettings: settings });
+  }
+);
 
-    const latencyMs = Date.now() - startMs;
-    const textSnippet = (await response.text().catch(() => '')).slice(0, 4000);
-    const isLockedScreen =
-      response.status === 503 ||
-      textSnippet.includes('Ed25519 Hardware/Domain Lock') ||
-      textSnippet.includes('Website đang tạm ngưng hoạt động');
+// Gửi thử Thông báo Đẩy qua Telegram Bot
+adminApiRouter.post(
+  '/monitor/test-telegram',
+  requireAuth(['SUPER_ADMIN', 'MANAGER']),
+  async (req: AuthenticatedAdminRequest, res: Response) => {
+    const { telegramBotToken, telegramChatId } = req.body || {};
+    const timeStr = new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
+    const totalSites = dbService.state.licenses.length;
+    const activeSites = dbService.state.licenses.filter((l) => l.status === 'ACTIVE').length;
+
+    const testHtml =
+      `🔔 <b>KIỂM TRA KẾT NỐI CẢNH BÁO CMS LICENSE PRO</b>\n` +
+      `━━━━━━━━━━━━━━━━━━\n` +
+      `✅ Hệ thống Giám sát Sức khỏe Website 24/7 đã kết nối thành công với Telegram của bạn!\n` +
+      `🌐 <b>Tổng số Website bảo vệ:</b> <b>${totalSites}</b> (${activeSites} đang hoạt động)\n` +
+      `⚡ <b>Cơ chế cảnh báo:</b> Báo động tức thì khi Website bị sập, lỗi kết nối, HTTP 500/502/403 hoặc lỗi Database WordPress.\n` +
+      `🕒 <b>Thời gian:</b> ${timeStr}`;
+
+    const result = await sendTelegramAlert(
+      testHtml,
+      telegramBotToken ? String(telegramBotToken).trim() : undefined,
+      telegramChatId ? String(telegramChatId).trim() : undefined
+    );
+
+    if (!result.sent) {
+      res.status(400).json({
+        error: 'TELEGRAM_SEND_FAILED',
+        message: `Không gửi được tin nhắn Telegram: ${result.error}`
+      });
+      return;
+    }
 
     res.json({
-      domain,
-      reachable: true,
-      httpStatus: response.status,
-      latencyMs,
-      isLockedScreen,
-      checkedAt: new Date().toISOString()
-    });
-  } catch (err) {
-    res.json({
-      domain,
-      reachable: false,
-      httpStatus: 0,
-      latencyMs: Date.now() - startMs,
-      isLockedScreen: false,
-      error: (err as Error).message,
-      checkedAt: new Date().toISOString()
+      success: true,
+      message: 'Đã gửi thông báo đẩy thử nghiệm tới Telegram thành công!'
     });
   }
+);
+
+// Quét Giám sát Sức khỏe Đồng loạt Toàn bộ Website (Real-Time Uptime Sweep)
+adminApiRouter.post('/monitor/sweep', requireAuth(), async (_req: Request, res: Response) => {
+  const licenses = dbService.state.licenses.filter((l) => Boolean(l.allowedDomain));
+  const newlyDownSites: SiteHealthRecord[] = [];
+  const newlyRecoveredSites: SiteHealthRecord[] = [];
+
+  // Chạy kiểm tra song song theo lô 6 website để đảm bảo tốc độ dưới 3 giây mà không nghẽn mạng
+  const batchSize = 6;
+  for (let i = 0; i < licenses.length; i += batchSize) {
+    const batch = licenses.slice(i, i + batchSize);
+    const results = await Promise.all(
+      batch.map((lic) =>
+        checkWebsiteHealth(lic.allowedDomain!, lic, {
+          forceSync: false,
+          sendNotifications: true
+        })
+      )
+    );
+    for (const r of results) {
+      if (r.stateChangedToDown) newlyDownSites.push(r.record);
+      if (r.stateChangedToUp) newlyRecoveredSites.push(r.record);
+    }
+  }
+
+  const settings = getMonitorSettings();
+  settings.lastSweepAt = new Date().toISOString();
+
+  dbService.save();
+  await dbService.flush();
+
+  const healthMap = getSiteHealthMap();
+  const allRecords = Object.values(healthMap);
+  const downSites = allRecords.filter((r) => r.status === 'DOWN');
+
+  res.json({
+    success: true,
+    checkedCount: licenses.length,
+    lastSweepAt: settings.lastSweepAt,
+    newlyDownSites,
+    newlyRecoveredSites,
+    downSites,
+    siteHealth: healthMap
+  });
 });
 
 // Công cụ Pro: Tải trực tiếp file class-wp-block-hydrator.php

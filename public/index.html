@@ -416,15 +416,29 @@
       <section id="tab-overview" class="space-y-6">
         <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-800/80 pb-4">
           <div>
-            <h2 class="text-xl sm:text-2xl font-bold text-white tracking-tight">Trung tâm Giám sát Bản quyền & Đội hình Website</h2>
-            <p class="text-xs sm:text-sm text-slate-400 mt-0.5">Điều khiển khóa/mở từ xa thời gian thực, giám sát cụm máy chủ hosting và kiểm tra phản hồi HTTP trực tiếp</p>
+            <h2 class="text-xl sm:text-2xl font-bold text-white tracking-tight">Trung tâm Giám sát Sức khỏe Website & Bản quyền</h2>
+            <p class="text-xs sm:text-sm text-slate-400 mt-0.5"> Tự động kiểm soát lỗi Website 24/7, phát hiện sập nguồn / lỗi Database và bắn thông báo đẩy tức thì qua Telegram & Trình duyệt</p>
           </div>
           <div class="flex flex-wrap items-center gap-2">
-            <!-- Auto-refresh toggle -->
+            <!-- Web Browser Push Notification Toggle -->
+            <button type="button" onclick="enableBrowserPushNotifications()" id="btn-browser-push"
+              class="px-3 py-2 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 text-xs font-medium rounded-lg border border-amber-500/30 transition-colors duration-200 cursor-pointer flex items-center gap-1.5"
+              title="Bật thông báo đẩy trên màn hình máy tính kèm chuông báo động khi có Website bị sập">
+              <span>🔔</span>
+              <span id="browser-push-label">Thông báo Máy tính: Bấm để Bật</span>
+            </button>
+            <!-- Auto-refresh & Auto-Uptime Sweep toggle -->
             <button type="button" onclick="toggleAutoRefresh()" id="btn-auto-refresh"
               class="px-3 py-2 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 text-xs font-mono font-medium rounded-lg border border-emerald-500/30 transition-colors duration-200 cursor-pointer flex items-center gap-1.5">
               <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" id="auto-refresh-dot"></span>
-              <span id="auto-refresh-label">Live Sync: BẬT (30s)</span>
+              <span id="auto-refresh-label">Giám sát Tự động: BẬT (60s)</span>
+            </button>
+            <button type="button" onclick="runFullHealthSweep(true)" id="btn-overview-sweep"
+              class="btn-primary-text px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg transition-colors duration-200 cursor-pointer flex items-center gap-1.5 shadow-sm">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+              </svg>
+              <span>Quét Sức Khỏe Toàn Bộ Web Ngay</span>
             </button>
             <button type="button" onclick="switchTab('licenses'); document.getElementById('lic-domain')?.focus();"
               class="btn-primary-text px-3.5 py-2 bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold rounded-lg transition-colors duration-200 cursor-pointer flex items-center gap-1.5 shadow-sm">
@@ -434,120 +448,137 @@
               </svg>
               <span>+ Thêm Website Mới</span>
             </button>
-            <button type="button" onclick="exportLicensesCsv()"
-              class="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs font-medium rounded-lg border border-slate-700 transition-colors duration-200 cursor-pointer flex items-center gap-1.5">
-              <svg class="w-3.5 h-3.5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="7 10 12 15 17 10" />
-                <line x1="12" x2="12" y1="15" y2="3" />
-              </svg>
-              <span>Xuất CSV</span>
-            </button>
-            <button type="button" onclick="refreshAll()"
-              class="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs font-medium rounded-lg border border-slate-700 transition-colors duration-200 cursor-pointer flex items-center gap-1.5">
-              <svg class="w-3.5 h-3.5 text-sky-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                <path d="M3 3v5h5" />
-                <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
-                <path d="M16 16h5v5" />
-              </svg>
-              <span>Làm mới</span>
-            </button>
           </div>
         </div>
 
         <!-- 6 Interactive KPI Cards -->
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3.5" id="kpi-cards"></div>
 
-        <!-- Row 2: Health Bar + Server Clusters + Quick Embed Toolkit -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <!-- License Health Distribution (4 states) -->
-          <div class="glass-card bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col justify-between">
+        <!-- Row 2: Website Health Bar + Telegram 24/7 Push Config + Server Clusters + Quick Embed Toolkit -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+          <!-- Website Uptime & License Health Distribution (3 cols) -->
+          <div class="lg:col-span-3 glass-card bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col justify-between">
             <div>
               <div class="flex items-center justify-between mb-2">
                 <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2">
                   <svg class="w-4 h-4 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
                   </svg>
-                  <span>Tỷ lệ Sức khỏe Bản quyền</span>
+                  <span>Tỷ lệ Sức khỏe Đội hình Web</span>
                 </h3>
                 <span id="health-rate-badge" class="text-xs font-mono font-bold text-emerald-400">100%</span>
               </div>
-              <p class="text-xs text-slate-400 mb-4">Phân bổ trạng thái thực tế của toàn bộ Website trên hệ thống</p>
+              <p class="text-xs text-slate-400 mb-4">Tình trạng hoạt động thực tế của toàn bộ Website đang quản lý (Bản quyền Vĩnh viễn)</p>
             </div>
             <div class="space-y-3">
               <div class="w-full h-3.5 bg-slate-950 rounded-full overflow-hidden flex border border-slate-800"
                 id="license-distribution-bar"></div>
               <div class="grid grid-cols-2 gap-2 text-[11px] text-slate-400 pt-1">
-                <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>Đang hoạt động (<span id="legend-active-count" class="font-mono text-white">0</span>)</span>
-                <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-orange-500"></span>Đang khóa tạm (<span id="legend-suspended-count" class="font-mono text-white">0</span>)</span>
-                <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>Sắp hết hạn (<span id="legend-expiring-count" class="font-mono text-white">0</span>)</span>
-                <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span>Thu hồi / Hết hạn (<span id="legend-revoked-count" class="font-mono text-white">0</span>)</span>
+                <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>Web Hoạt động tốt (<span id="legend-up-count" class="font-mono text-white">0</span>)</span>
+                <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span>Web Đang lỗi/Sập (<span id="legend-down-count" class="font-mono text-white">0</span>)</span>
+                <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>Phản hồi chậm (<span id="legend-slow-count" class="font-mono text-white">0</span>)</span>
+                <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-orange-500"></span>Đang khóa 503 (<span id="legend-locked-count" class="font-mono text-white">0</span>)</span>
               </div>
             </div>
           </div>
 
-          <!-- Hosting / Server IP Clusters -->
-          <div class="glass-card bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col justify-between">
-            <div>
-              <div class="flex items-center justify-between mb-2">
-                <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2">
-                  <svg class="w-4 h-4 text-sky-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect width="20" height="8" x="2" y="2" rx="2" ry="2" />
-                    <rect width="20" height="8" x="2" y="14" rx="2" ry="2" />
-                    <line x1="6" x2="6.01" y1="6" y2="6" />
-                    <line x1="6" x2="6.01" y1="18" y2="18" />
-                  </svg>
-                  <span>Cụm Máy chủ Hosting / VPS</span>
-                </h3>
-                <span class="text-[11px] text-sky-400 font-mono" id="server-cluster-count">0 Server</span>
-              </div>
-              <p class="text-xs text-slate-400 mb-3">Bấm vào IP máy chủ để lọc riêng các website thuộc Hosting đó</p>
-            </div>
-            <div id="server-clusters-list" class="space-y-2 max-h-32 overflow-y-auto pr-1"></div>
-          </div>
-
-          <!-- Stealth Embed & Ed25519 Toolkit -->
-          <div class="glass-card bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col justify-between">
+          <!-- Telegram Bot 24/7 Push Notification Configuration (4 cols) -->
+          <div class="lg:col-span-4 glass-card bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col justify-between">
             <div>
               <div class="flex items-center justify-between gap-2 mb-2">
                 <h3 class="text-xs font-semibold uppercase tracking-wider text-sky-400 flex items-center gap-2">
-                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <span>📲</span>
+                  <span>Thông Báo Đẩy Telegram 24/7</span>
+                </h3>
+                <span id="telegram-status-badge"
+                  class="text-[11px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">Chưa cấu hình</span>
+              </div>
+              <p class="text-[11px] text-slate-400 mb-3">
+                Tự động bắn tin nhắn báo động vào điện thoại ngay khi có bất kỳ Website nào bị sập, lỗi kết nối hoặc lỗi Database.
+                <button type="button" onclick="toggleTelegramGuide()" class="text-sky-400 hover:underline font-medium ml-1 cursor-pointer">Hướng dẫn lấy mã 30s</button>
+              </p>
+              <div id="telegram-guide-box" class="hidden mb-3 p-2.5 rounded-lg bg-slate-950/90 border border-sky-500/30 text-[11px] text-slate-300 space-y-1">
+                <div><strong>Bước 1:</strong> Mở Telegram tìm <code class="text-sky-300">@BotFather</code> → gõ <code class="text-emerald-300">/newbot</code> để nhận <strong>Bot Token</strong> ( nhớ bấm Start vào bot vừa tạo).</div>
+                <div><strong>Bước 2:</strong> Tìm <code class="text-sky-300">@userinfobot</code> → bấm Start để lấy dãy số <strong>Chat ID</strong> của bạn.</div>
+                <div><strong>Bước 3:</strong> Dán 2 mã vào ô dưới → bấm <strong>Lưu</strong> và bấm <strong>Gửi Thử</strong>!</div>
+              </div>
+            </div>
+            <div class="space-y-2 text-xs">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <input id="tg-bot-token" type="password" placeholder="Telegram Bot Token (vd: 712345:AAH...)"
+                  class="input-field w-full rounded-lg px-2.5 py-1.5 font-mono text-[11px]" />
+                <input id="tg-chat-id" type="text" placeholder="Chat ID (vd: 123456789)"
+                  class="input-field w-full rounded-lg px-2.5 py-1.5 font-mono text-[11px]" />
+              </div>
+              <div class="flex items-center justify-between gap-2 pt-1">
+                <label class="flex items-center gap-1.5 text-[11px] text-slate-300 cursor-pointer select-none">
+                  <input id="tg-enabled" type="checkbox" checked class="w-3.5 h-3.5 rounded border-slate-700 text-sky-600 cursor-pointer" />
+                  <span>Bật báo động & báo khi Web sống lại</span>
+                </label>
+                <div class="flex items-center gap-1.5">
+                  <button type="button" onclick="testTelegramPush()" id="btn-test-tg"
+                    class="px-2.5 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 rounded-lg text-[11px] font-semibold cursor-pointer">
+                    🔔 Gửi Thử
+                  </button>
+                  <button type="button" onclick="saveMonitorSettings()"
+                    class="btn-primary-text px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-[11px] font-semibold cursor-pointer">
+                    Lưu Cấu Hình
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Hosting / Server IP Clusters (2 cols) -->
+          <div class="lg:col-span-2 glass-card bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                  <svg class="w-4 h-4 text-sky-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect width="20" height="8" x="2" y="2" rx="2" ry="2" />
+                    <rect width="20" height="8" x="2" y="14" rx="2" ry="2" />
+                  </svg>
+                  <span>Cụm Server IP</span>
+                </h3>
+                <span class="text-[11px] text-sky-400 font-mono" id="server-cluster-count">0</span>
+              </div>
+              <p class="text-[11px] text-slate-400 mb-2">Bấm IP để lọc nhanh</p>
+            </div>
+            <div id="server-clusters-list" class="space-y-1.5 max-h-28 overflow-y-auto pr-1"></div>
+          </div>
+
+          <!-- Stealth Embed & Ed25519 Toolkit (3 cols) -->
+          <div class="lg:col-span-3 glass-card bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between gap-2 mb-2">
+                <h3 class="text-xs font-semibold uppercase tracking-wider text-sky-400 flex items-center gap-1.5">
+                  <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
                     <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                   </svg>
-                  <span>Bộ Công Cụ Nhúng Bảo Vệ (Stealth)</span>
+                  <span>Bộ Nhúng Bảo Vệ (Stealth)</span>
                 </h3>
                 <span id="crypto-key-id"
-                  class="text-[11px] font-mono bg-slate-800 border border-slate-700 px-2 py-0.5 rounded text-slate-300"></span>
+                  class="text-[10px] font-mono bg-slate-800 border border-slate-700 px-1.5 py-0.5 rounded text-slate-300"></span>
               </div>
-              <p class="text-xs text-slate-400 mb-3">Tải file bảo vệ ngụy trang hoặc sao chép mã nhúng vào <code class="font-mono text-sky-300">functions.php</code> của Theme</p>
+              <p class="text-[11px] text-slate-400 mb-2.5">Tải file bảo vệ ngụy trang hoặc sao chép mã nhúng vào <code class="font-mono text-sky-300">functions.php</code></p>
             </div>
             <div class="space-y-2">
               <div class="flex gap-1.5">
                 <input id="crypto-pub-key" readonly
-                  class="input-field flex-1 bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-[11px] font-mono text-emerald-400 select-all" />
+                  class="input-field flex-1 bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-[11px] font-mono text-emerald-400 select-all" />
                 <button type="button" onclick="copyPublicKey()"
-                  class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-lg border border-slate-700 cursor-pointer shrink-0">
-                  Copy Key
+                  class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-medium rounded-lg border border-slate-700 cursor-pointer shrink-0">
+                  Copy
                 </button>
               </div>
-              <div class="grid grid-cols-2 gap-2 pt-1">
+              <div class="grid grid-cols-2 gap-1.5 pt-0.5">
                 <button type="button" onclick="downloadStealthHydrator()"
-                  class="btn-primary-text py-2 px-3 bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold rounded-lg transition-colors duration-200 cursor-pointer flex items-center justify-center gap-1.5">
-                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                    <polyline points="7 10 12 15 17 10" />
-                    <line x1="12" x2="12" y1="15" y2="3" />
-                  </svg>
+                  class="btn-primary-text py-1.5 px-2.5 bg-sky-600 hover:bg-sky-500 text-white text-[11px] font-semibold rounded-lg transition-colors duration-200 cursor-pointer flex items-center justify-center gap-1">
                   <span>Tải Hydrator.php</span>
                 </button>
                 <button type="button" onclick="copyThemeSnippet()"
-                  class="py-2 px-3 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-semibold rounded-lg transition-colors duration-200 cursor-pointer flex items-center justify-center gap-1.5">
-                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <polyline points="16 18 22 12 16 6" />
-                    <polyline points="8 6 2 12 8 18" />
-                  </svg>
+                  class="py-1.5 px-2.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-[11px] font-semibold rounded-lg transition-colors duration-200 cursor-pointer flex items-center justify-center gap-1">
                   <span>Mã functions.php</span>
                 </button>
               </div>
@@ -555,30 +586,55 @@
           </div>
         </div>
 
-        <!-- Expiring Soon Licenses -->
+        <!-- REAL-TIME WEBSITE HEALTH & INCIDENT MONITOR TABLE -->
         <div class="glass-card bg-slate-900 border border-slate-800 rounded-xl p-5">
-          <div class="flex items-center justify-between mb-4">
-            <h3 class="text-sm font-semibold text-amber-400 flex items-center gap-2">
-              <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="10" />
-                <polyline points="12 6 12 12 16 14" />
-              </svg>
-              <span>Cảnh báo Website Sắp Hết Hạn Bản Quyền (Trong vòng 30 ngày tới)</span>
-            </h3>
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <div>
+              <h3 class="text-sm font-semibold text-white flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" id="monitor-live-indicator"></span>
+                <span>Bảng Kiểm Soát Sức Khỏe & Phát Hiện Lỗi Website Thời Gian Thực (Real-Time Uptime Monitor)</span>
+              </h3>
+              <p class="text-[11px] text-slate-400 mt-0.5">
+                Lần quét gần nhất: <span id="last-sweep-time" class="font-mono text-sky-400">Đang khởi tạo...</span>
+                • Tự động phân biệt <strong class="text-orange-300">Khóa chủ động (HTTP 503)</strong> và <strong class="text-rose-400">Website bị sập / lỗi thật</strong>
+              </p>
+            </div>
+            <div class="flex flex-wrap items-center gap-1.5 text-xs">
+              <button type="button" onclick="setMonitorFilter('ALL')" id="mon-filter-ALL"
+                class="px-2.5 py-1.5 rounded-lg bg-sky-500/20 text-sky-300 border border-sky-500/40 font-semibold cursor-pointer">
+                Tất cả (<span id="mon-count-all">0</span>)
+              </button>
+              <button type="button" onclick="setMonitorFilter('DOWN')" id="mon-filter-DOWN"
+                class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-rose-300 border border-slate-700 font-semibold cursor-pointer">
+                🚨 Đang lỗi / Sập (<span id="mon-count-down">0</span>)
+              </button>
+              <button type="button" onclick="setMonitorFilter('SLOW')" id="mon-filter-SLOW"
+                class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 font-medium cursor-pointer">
+                🐢 Phản hồi chậm (<span id="mon-count-slow">0</span>)
+              </button>
+              <button type="button" onclick="setMonitorFilter('UP')" id="mon-filter-UP"
+                class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-slate-700 font-medium cursor-pointer">
+                🟢 Hoạt động tốt (<span id="mon-count-up">0</span>)
+              </button>
+              <button type="button" onclick="setMonitorFilter('LOCKED')" id="mon-filter-LOCKED"
+                class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-orange-300 border border-slate-700 font-medium cursor-pointer">
+                🔒 Đang khóa 503 (<span id="mon-count-locked">0</span>)
+              </button>
+            </div>
           </div>
-          <div class="overflow-x-auto">
+          <div class="overflow-x-auto max-h-[26rem]">
             <table class="w-full text-left text-xs">
-              <thead class="text-slate-400 border-b border-slate-800 uppercase tracking-wider text-[11px]">
+              <thead class="text-slate-400 border-b border-slate-800 uppercase tracking-wider text-[11px] sticky top-0 bg-slate-900">
                 <tr>
-                  <th class="py-3 px-3">License Key</th>
-                  <th class="py-3 px-3">Khách hàng</th>
-                  <th class="py-3 px-3">Sản phẩm</th>
-                  <th class="py-3 px-3">Tên miền & IP</th>
-                  <th class="py-3 px-3">Còn lại</th>
-                  <th class="py-3 px-3 text-right">Thao tác nhanh</th>
+                  <th class="py-3 px-3">Website / Tên miền</th>
+                  <th class="py-3 px-3">Trạng thái Sức khỏe & Mã HTTP</th>
+                  <th class="py-3 px-3">Tốc độ Phản hồi (Latency)</th>
+                  <th class="py-3 px-3">Chẩn đoán Chi tiết / Nguyên nhân</th>
+                  <th class="py-3 px-3">Kiểm tra lúc</th>
+                  <th class="py-3 px-3 text-right">Thao tác Nhanh</th>
                 </tr>
               </thead>
-              <tbody id="expiring-soon-tbody" class="divide-y divide-slate-800/60"></tbody>
+              <tbody id="uptime-monitor-tbody" class="divide-y divide-slate-800/60"></tbody>
             </table>
           </div>
         </div>
@@ -680,13 +736,9 @@
               <select id="lic-product" required class="input-field w-full rounded-lg px-3 py-2 text-white"></select>
             </div>
             <div>
-              <label for="lic-days" class="block text-slate-400 font-medium mb-1.5">5. Số site / Thời hạn (ngày)</label>
-              <div class="flex gap-1.5">
-                <input id="lic-max-sites" type="number" value="3" min="1"
-                  class="input-field w-14 rounded-lg px-2 py-2 font-mono text-center" title="Số website tối đa" />
-                <input id="lic-days" type="number" value="365" min="1"
-                  class="input-field flex-1 rounded-lg px-2.5 py-2 font-mono" title="Số ngày hiệu lực" />
-              </div>
+              <label for="lic-max-sites" class="block text-slate-400 font-medium mb-1.5">5. Số site tối đa (Vĩnh viễn)</label>
+              <input id="lic-max-sites" type="number" value="3" min="1"
+                class="input-field w-full rounded-lg px-3 py-2 font-mono" title="Số website tối đa (Bản quyền Vĩnh viễn)" />
             </div>
             <div class="flex items-end">
               <button type="submit"
@@ -723,19 +775,20 @@
 
               <select id="license-status-filter" onchange="renderFilteredLicenses()"
                 class="input-field rounded-lg px-3 py-2 text-xs">
-                <option value="ALL">Tất cả Trạng thái</option>
-                <option value="ACTIVE">ACTIVE (Đang mở)</option>
-                <option value="SUSPENDED">SUSPENDED (Đang khóa tạm)</option>
-                <option value="EXPIRED">EXPIRED (Đã hết hạn)</option>
-                <option value="REVOKED">REVOKED (Đã thu hồi)</option>
-                <option value="INACTIVE">INACTIVE (Chưa kích hoạt)</option>
+                <option value="ALL">Tất cả Trạng thái & Sức khỏe</option>
+                <option value="HEALTH_DOWN">🚨 Đang lỗi / Không truy cập được</option>
+                <option value="HEALTH_SLOW">🐢 Phản hồi chậm (>3.5s)</option>
+                <option value="ACTIVE">🟢 ACTIVE (Bản quyền đang mở)</option>
+                <option value="SUSPENDED">🔒 SUSPENDED (Đang khóa tạm)</option>
+                <option value="REVOKED">⛔ REVOKED (Đã thu hồi)</option>
               </select>
 
               <select id="license-sort-by" onchange="renderFilteredLicenses()"
                 class="input-field rounded-lg px-3 py-2 text-xs">
+                <option value="HEALTH_DOWN_FIRST">Sắp xếp: Website đang lỗi lên đầu</option>
                 <option value="DOMAIN_ASC">Sắp xếp: Tên miền (A → Z)</option>
                 <option value="STATUS">Sắp xếp: Trạng thái (Đang khóa lên đầu)</option>
-                <option value="EXPIRES_ASC">Sắp xếp: Sắp hết hạn trước</option>
+                <option value="LATENCY_DESC">Sắp xếp: Phản hồi chậm nhất lên đầu</option>
                 <option value="UPDATED_DESC">Sắp xếp: Mới cập nhật gần nhất</option>
               </select>
             </div>
@@ -757,10 +810,6 @@
                 class="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white font-semibold rounded-lg cursor-pointer">
                 Tạm ngưng (Khóa) đồng loạt
               </button>
-              <button type="button" onclick="runBulkAction('RENEW')"
-                class="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white font-semibold rounded-lg cursor-pointer">
-                +Gia hạn 1 năm
-              </button>
               <button type="button" onclick="promptBulkUpdateIp()"
                 class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-sky-300 border border-sky-500/30 font-semibold rounded-lg cursor-pointer">
                 Đổi IP Hosting đồng loạt
@@ -780,11 +829,11 @@
                     <input type="checkbox" id="select-all-licenses" onchange="toggleSelectAllLicenses(this.checked)"
                       class="w-4 h-4 rounded border-slate-700 text-sky-600 cursor-pointer" title="Chọn tất cả" />
                   </th>
-                  <th class="py-3 px-3">Website / Tên miền & Trạng thái Sống</th>
+                  <th class="py-3 px-3">Website / Tên miền</th>
                   <th class="py-3 px-3">Trạng thái Bản quyền</th>
                   <th class="py-3 px-3">IP Máy chủ & Môi trường</th>
                   <th class="py-3 px-3">Khách hàng / License Key</th>
-                  <th class="py-3 px-3">Thời hạn</th>
+                  <th class="py-3 px-3">Sức khỏe & Phản hồi (Uptime)</th>
                   <th class="py-3 px-3 text-right">Điều khiển Nhanh</th>
                 </tr>
               </thead>
@@ -1064,21 +1113,16 @@
             </button>
           </div>
         </div>
-        <div class="grid grid-cols-3 gap-3">
+        <div class="grid grid-cols-2 gap-3">
           <div>
             <label for="modal-lic-max-sites" class="block text-slate-400 font-medium mb-1">Số site tối đa</label>
             <input id="modal-lic-max-sites" type="number" min="1"
               class="input-field w-full rounded-lg px-3 py-2 font-mono" />
           </div>
           <div>
-            <label for="modal-lic-max-transfers" class="block text-slate-400 font-medium mb-1">Giới hạn chuyển</label>
+            <label for="modal-lic-max-transfers" class="block text-slate-400 font-medium mb-1">Giới hạn chuyển Server</label>
             <input id="modal-lic-max-transfers" type="number" min="0"
               class="input-field w-full rounded-lg px-3 py-2 font-mono" />
-          </div>
-          <div>
-            <label for="modal-lic-expires" class="block text-slate-400 font-medium mb-1">Ngày hết hạn</label>
-            <input id="modal-lic-expires" type="date"
-              class="input-field w-full rounded-lg px-2.5 py-2 font-mono" />
           </div>
         </div>
         <div>

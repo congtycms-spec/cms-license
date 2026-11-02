@@ -136,6 +136,26 @@ export interface RemoteFeatureUsageLogRecord {
   createdAt: string;
 }
 
+export interface MonitorSettingsRecord {
+  enabled: boolean;
+  telegramBotToken: string;
+  telegramChatId: string;
+  notifyOnRecovery: boolean;
+  slowThresholdMs: number;
+  lastSweepAt: string | null;
+}
+
+export interface SiteHealthRecord {
+  domain: string;
+  status: 'UP' | 'DOWN' | 'LOCKED' | 'SLOW';
+  httpStatus: number;
+  latencyMs: number;
+  errorDetail: string | null;
+  checkedAt: string;
+  lastIncidentAt: string | null;
+  lastAlertedState?: 'UP' | 'DOWN' | 'SLOW';
+}
+
 export interface DatabaseState {
   users: UserRecord[];
   customers: CustomerRecord[];
@@ -146,6 +166,8 @@ export interface DatabaseState {
   validationLogs: ValidationLogRecord[];
   auditLogs: LicenseAuditLogRecord[];
   remoteFeatureLogs: RemoteFeatureUsageLogRecord[];
+  monitorSettings?: MonitorSettingsRecord;
+  siteHealth?: Record<string, SiteHealthRecord>;
 }
 
 export class DatabaseService {
