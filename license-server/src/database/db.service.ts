@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import dotenv from 'dotenv';
 import { Pool } from 'pg';
 
 export type StaffRole = 'SUPER_ADMIN' | 'MANAGER' | 'SUPPORT';
@@ -190,12 +191,25 @@ export class DatabaseService {
   }
 
   private initPostgresPoolIfNeeded(): void {
+    // Load .env and root .env.local so local dev server shares the exact same Supabase DB as Vercel
+    const envCandidates = [
+      path.resolve(process.cwd(), '.env.local'),
+      path.resolve(process.cwd(), '..', '.env.local'),
+      path.resolve(__dirname, '..', '..', '..', '.env.local'),
+      path.resolve(process.cwd(), '.env')
+    ];
+    for (const envPath of envCandidates) {
+      if (fs.existsSync(envPath)) {
+        dotenv.config({ path: envPath, override: false });
+      }
+    }
+
     const rawUrl = (
-      process.env.DATABASE_URL ||
       process.env.POSTGRES_URL ||
-      process.env.POSTGRES_PRISMA_URL ||
       process.env.POSTGRES_URL_NON_POOLING ||
+      process.env.POSTGRES_PRISMA_URL ||
       process.env.SUPABASE_DB_URL ||
+      process.env.DATABASE_URL ||
       ''
     ).trim();
     const isPlaceHolder = rawUrl.includes('postgres:postgres@localhost:5432');
@@ -361,6 +375,78 @@ export class DatabaseService {
         })
         .catch((err) => {
           console.error('[Supabase Save Error]:', (err as Error).message);
+          this.pendingSyncPromise = null;
+        });
+    }
+  }
+
+  /**
+   * Updates ONLY siteHealth and monitorSettings in PostgreSQL using jsonb_set
+   * so long-running health sweeps never overwrite concurrent license status changes.
+   */
+  public saveHealthOnly(): void {
+    try {
+      fs.mkdirSync(path.dirname(this.dbFilePath), { recursive: true });
+      fs.writeFileSync(this.dbFilePath, JSON.stringify(this.state, null, 2), 'utf8');
+    } catch {
+      // Ignore on Vercel
+    }
+
+    if (this.pgPool) {
+      const healthJson = JSON.stringify(this.state.siteHealth || {});
+      const settingsJson = JSON.stringify(this.state.monitorSettings || {});
+      this.pendingSyncPromise = this.pgPool
+        .query(
+          `UPDATE clps_cloud_store
+           SET state_json = jsonb_set(
+             jsonb_set(state_json, '{siteHealth}', $1::jsonb, true),
+             '{monitorSettings}', $2::jsonb, true
+           ),
+           updated_at = NOW()
+           WHERE store_key = 'primary'`,
+          [healthJson, settingsJson]
+        )
+        .then(() => {
+          this.pendingSyncPromise = null;
+        })
+        .catch((err) => {
+          console.error('[Supabase SaveHealth Error]:', (err as Error).message);
+          this.pendingSyncPromise = null;
+        });
+    }
+  }
+
+  /**
+   * Updates ONLY validationLogs and activations in PostgreSQL using jsonb_set
+   * so 15-second WordPress heartbeats never overwrite Admin license status changes.
+   */
+  public saveTelemetryOnly(): void {
+    try {
+      fs.mkdirSync(path.dirname(this.dbFilePath), { recursive: true });
+      fs.writeFileSync(this.dbFilePath, JSON.stringify(this.state, null, 2), 'utf8');
+    } catch {
+      // Ignore on Vercel
+    }
+
+    if (this.pgPool) {
+      const logsJson = JSON.stringify(this.state.validationLogs || []);
+      const actJson = JSON.stringify(this.state.activations || []);
+      this.pendingSyncPromise = this.pgPool
+        .query(
+          `UPDATE clps_cloud_store
+           SET state_json = jsonb_set(
+             jsonb_set(state_json, '{validationLogs}', $1::jsonb, true),
+             '{activations}', $2::jsonb, true
+           ),
+           updated_at = NOW()
+           WHERE store_key = 'primary'`,
+          [logsJson, actJson]
+        )
+        .then(() => {
+          this.pendingSyncPromise = null;
+        })
+        .catch((err) => {
+          console.error('[Supabase SaveTelemetry Error]:', (err as Error).message);
           this.pendingSyncPromise = null;
         });
     }
@@ -564,7 +650,7 @@ export class DatabaseService {
     if (this.state.validationLogs.length > 2000) {
       this.state.validationLogs.shift();
     }
-    this.save();
+    this.saveTelemetryOnly();
     return record;
   }
 

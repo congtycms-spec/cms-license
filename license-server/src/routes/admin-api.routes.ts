@@ -483,17 +483,11 @@ adminApiRouter.get('/dashboard/stats', requireAuth(), (_req, res) => {
   const last24hMs = nowMs - 24 * 3600 * 1000;
 
   const licenses = dbService.state.licenses;
-  // Đảm bảo toàn bộ license là vĩnh viễn (không bao giờ tự hết hạn)
-  let migratedPermanent = false;
   for (const l of licenses) {
     if (!l.expiresAt || new Date(l.expiresAt).getFullYear() < 2090) {
       l.expiresAt = PERMANENT_EXPIRES_AT;
       if (l.status === 'EXPIRED') l.status = 'ACTIVE';
-      migratedPermanent = true;
     }
-  }
-  if (migratedPermanent) {
-    dbService.save();
   }
 
   const pendingTransfers = dbService.state.transferRequests.filter((t) => t.status === 'PENDING');
@@ -981,8 +975,17 @@ adminApiRouter.patch(
 
     dbService.save();
     await dbService.flush();
-    await triggerRemoteClientSync(license.allowedDomain);
-    res.json({ license });
+
+    if (license.allowedDomain) {
+      await checkWebsiteHealth(license.allowedDomain, license, {
+        forceSync: true,
+        sendNotifications: false
+      });
+      dbService.saveHealthOnly();
+      await dbService.flush();
+    }
+
+    res.json({ license, health: license.allowedDomain ? getSiteHealthMap()[license.allowedDomain] : null });
   }
 );
 
@@ -1021,8 +1024,17 @@ adminApiRouter.patch(
 
     dbService.save();
     await dbService.flush();
-    await triggerRemoteClientSync(license.allowedDomain);
-    res.json({ license });
+
+    if (license.allowedDomain) {
+      await checkWebsiteHealth(license.allowedDomain, license, {
+        forceSync: true,
+        sendNotifications: false
+      });
+      dbService.saveHealthOnly();
+      await dbService.flush();
+    }
+
+    res.json({ license, health: license.allowedDomain ? getSiteHealthMap()[license.allowedDomain] : null });
   }
 );
 
@@ -1095,8 +1107,17 @@ adminApiRouter.patch(
 
     dbService.save();
     await dbService.flush();
-    await triggerRemoteClientSync(license.allowedDomain);
-    res.json({ license });
+
+    if (license.allowedDomain) {
+      await checkWebsiteHealth(license.allowedDomain, license, {
+        forceSync: true,
+        sendNotifications: false
+      });
+      dbService.saveHealthOnly();
+      await dbService.flush();
+    }
+
+    res.json({ license, health: license.allowedDomain ? getSiteHealthMap()[license.allowedDomain] : null });
   }
 );
 
@@ -1229,7 +1250,7 @@ adminApiRouter.post('/tools/ping-site', requireAuth(), async (req: Request, res:
     forceSync,
     sendNotifications: true
   });
-  dbService.save();
+  dbService.saveHealthOnly();
   await dbService.flush();
 
   res.json({
@@ -1262,7 +1283,7 @@ adminApiRouter.put(
       settings.slowThresholdMs = Math.max(500, Number(slowThresholdMs) || 3500);
     }
 
-    dbService.save();
+    dbService.saveHealthOnly();
     await dbService.flush();
     res.json({ success: true, monitorSettings: settings });
   }
@@ -1334,7 +1355,7 @@ adminApiRouter.post('/monitor/sweep', requireAuth(), async (_req: Request, res: 
   const settings = getMonitorSettings();
   settings.lastSweepAt = new Date().toISOString();
 
-  dbService.save();
+  dbService.saveHealthOnly();
   await dbService.flush();
 
   const healthMap = getSiteHealthMap();

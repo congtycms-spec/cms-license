@@ -1348,15 +1348,31 @@ document.getElementById('create-license-form').addEventListener('submit', async 
 
 async function changeLicenseStatus(id, status, domain = '') {
   try {
-    showToast(`Đang đồng bộ trạng thái ${status} xuống website...`);
-    await apiCall(`/licenses/${id}/status`, {
+    if (domain) {
+      livePingResults[domain] = { checking: true };
+      renderFilteredLicenses();
+    }
+    showToast(`Đang đồng bộ trạng thái ${status} xuống website ${domain || ''}...`);
+    const res = await apiCall(`/licenses/${id}/status`, {
       method: 'PATCH',
       body: JSON.stringify({ status })
     });
-    showToast(`Đã chuyển trạng thái sang ${status}!`);
+    if (domain && res.health) {
+      livePingResults[domain] = {
+        status: res.health.status,
+        reachable: res.health.status !== 'DOWN' || res.health.httpStatus > 0,
+        httpStatus: res.health.httpStatus,
+        latencyMs: res.health.latencyMs,
+        isLockedScreen: res.health.status === 'LOCKED',
+        error: res.health.errorDetail,
+        checkedAt: res.health.checkedAt
+      };
+    }
     await refreshAll();
-    if (domain) {
-      await pingSite(domain, false);
+    if (status === 'SUSPENDED') {
+      showToast(`🔒 Đã khóa tạm website ${domain || ''} (HTTP 503)!`);
+    } else {
+      showToast(`🟢 Đã mở khóa website ${domain || ''} (HTTP 200)!`);
     }
   } catch (err) {
     showToast(err.message, true);

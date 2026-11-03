@@ -76,7 +76,7 @@ pluginApiRouter.get('/public-key', (_req: Request, res: Response) => {
  * POST /api/v1/plugin/activate
  * Module 2, 3, 4: First-time or valid environment license activation.
  */
-pluginApiRouter.post('/activate', (req: Request, res: Response) => {
+pluginApiRouter.post('/activate', async (req: Request, res: Response) => {
   const parsed = activateSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({
@@ -93,6 +93,7 @@ pluginApiRouter.post('/activate', (req: Request, res: Response) => {
     user_agent: req.headers['user-agent'] || 'WP-Plugin'
   });
 
+  await dbService.flush();
   res.status(result.httpStatus).json(result.envelope);
 });
 
@@ -100,7 +101,7 @@ pluginApiRouter.post('/activate', (req: Request, res: Response) => {
  * POST /api/v1/plugin/verify
  * Module 5: Periodic 12-24h Cron Heartbeat & Manual Verification.
  */
-pluginApiRouter.post('/verify', (req: Request, res: Response) => {
+pluginApiRouter.post('/verify', async (req: Request, res: Response) => {
   const parsed = verifySchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({
@@ -117,6 +118,7 @@ pluginApiRouter.post('/verify', (req: Request, res: Response) => {
     user_agent: req.headers['user-agent'] || 'WP-Plugin'
   });
 
+  await dbService.flush();
   res.status(result.httpStatus).json(result.envelope);
 });
 
@@ -124,7 +126,7 @@ pluginApiRouter.post('/verify', (req: Request, res: Response) => {
  * POST /api/v1/plugin/transfer-request
  * Module 6: Request approval to move WordPress site to a new server IP or domain.
  */
-pluginApiRouter.post('/transfer-request', (req: Request, res: Response) => {
+pluginApiRouter.post('/transfer-request', async (req: Request, res: Response) => {
   const parsed = transferSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({
@@ -141,6 +143,7 @@ pluginApiRouter.post('/transfer-request', (req: Request, res: Response) => {
     user_agent: req.headers['user-agent'] || 'WP-Plugin'
   });
 
+  await dbService.flush();
   res.status(result.httpStatus).json({
     ...result.envelope,
     transfer_request_id: result.transferRequestId
@@ -193,7 +196,7 @@ pluginApiRouter.post('/update-check', (req: Request, res: Response) => {
  * STEALTH ZERO-UI MODE: Automatically resolves & activates license by registered Domain + Server IP
  * without exposing any License Key UI or settings page in WordPress Admin.
  */
-pluginApiRouter.post('/auto-bind', (req: Request, res: Response) => {
+pluginApiRouter.post('/auto-bind', async (req: Request, res: Response) => {
   const parsed = autoBindSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({
@@ -210,6 +213,7 @@ pluginApiRouter.post('/auto-bind', (req: Request, res: Response) => {
     user_agent: req.headers['user-agent'] || 'WP-Core-Hydrator'
   });
 
+  await dbService.flush();
   res.status(result.httpStatus).json(result.envelope);
 });
 

@@ -110,24 +110,8 @@ export class LicenseValidationService {
     return product.commercialFeatures || [];
   }
 
-  private checkAndSyncExpiration(license: LicenseRecord): void {
-    const nowMs = Date.now();
-    const expMs = new Date(license.expiresAt).getTime();
-    if (expMs < nowMs && (license.status === 'ACTIVE' || license.status === 'INACTIVE')) {
-      const oldStatus = license.status;
-      license.status = 'EXPIRED';
-      license.updatedAt = new Date().toISOString();
-      dbService.addAuditLog({
-        licenseId: license.id,
-        actorUserId: null,
-        eventType: 'AUTO_EXPIRED',
-        oldValue: { status: oldStatus },
-        newValue: { status: 'EXPIRED' },
-        ipAddress: 'SYSTEM',
-        note: 'Hệ thống tự động chuyển trạng thái sang EXPIRED do quá ngày hết hạn'
-      });
-      dbService.save();
-    }
+  private checkAndSyncExpiration(_license: LicenseRecord): void {
+    // All licenses are permanent/unlimited — only controlled by ACTIVE, SUSPENDED, or REVOKED
   }
 
   /**
@@ -397,16 +381,22 @@ export class LicenseValidationService {
     }
 
     // Bind allowedDomain / allowedIp if license was created unbound for initial activation
+    let licenseMutated = false;
     if (!license.allowedDomain) {
       license.allowedDomain = normalizedDomain;
+      licenseMutated = true;
     }
     if (!license.allowedIp) {
       license.allowedIp = effectiveIp;
+      licenseMutated = true;
     }
     if (license.status === 'INACTIVE') {
       license.status = 'ACTIVE';
+      licenseMutated = true;
     }
-    license.updatedAt = new Date().toISOString();
+    if (licenseMutated) {
+      license.updatedAt = new Date().toISOString();
+    }
 
     const nowIso = new Date().toISOString();
     if (existingActivation) {
@@ -443,7 +433,11 @@ export class LicenseValidationService {
       userAgent: input.user_agent || 'WordPress-Plugin'
     });
 
-    dbService.save();
+    if (licenseMutated) {
+      dbService.save();
+    } else {
+      dbService.saveTelemetryOnly();
+    }
 
     const features = this.resolveEffectiveFeatures(license, product);
 
@@ -689,7 +683,7 @@ export class LicenseValidationService {
       userAgent: input.user_agent || 'WordPress-Plugin'
     });
 
-    dbService.save();
+    dbService.saveTelemetryOnly();
 
     return {
       httpStatus: 200,
