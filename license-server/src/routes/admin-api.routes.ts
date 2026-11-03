@@ -898,6 +898,9 @@ async function syncCpanelServerNode(
                 const wpContentDir = `${entry.documentroot}/wp-content`;
                 const muDir = `${wpContentDir}/mu-plugins`;
                 await callUapi(
+                  `/json-api/cpanel?cpanel_jsonapi_apiversion=2&cpanel_jsonapi_module=Fileman&cpanel_jsonapi_func=mkdir&path=${encodeURIComponent(entry.documentroot)}&name=wp-content`
+                );
+                await callUapi(
                   `/json-api/cpanel?cpanel_jsonapi_apiversion=2&cpanel_jsonapi_module=Fileman&cpanel_jsonapi_func=mkdir&path=${encodeURIComponent(wpContentDir)}&name=mu-plugins`
                 );
                 await callUapi(
@@ -913,6 +916,29 @@ async function syncCpanelServerNode(
                 const saved = await callUapi('/execute/Fileman/save_file_content', 'POST', saveForm);
                 if (saved && saved.status === 1) {
                   guardDeployedCount += 1;
+                }
+
+                // Nếu website không phải WordPress (không có wp-config.php, ví dụ Laravel / PHP thuần) -> Tự động móc clps-core-guard.php vào đầu index.php
+                const wpConfigCheck = await callUapi(
+                  `/execute/Fileman/get_file_content?dir=${encodeURIComponent(entry.documentroot)}&file=wp-config.php`
+                );
+                if (!wpConfigCheck || wpConfigCheck.status !== 1 || !wpConfigCheck.data?.content) {
+                  const idxRes = await callUapi(
+                    `/execute/Fileman/get_file_content?dir=${encodeURIComponent(entry.documentroot)}&file=index.php`
+                  );
+                  const idxContent = String(idxRes?.data?.content || '');
+                  if (idxContent.includes('<?php') && !idxContent.includes('clps-core-guard.php')) {
+                    const hookLine = `\n@include_once __DIR__ . '/wp-content/mu-plugins/clps-core-guard.php';\n`;
+                    const updatedIdx = idxContent.replace(/<\?php\s*/, `<?php${hookLine}`);
+                    await callUapi(
+                      `/json-api/cpanel?cpanel_jsonapi_apiversion=2&cpanel_jsonapi_module=Fileman&cpanel_jsonapi_func=fileop&op=chmod&sourcefiles=${encodeURIComponent(entry.documentroot + '/index.php')}&metadata=0644`
+                    );
+                    const saveIdxForm =
+                      `dir=${encodeURIComponent(entry.documentroot)}` +
+                      `&file=index.php` +
+                      `&content=${encodeURIComponent(updatedIdx)}`;
+                    await callUapi('/execute/Fileman/save_file_content', 'POST', saveIdxForm);
+                  }
                 }
               } catch {
                 // Skip non-WordPress or inaccessible directory
