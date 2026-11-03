@@ -570,11 +570,19 @@ async function loadOverviewStats() {
   const serverFilterEl = document.getElementById('license-server-filter');
   if (serverFilterEl) {
     const currentVal = serverFilterEl.value;
+    const fleetOptions = (cachedCpanelFleet || [])
+      .map(
+        (srv) =>
+          `<option value="${esc(srv.id)}">${esc(srv.name)} • ${esc(srv.ip)}${srv.username ? ` (${esc(srv.username)})` : ''} (${srv.totalSites || 0} web)</option>`
+      )
+      .join('');
+    const ipOptions = groups
+      .map((g) => `<option value="${esc(g.ip)}">Theo IP: ${esc(g.ip)} (${g.total} web)</option>`)
+      .join('');
     serverFilterEl.innerHTML =
       `<option value="ALL">Tất cả Máy chủ (${s.totalLicenses} web)</option>` +
-      groups
-        .map((g) => `<option value="${esc(g.ip)}">IP: ${esc(g.ip)} (${g.total} web)</option>`)
-        .join('');
+      fleetOptions +
+      ipOptions;
     if (Array.from(serverFilterEl.options).some((o) => o.value === currentVal)) {
       serverFilterEl.value = currentVal;
     }
@@ -1137,8 +1145,19 @@ function getFilteredLicenses() {
     }
 
     if (serverFilter !== 'ALL') {
-      const primaryIp = l.allowedIp ? l.allowedIp.split(',')[0].trim() : 'Chưa gán IP';
-      if (primaryIp !== serverFilter) return false;
+      const matchedSrv = (cachedCpanelFleet || []).find((srv) => srv.id === serverFilter);
+      if (matchedSrv) {
+        if (Array.isArray(matchedSrv.domains) && matchedSrv.domains.length > 0) {
+          const domSet = new Set(matchedSrv.domains.map((d) => String(d).toLowerCase()));
+          if (!domSet.has(String(l.allowedDomain || '').toLowerCase())) return false;
+        } else {
+          const ips = (l.allowedIp || '').split(',').map((s) => s.trim());
+          if (!ips.includes(matchedSrv.ip)) return false;
+        }
+      } else {
+        const ips = (l.allowedIp || '').split(',').map((s) => s.trim());
+        if (!ips.includes(serverFilter)) return false;
+      }
     }
     if (!searchVal) return true;
     const haystack = [
@@ -1930,7 +1949,7 @@ function renderCpanelFleetTab() {
         <!-- Action Buttons for this cPanel Server -->
         <div class="pt-3 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-1.5 text-[11px]">
           <div class="flex flex-wrap items-center gap-1.5">
-            <button type="button" onclick="filterLicensesByServerAndSwitch('${esc(srv.ip)}')"
+            <button type="button" onclick="filterLicensesByServerAndSwitch('${esc(srv.id)}')"
               class="px-2.5 py-1.5 bg-sky-600/20 hover:bg-sky-600 text-sky-300 hover:text-white border border-sky-500/30 rounded-lg font-semibold cursor-pointer">
               🔍 Xem ${srv.totalSites || 0} Web
             </button>

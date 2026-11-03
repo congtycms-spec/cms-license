@@ -599,10 +599,9 @@ function buildEnrichedServerFleet() {
   };
 
   const enriched = servers.map((s) => {
-    const sameIpCount = servers.filter((x) => x.ip === s.ip).length;
     const stats = computeStatsForServer(
       s.ip,
-      sameIpCount > 1 ? s.domains || [] : undefined
+      s.domains && s.domains.length > 0 ? s.domains : undefined
     );
     const { passwordEncrypted, ...safeServer } = s;
     return {
@@ -811,6 +810,21 @@ async function syncCpanelServerNode(
           domainEntries.push({
             domain: String(item.domain),
             documentroot: String(item.documentroot)
+          });
+        }
+      }
+      const parkedList = Array.isArray(domRes.data.parked_domains)
+        ? domRes.data.parked_domains
+        : Object.values(domRes.data.parked_domains || {});
+      for (const item of parkedList as Array<any>) {
+        const pDomain = typeof item === 'string' ? item : item?.domain;
+        const pRoot =
+          (typeof item === 'object' && item?.documentroot) ||
+          domRes.data.main_domain?.documentroot;
+        if (pDomain && pRoot) {
+          domainEntries.push({
+            domain: String(pDomain),
+            documentroot: String(pRoot)
           });
         }
       }
