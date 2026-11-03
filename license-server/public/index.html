@@ -323,6 +323,21 @@
               class="px-2 py-0.5 text-[11px] rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/30 font-mono font-semibold">0</span>
           </button>
 
+          <button type="button" onclick="switchTab('cpanel')" id="tab-btn-cpanel"
+            class="w-auto md:w-full text-left px-3.5 py-2.5 rounded-lg flex items-center justify-between gap-2.5 hover:bg-slate-800/60 transition-colors duration-200 cursor-pointer shrink-0">
+            <span class="flex items-center gap-2.5">
+              <svg class="w-4 h-4 shrink-0 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect width="20" height="8" x="2" y="2" rx="2" ry="2" />
+                <rect width="20" height="8" x="2" y="14" rx="2" ry="2" />
+                <line x1="6" x2="6.01" y1="6" y2="6" />
+                <line x1="6" x2="6.01" y1="18" y2="18" />
+              </svg>
+              <span>Máy chủ cPanel (20+ IPs)</span>
+            </span>
+            <span id="badge-cpanel-servers"
+              class="px-2 py-0.5 text-[11px] rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-mono font-semibold">1</span>
+          </button>
+
           <button type="button" onclick="switchTab('transfers')" id="tab-btn-transfers"
             class="w-auto md:w-full text-left px-3.5 py-2.5 rounded-lg flex items-center justify-between gap-2.5 hover:bg-slate-800/60 transition-colors duration-200 cursor-pointer shrink-0">
             <span class="flex items-center gap-2.5">
@@ -622,6 +637,15 @@
               </button>
             </div>
           </div>
+
+          <!-- THANH LỌC NHANH THEO CỤM MÁY CHỦ CPANEL (20+ IPs PILLS BAR) -->
+          <div class="mb-3 pb-3 border-b border-slate-800/70 flex flex-wrap items-center justify-between gap-2">
+            <div class="flex flex-wrap items-center gap-1.5 text-xs" id="overview-ip-pills-bar"></div>
+            <button type="button" onclick="openCpanelServerModal()"
+              class="px-2.5 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 text-[11px] font-semibold cursor-pointer shrink-0 flex items-center gap-1">
+              <span>+ Kết nối IP cPanel mới</span>
+            </button>
+          </div>
           <div class="overflow-x-auto max-h-[26rem]">
             <table class="w-full text-left text-xs">
               <thead class="text-slate-400 border-b border-slate-800 uppercase tracking-wider text-[11px] sticky top-0 bg-slate-900">
@@ -841,6 +865,38 @@
             </table>
           </div>
         </div>
+      </section>
+
+      <!-- TAB 2.5: MULTI-SERVER CPANEL FLEET MANAGEMENT (20+ IPs) -->
+      <section id="tab-cpanel" class="hidden space-y-6">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-800/80 pb-4">
+          <div>
+            <h2 class="text-xl sm:text-2xl font-bold text-white tracking-tight">Trung tâm Điều hành Đa Máy Chủ cPanel (20+ IPs Fleet)</h2>
+            <p class="text-xs sm:text-sm text-slate-400 mt-0.5">
+              Kết nối trực tiếp cổng UAPI của 20+ IP cPanel riêng biệt • Tự động quét danh sách Website, giám sát % đầy ổ cứng (chống sập MySQL) và cài đặt bộ bảo vệ ngầm 1-Click
+            </p>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <button type="button" onclick="syncAllCpanelServers(false)" id="btn-sync-all-cpanel"
+              class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-sky-300 border border-sky-500/30 text-xs font-semibold rounded-lg transition-colors duration-200 cursor-pointer flex items-center gap-1.5">
+              <span>🔄 Đồng bộ Ổ cứng & Tên miền Toàn bộ IP</span>
+            </button>
+            <button type="button" onclick="syncAllCpanelServers(true)" id="btn-deploy-all-cpanel"
+              class="px-3.5 py-2 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-xs font-semibold rounded-lg transition-colors duration-200 cursor-pointer flex items-center gap-1.5">
+              <span>🛡️ Cập nhật MU-Plugin Bảo Vệ lên Toàn bộ IP</span>
+            </button>
+            <button type="button" onclick="openCpanelServerModal()"
+              class="btn-primary-text px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg transition-colors duration-200 cursor-pointer flex items-center gap-1.5 shadow-md shadow-emerald-600/20">
+              <span>+ Thêm Máy Chủ cPanel Mới</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Fleet Summary Banner -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5" id="cpanel-fleet-summary-cards"></div>
+
+        <!-- Grid of 20+ cPanel Server Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" id="cpanel-servers-grid"></div>
       </section>
 
       <!-- TAB 3: SERVER TRANSFER REQUESTS -->
@@ -1209,6 +1265,78 @@
           class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg cursor-pointer">Hủy bỏ</button>
         <button type="button" id="confirm-modal-ok-btn"
           class="btn-primary-text px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white font-semibold rounded-lg cursor-pointer">Xác nhận</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: ADD / CONFIGURE CPANEL SERVER IP (1-CLICK ONBOARDING) -->
+  <div id="cpanel-server-modal" role="dialog" aria-modal="true"
+    class="hidden fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="glass-card bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div>
+          <h3 class="text-base font-bold text-white" id="cpanel-modal-title">Kết nối & Tự động Quét Máy chủ cPanel Mới</h3>
+          <p class="text-[11px] text-slate-400 mt-0.5">Hệ thống tự động đăng nhập cổng 2083, kiểm tra % ổ cứng, quét tên miền và cài MU-Plugin bảo vệ</p>
+        </div>
+        <button type="button" onclick="closeCpanelServerModal()"
+          class="text-slate-400 hover:text-white p-1 rounded-lg cursor-pointer">✕</button>
+      </div>
+      <input type="hidden" id="cp-modal-id" />
+      <div class="space-y-3.5 text-xs">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div class="sm:col-span-2">
+            <label for="cp-modal-name" class="block text-slate-300 font-semibold mb-1">Tên gợi nhớ Máy chủ <span class="text-rose-400">*</span></label>
+            <input id="cp-modal-name" type="text" placeholder="vd: cPanel 02 — Cụm Hosting HCM"
+              class="input-field w-full rounded-lg px-3 py-2" />
+          </div>
+          <div>
+            <label for="cp-modal-port" class="block text-slate-400 font-medium mb-1">Cổng SSL cPanel</label>
+            <input id="cp-modal-port" type="number" value="2083"
+              class="input-field w-full rounded-lg px-3 py-2 font-mono" />
+          </div>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label for="cp-modal-ip" class="block text-slate-300 font-semibold mb-1">Địa chỉ IP Server <span class="text-rose-400">*</span></label>
+            <input id="cp-modal-ip" type="text" placeholder="vd: 103.221.223.75"
+              class="input-field w-full rounded-lg px-3 py-2 font-mono border-sky-500/40" />
+          </div>
+          <div>
+            <label for="cp-modal-user" class="block text-slate-300 font-semibold mb-1">Tài khoản cPanel (User)</label>
+            <input id="cp-modal-user" type="text" placeholder="vd: hywczsuk"
+              class="input-field w-full rounded-lg px-3 py-2 font-mono" />
+          </div>
+          <div>
+            <label for="cp-modal-pass" class="block text-slate-300 font-semibold mb-1">Mật khẩu cPanel</label>
+            <input id="cp-modal-pass" type="password" placeholder="Nhập mật khẩu cPanel"
+              class="input-field w-full rounded-lg px-3 py-2 font-mono" />
+          </div>
+        </div>
+        <div>
+          <label for="cp-modal-notes" class="block text-slate-400 font-medium mb-1">Ghi chú Máy chủ / Nhà cung cấp / Ngày gia hạn Hosting</label>
+          <input id="cp-modal-notes" type="text" placeholder="vd: Gói Business 30GB — Gia hạn tháng 12/2026"
+            class="input-field w-full rounded-lg px-3 py-2" />
+        </div>
+        <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-3 space-y-2">
+          <label class="flex items-center gap-2.5 text-slate-200 cursor-pointer select-none">
+            <input id="cp-modal-autosync" type="checkbox" checked
+              class="w-4 h-4 rounded border-slate-700 text-emerald-500 cursor-pointer" />
+            <span><strong>Tự động quét danh sách Website</strong> trên cPanel này & tạo License tự động</span>
+          </label>
+          <label class="flex items-center gap-2.5 text-amber-300 cursor-pointer select-none">
+            <input id="cp-modal-deployguard" type="checkbox" checked
+              class="w-4 h-4 rounded border-slate-700 text-amber-500 cursor-pointer" />
+            <span><strong>Tự động cài đặt Bộ Khóa Ngầm (MU-Plugin)</strong> vào tất cả Website trên IP này</span>
+          </label>
+        </div>
+      </div>
+      <div class="flex justify-end gap-2.5 pt-3 border-t border-slate-800 text-xs">
+        <button type="button" onclick="closeCpanelServerModal()"
+          class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg cursor-pointer">Hủy</button>
+        <button type="button" onclick="saveCpanelServerModal()" id="btn-save-cpanel-modal"
+          class="btn-primary-text px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg cursor-pointer flex items-center gap-1.5">
+          <span>🚀 Lưu & Đồng Bộ Máy Chủ Ngay</span>
+        </button>
       </div>
     </div>
   </div>

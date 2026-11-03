@@ -157,6 +157,27 @@ export interface SiteHealthRecord {
   lastAlertedState?: 'UP' | 'DOWN' | 'SLOW';
 }
 
+export interface CpanelServerRecord {
+  id: string;
+  name: string;
+  ip: string;
+  port: number;
+  username: string;
+  passwordEncrypted: string;
+  notes: string;
+  diskUsedMb: number | null;
+  diskLimitMb: number | null;
+  diskPercent: number | null;
+  inodesUsed: number | null;
+  totalDomains: number;
+  status: 'ONLINE' | 'OFFLINE' | 'AUTH_ERROR' | 'DISK_WARNING';
+  lastError: string | null;
+  lastSyncedAt: string | null;
+  lastDiskAlertAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface DatabaseState {
   users: UserRecord[];
   customers: CustomerRecord[];
@@ -169,6 +190,7 @@ export interface DatabaseState {
   remoteFeatureLogs: RemoteFeatureUsageLogRecord[];
   monitorSettings?: MonitorSettingsRecord;
   siteHealth?: Record<string, SiteHealthRecord>;
+  cpanelServers?: CpanelServerRecord[];
 }
 
 export class DatabaseService {
@@ -322,6 +344,43 @@ export class DatabaseService {
     const segment = () =>
       Array.from({ length: 4 }, () => chars[crypto.randomInt(0, chars.length)]).join('');
     return `CLPS-${segment()}-${segment()}-${segment()}-${segment()}`;
+  }
+
+  public static encryptSecret(plain: string): string {
+    if (!plain) return '';
+    const key = crypto.scryptSync(
+      process.env.ADMIN_JWT_SECRET || 'clps-cpanel-fleet-vault-2026',
+      'clps_cpanel_salt_v1',
+      32
+    );
+    const iv = crypto.randomBytes(12);
+    const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+    const encrypted = Buffer.concat([cipher.update(plain, 'utf8'), cipher.final()]);
+    const tag = cipher.getAuthTag();
+    return `${iv.toString('hex')}:${tag.toString('hex')}:${encrypted.toString('hex')}`;
+  }
+
+  public static decryptSecret(encoded: string): string {
+    if (!encoded) return '';
+    try {
+      const parts = encoded.split(':');
+      if (parts.length !== 3) return encoded;
+      const [ivHex, tagHex, encHex] = parts;
+      const key = crypto.scryptSync(
+        process.env.ADMIN_JWT_SECRET || 'clps-cpanel-fleet-vault-2026',
+        'clps_cpanel_salt_v1',
+        32
+      );
+      const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(ivHex, 'hex'));
+      decipher.setAuthTag(Buffer.from(tagHex, 'hex'));
+      const decrypted = Buffer.concat([
+        decipher.update(Buffer.from(encHex, 'hex')),
+        decipher.final()
+      ]);
+      return decrypted.toString('utf8');
+    } catch {
+      return '';
+    }
   }
 
   private loadOrSeed(): void {

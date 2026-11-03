@@ -6,12 +6,14 @@ let cachedProducts = [];
 let cachedValidationLogs = [];
 let cachedAuditLogs = [];
 let cachedMonitoredSites = [];
+let cachedCpanelFleet = [];
 let selectedLicenseIds = new Set();
 let livePingResults = {}; // domain -> { status, httpStatus, latencyMs, isLockedScreen, reachable, error, checking }
 let pendingConfirmAction = null;
 let autoRefreshEnabled = true;
 let autoRefreshTimer = null;
 let currentMonitorFilter = 'ALL';
+let currentMonitorIpFilter = 'ALL';
 let isSweepingAll = false;
 
 // Initialize theme preference (Default: OLED Dark Mode)
@@ -310,10 +312,12 @@ function enterDashboard() {
 }
 
 function switchTab(tabName) {
-  const tabs = ['overview', 'licenses', 'transfers', 'customers', 'logs', 'staff'];
+  const tabs = ['overview', 'licenses', 'cpanel', 'transfers', 'customers', 'logs', 'staff'];
   tabs.forEach((t) => {
-    document.getElementById(`tab-${t}`).classList.toggle('hidden', t !== tabName);
-    document.getElementById(`tab-btn-${t}`).classList.toggle('tab-active', t === tabName);
+    const tabEl = document.getElementById(`tab-${t}`);
+    const btnEl = document.getElementById(`tab-btn-${t}`);
+    if (tabEl) tabEl.classList.toggle('hidden', t !== tabName);
+    if (btnEl) btnEl.classList.toggle('tab-active', t === tabName);
   });
 }
 
@@ -377,6 +381,10 @@ async function loadOverviewStats() {
   const data = await apiCall('/dashboard/stats');
   const s = data.summary;
   cachedMonitoredSites = data.monitoredSites || [];
+  cachedCpanelFleet = data.cpanelFleet || [];
+
+  const cpBadge = document.getElementById('badge-cpanel-servers');
+  if (cpBadge) cpBadge.textContent = cachedCpanelFleet.length || 1;
 
   // Đồng bộ kết quả sức khỏe vào bộ nhớ đệm livePingResults
   for (const item of cachedMonitoredSites) {
@@ -473,12 +481,12 @@ async function loadOverviewStats() {
       icon: `<svg class="w-4 h-4 text-orange-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`
     },
     {
-      label: 'Cụm Máy Chủ Hosting',
-      val: s.serverCount || 1,
-      sub: `${s.pendingTransferRequestsCount} yêu cầu chuyển chờ duyệt`,
+      label: 'Cụm Máy Chủ cPanel',
+      val: cachedCpanelFleet.length || s.serverCount || 1,
+      sub: 'Bấm quản lý 20+ IP & Ổ cứng',
       color: 'text-cyan-400',
       border: 'border-cyan-500/30 hover:border-cyan-400',
-      onclick: "switchTab('licenses')",
+      onclick: "switchTab('cpanel')",
       icon: `<svg class="w-4 h-4 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="8" x="2" y="2" rx="2" ry="2"/><rect width="20" height="8" x="2" y="14" rx="2" ry="2"/></svg>`
     },
     {
@@ -566,6 +574,10 @@ async function loadOverviewStats() {
       serverFilterEl.value = currentVal;
     }
   }
+
+  // Render Quick IP Filter Pills & Multi-Server cPanel Fleet Tab
+  renderOverviewIpPills();
+  renderCpanelFleetTab();
 
   // Render Real-Time Uptime Monitor Table
   renderUptimeMonitorTable();
@@ -671,7 +683,16 @@ function renderUptimeMonitorTable() {
   const tbody = document.getElementById('uptime-monitor-tbody');
   if (!tbody) return;
 
-  const all = cachedMonitoredSites || [];
+  const baseAll = cachedMonitoredSites || [];
+  const all =
+    currentMonitorIpFilter === 'ALL'
+      ? baseAll
+      : baseAll.filter((m) =>
+          (m.allowedIp || '')
+            .split(',')
+            .map((s) => s.trim())
+            .includes(currentMonitorIpFilter)
+        );
   const downList = all.filter((m) => m.health?.status === 'DOWN');
   const slowList = all.filter((m) => m.health?.status === 'SLOW');
   const upList = all.filter((m) => m.health?.status === 'UP');
@@ -1697,6 +1718,424 @@ document.getElementById('create-staff-form').addEventListener('submit', async (e
     showToast(err.message, true);
   }
 });
+
+// ==========================================================
+// HỆ THỐNG QUẢN LÝ ĐA MÁY CHỦ CPANEL (20+ IPs FLEET UI)
+// ==========================================================
+function setMonitorIpFilter(ip) {
+  currentMonitorIpFilter = ip || 'ALL';
+  renderOverviewIpPills();
+  renderUptimeMonitorTable();
+}
+
+function renderOverviewIpPills() {
+  const bar = document.getElementById('overview-ip-pills-bar');
+  if (!bar) return;
+
+  const totalSites = (cachedMonitoredSites || []).length;
+  const allActive = currentMonitorIpFilter === 'ALL';
+
+  let html = `
+    <span class="text-[11px] text-slate-400 font-semibold mr-1">Lọc theo Server IP:</span>
+    <button type="button" onclick="setMonitorIpFilter('ALL')"
+      class="px-2.5 py-1 rounded-lg font-mono text-[11px] cursor-pointer transition-colors ${
+        allActive
+          ? 'bg-sky-500/25 text-sky-200 border border-sky-400 font-bold'
+          : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700'
+      }">
+      🌐 Tất cả IP (${totalSites})
+    </button>
+  `;
+
+  for (const srv of cachedCpanelFleet || []) {
+    const isSelected = currentMonitorIpFilter === srv.ip;
+    const diskText =
+      srv.diskPercent !== null && srv.diskPercent !== undefined
+        ? ` • 💾 ${srv.diskPercent}%`
+        : '';
+    const hasDown = (srv.downCount || 0) > 0;
+    const dotColor = hasDown
+      ? 'bg-rose-500 animate-ping'
+      : srv.diskPercent >= 85
+        ? 'bg-amber-400'
+        : 'bg-emerald-400';
+
+    html += `
+      <button type="button" onclick="setMonitorIpFilter('${esc(srv.ip)}')"
+        class="px-2.5 py-1 rounded-lg font-mono text-[11px] cursor-pointer transition-colors inline-flex items-center gap-1.5 ${
+          isSelected
+            ? 'bg-emerald-500/25 text-emerald-200 border border-emerald-400 font-bold'
+            : hasDown
+              ? 'bg-rose-950/60 hover:bg-rose-900/60 text-rose-200 border border-rose-500/50'
+              : 'bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700'
+        }"
+        title="${esc(srv.name)} — ${srv.upCount || 0} UP / ${srv.downCount || 0} DOWN">
+        <span class="w-2 h-2 rounded-full ${dotColor}"></span>
+        <span>${esc(srv.ip)} (${srv.totalSites || 0} web${diskText})</span>
+      </button>
+    `;
+  }
+
+  bar.innerHTML = html;
+}
+
+function renderCpanelFleetTab() {
+  const summaryEl = document.getElementById('cpanel-fleet-summary-cards');
+  const gridEl = document.getElementById('cpanel-servers-grid');
+  if (!summaryEl || !gridEl) return;
+
+  const fleet = cachedCpanelFleet || [];
+  const totalServers = fleet.length;
+  const connectedCount = fleet.filter((s) => s.hasCredentials && s.status !== 'AUTH_ERROR').length;
+  const warningDiskCount = fleet.filter((s) => (s.diskPercent || 0) >= 85).length;
+  const totalSitesAcrossFleet = fleet.reduce((sum, s) => sum + (s.totalSites || 0), 0);
+
+  summaryEl.innerHTML = `
+    <div class="glass-card bg-slate-900 border border-emerald-500/30 rounded-xl p-4">
+      <div class="text-xs text-slate-400 font-medium">Tổng số Máy chủ (Server IPs)</div>
+      <div class="text-2xl font-bold font-mono text-emerald-400 mt-1">${totalServers} IP</div>
+      <div class="text-[11px] text-slate-400 mt-1">${connectedCount} máy chủ đã kết nối UAPI cPanel</div>
+    </div>
+    <div class="glass-card bg-slate-900 border border-sky-500/30 rounded-xl p-4">
+      <div class="text-xs text-slate-400 font-medium">Tổng số Website trên Cụm IP</div>
+      <div class="text-2xl font-bold font-mono text-sky-400 mt-1">${totalSitesAcrossFleet} Website</div>
+      <div class="text-[11px] text-slate-400 mt-1">Tự động gom nhóm cảnh báo Telegram theo IP</div>
+    </div>
+    <div class="glass-card bg-slate-900 border ${warningDiskCount > 0 ? 'border-rose-500 bg-rose-950/20' : 'border-amber-500/30'} rounded-xl p-4">
+      <div class="text-xs text-slate-400 font-medium">Giám sát Đầy Ổ Cứng (>85%)</div>
+      <div class="text-2xl font-bold font-mono ${warningDiskCount > 0 ? 'text-rose-400 animate-pulse' : 'text-emerald-400'} mt-1">
+        ${warningDiskCount > 0 ? `${warningDiskCount} IP sắp đầy!` : 'An toàn 100%'}
+      </div>
+      <div class="text-[11px] text-slate-400 mt-1">Chống đầy 100% ổ cứng làm sập MySQL hàng loạt</div>
+    </div>
+    <div class="glass-card bg-slate-900 border border-purple-500/30 rounded-xl p-4">
+      <div class="text-xs text-slate-400 font-medium">Triển khai Bảo Vệ Tự Động</div>
+      <div class="text-2xl font-bold font-mono text-purple-400 mt-1">1-Click UAPI</div>
+      <div class="text-[11px] text-slate-400 mt-1">Tự động bơm MU-Plugin vào mọi web trên cPanel</div>
+    </div>
+  `;
+
+  if (fleet.length === 0) {
+    gridEl.innerHTML = `
+      <div class="col-span-full glass-card bg-slate-900 border border-slate-800 rounded-xl p-8 text-center space-y-3">
+        <div class="text-sm font-semibold text-white">Chưa có máy chủ cPanel nào được cấu hình</div>
+        <p class="text-xs text-slate-400">Hãy bấm "+ Thêm Máy Chủ cPanel Mới" để tự động quét danh sách website và dung lượng ổ cứng.</p>
+      </div>`;
+    return;
+  }
+
+  gridEl.innerHTML = fleet
+    .map((srv) => {
+      const diskPct = srv.diskPercent !== null && srv.diskPercent !== undefined ? srv.diskPercent : null;
+      const usedGb = srv.diskUsedMb ? (srv.diskUsedMb / 1024).toFixed(2) : '—';
+      const limitGb = srv.diskLimitMb ? (srv.diskLimitMb / 1024).toFixed(2) : '∞';
+      const diskBarColor =
+        diskPct === null
+          ? 'bg-slate-700'
+          : diskPct >= 90
+            ? 'bg-rose-500'
+            : diskPct >= 80
+              ? 'bg-amber-400'
+              : 'bg-emerald-500';
+
+      let badgeHtml = `<span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">● ONLINE</span>`;
+      if (!srv.hasCredentials) {
+        badgeHtml = `<span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">○ CHƯA GẮN USER CPANEL</span>`;
+      } else if (srv.status === 'AUTH_ERROR') {
+        badgeHtml = `<span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40">⚠️ SAI MẬT KHẨU</span>`;
+      } else if (srv.status === 'DISK_WARNING' || (diskPct && diskPct >= 85)) {
+        badgeHtml = `<span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-rose-500/25 text-rose-300 border border-rose-500/50 animate-pulse">💾 Ổ CỨNG ${diskPct}%</span>`;
+      }
+
+      const syncTime = srv.lastSyncedAt
+        ? new Date(srv.lastSyncedAt).toLocaleString('vi-VN')
+        : 'Chưa đồng bộ UAPI';
+
+      return `
+      <div class="glass-card bg-slate-900 border ${
+        (srv.downCount || 0) > 0
+          ? 'border-rose-500/70'
+          : 'border-slate-800 hover:border-sky-500/40'
+      } rounded-xl p-5 flex flex-col justify-between space-y-4 transition-all duration-200">
+        <div class="space-y-3">
+          <div class="flex items-start justify-between gap-2">
+            <div>
+              <h3 class="text-sm font-bold text-white flex items-center gap-1.5">
+                ${ICONS.server}
+                <span>${esc(srv.name)}</span>
+              </h3>
+              <div class="text-xs font-mono text-sky-400 mt-0.5">
+                IP: <strong>${esc(srv.ip)}</strong>:${srv.port || 2083}
+                ${srv.username ? ` • User: <span class="text-emerald-300">${esc(srv.username)}</span>` : ''}
+              </div>
+            </div>
+            ${badgeHtml}
+          </div>
+
+          ${
+            srv.lastError
+              ? `<div class="p-2 rounded-lg bg-rose-950/60 border border-rose-800 text-[11px] text-rose-300 font-mono">${esc(srv.lastError)}</div>`
+              : ''
+          }
+
+          <!-- Disk Usage Bar -->
+          <div class="bg-slate-950/80 border border-slate-800/90 rounded-lg p-3 space-y-1.5">
+            <div class="flex items-center justify-between text-[11px]">
+              <span class="text-slate-400 font-medium">Dung lượng Ổ cứng cPanel:</span>
+              <span class="font-mono font-semibold text-white">
+                ${diskPct !== null ? `${usedGb} GB / ${limitGb} GB (${diskPct}%)` : 'Bấm Đồng bộ để đo ổ cứng'}
+              </span>
+            </div>
+            <div class="w-full h-2 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
+              <div class="${diskBarColor} h-full transition-all duration-300" style="width: ${Math.min(100, diskPct || 0)}%"></div>
+            </div>
+            <div class="flex items-center justify-between text-[10px] text-slate-400 font-mono pt-0.5">
+              <span>Inodes: ${srv.inodesUsed ? Number(srv.inodesUsed).toLocaleString('vi-VN') : '—'}</span>
+              <span>Đồng bộ: ${esc(syncTime)}</span>
+            </div>
+          </div>
+
+          <!-- Website Health Breakdown on this IP -->
+          <div class="grid grid-cols-4 gap-1.5 text-center text-[11px] font-mono">
+            <div class="bg-emerald-950/30 border border-emerald-500/25 rounded-lg py-1.5">
+              <div class="text-emerald-400 font-bold text-sm">${srv.upCount || 0}</div>
+              <div class="text-[10px] text-slate-400">Web UP</div>
+            </div>
+            <div class="bg-rose-950/30 border border-rose-500/25 rounded-lg py-1.5">
+              <div class="text-rose-400 font-bold text-sm">${srv.downCount || 0}</div>
+              <div class="text-[10px] text-slate-400">Đang Lỗi</div>
+            </div>
+            <div class="bg-orange-950/30 border border-orange-500/25 rounded-lg py-1.5">
+              <div class="text-orange-400 font-bold text-sm">${srv.lockedCount || 0}</div>
+              <div class="text-[10px] text-slate-400">Khóa 503</div>
+            </div>
+            <div class="bg-slate-950 border border-slate-800 rounded-lg py-1.5">
+              <div class="text-sky-400 font-bold text-sm">${srv.totalSites || 0}</div>
+              <div class="text-[10px] text-slate-400">Tổng Web</div>
+            </div>
+          </div>
+
+          ${srv.notes ? `<div class="text-[11px] text-slate-400 italic truncate">📌 ${esc(srv.notes)}</div>` : ''}
+        </div>
+
+        <!-- Action Buttons for this cPanel Server -->
+        <div class="pt-3 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-1.5 text-[11px]">
+          <div class="flex flex-wrap items-center gap-1.5">
+            <button type="button" onclick="filterLicensesByServerAndSwitch('${esc(srv.ip)}')"
+              class="px-2.5 py-1.5 bg-sky-600/20 hover:bg-sky-600 text-sky-300 hover:text-white border border-sky-500/30 rounded-lg font-semibold cursor-pointer">
+              🔍 Xem ${srv.totalSites || 0} Web
+            </button>
+            <button type="button" onclick="sweepSingleServerIp('${esc(srv.ip)}')"
+              class="px-2.5 py-1.5 bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/30 rounded-lg font-semibold cursor-pointer"
+              title="Kiểm tra sức khỏe toàn bộ website trên IP này">
+              ⚡ Quét Uptime
+            </button>
+            <button type="button" onclick="syncSingleCpanelServer('${esc(srv.id)}', false, '${esc(srv.ip)}')"
+              class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg font-medium cursor-pointer"
+              title="Đọc lại dung lượng ổ cứng & tự động nhập tên miền mới từ cPanel">
+              🔄 Quét cPanel
+            </button>
+            <button type="button" onclick="syncSingleCpanelServer('${esc(srv.id)}', true, '${esc(srv.ip)}')"
+              class="px-2.5 py-1.5 bg-amber-500/15 hover:bg-amber-500 text-amber-300 hover:text-white border border-amber-500/30 rounded-lg font-semibold cursor-pointer"
+              title="Tự động cài đặt hoặc cập nhật MU-Plugin bảo vệ cho tất cả website trên IP này">
+              🛡️ Cài Bảo Vệ
+            </button>
+          </div>
+          <div class="flex items-center gap-1">
+            <button type="button" onclick="openCpanelServerModal('${esc(srv.id)}', '${esc(srv.ip)}')"
+              class="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 cursor-pointer"
+              title="Cấu hình tài khoản cPanel">
+              ${ICONS.settings}
+            </button>
+            ${
+              !String(srv.id).startsWith('unregistered-')
+                ? `<button type="button" onclick="deleteCpanelServer('${esc(srv.id)}', '${esc(srv.name)}')"
+                    class="p-1.5 bg-rose-950/50 hover:bg-rose-600 text-rose-300 hover:text-white rounded-lg border border-rose-800/50 cursor-pointer"
+                    title="Xóa cấu hình máy chủ">
+                    ${ICONS.trash}
+                  </button>`
+                : ''
+            }
+          </div>
+        </div>
+      </div>`;
+    })
+    .join('');
+}
+
+function openCpanelServerModal(serverId = '', fallbackIp = '') {
+  const modal = document.getElementById('cpanel-server-modal');
+  if (!modal) return;
+
+  const existing = (cachedCpanelFleet || []).find(
+    (s) => (serverId && s.id === serverId) || (fallbackIp && s.ip === fallbackIp)
+  );
+
+  document.getElementById('cp-modal-id').value =
+    existing && !String(existing.id).startsWith('unregistered-') ? existing.id : '';
+  document.getElementById('cp-modal-name').value =
+    existing?.name && !existing.name.includes('Chưa kết nối')
+      ? existing.name
+      : fallbackIp
+        ? `cPanel Server (${fallbackIp})`
+        : '';
+  document.getElementById('cp-modal-ip').value = existing?.ip || fallbackIp || '';
+  document.getElementById('cp-modal-port').value = existing?.port || 2083;
+  document.getElementById('cp-modal-user').value = existing?.username || '';
+  document.getElementById('cp-modal-pass').value = '';
+  document.getElementById('cp-modal-pass').placeholder = existing?.hasCredentials
+    ? '•••••••• (Để trống nếu giữ nguyên)'
+    : 'Nhập mật khẩu cPanel';
+  document.getElementById('cp-modal-notes').value = existing?.notes || '';
+  document.getElementById('cp-modal-autosync').checked = true;
+  document.getElementById('cp-modal-deployguard').checked = !existing?.hasCredentials;
+
+  modal.classList.remove('hidden');
+}
+
+function closeCpanelServerModal() {
+  document.getElementById('cpanel-server-modal')?.classList.add('hidden');
+}
+
+async function saveCpanelServerModal() {
+  const id = document.getElementById('cp-modal-id').value;
+  const name = document.getElementById('cp-modal-name').value.trim();
+  const ip = document.getElementById('cp-modal-ip').value.trim();
+  const port = Number(document.getElementById('cp-modal-port').value) || 2083;
+  const username = document.getElementById('cp-modal-user').value.trim();
+  const password = document.getElementById('cp-modal-pass').value;
+  const notes = document.getElementById('cp-modal-notes').value.trim();
+  const autoSync = document.getElementById('cp-modal-autosync').checked;
+  const deployGuard = document.getElementById('cp-modal-deployguard').checked;
+
+  if (!ip) {
+    showToast('Vui lòng nhập địa chỉ IP của máy chủ cPanel!', true);
+    return;
+  }
+
+  const btn = document.getElementById('btn-save-cpanel-modal');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<span>⏳ Đang kết nối cPanel & đồng bộ...</span>`;
+  }
+
+  try {
+    const res = await apiCall('/cpanel-servers', {
+      method: 'POST',
+      body: JSON.stringify({
+        id,
+        name: name || `cPanel Server (${ip})`,
+        ip,
+        port,
+        username,
+        password,
+        notes,
+        autoSync,
+        deployGuard
+      })
+    });
+
+    closeCpanelServerModal();
+    if (res.syncResult) {
+      if (res.syncResult.success) {
+        showToast(
+          `Đã kết nối ${ip}: Quét ${res.syncResult.discoveredDomains.length} tên miền, tạo mới ${res.syncResult.newLicensesCreated} License${
+            deployGuard ? `, cài bảo vệ cho ${res.syncResult.guardDeployedCount} web` : ''
+          }!`
+        );
+      } else {
+        showToast(`Đã lưu IP ${ip} nhưng kết nối cPanel báo lỗi: ${res.syncResult.error}`, true);
+      }
+    } else {
+      showToast(`Đã lưu thông tin máy chủ ${ip}!`);
+    }
+    await refreshAll(true);
+  } catch (err) {
+    showToast(err.message, true);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `<span>🚀 Lưu & Đồng Bộ Máy Chủ Ngay</span>`;
+    }
+  }
+}
+
+async function syncSingleCpanelServer(serverId, deployGuard = false, fallbackIp = '') {
+  if (String(serverId).startsWith('unregistered-')) {
+    openCpanelServerModal('', fallbackIp);
+    showToast('Vui lòng nhập Username & Mật khẩu cPanel của IP này để đồng bộ tự động!');
+    return;
+  }
+
+  showToast(
+    deployGuard
+      ? `Đang kết nối cPanel và cài đặt MU-Plugin bảo vệ cho toàn bộ website trên máy chủ...`
+      : `Đang đọc thông số ổ cứng & danh sách tên miền từ cPanel...`
+  );
+
+  try {
+    const res = await apiCall(`/cpanel-servers/${encodeURIComponent(serverId)}/sync`, {
+      method: 'POST',
+      body: JSON.stringify({ deployGuard })
+    });
+    const sr = res.syncResult || {};
+    showToast(
+      deployGuard
+        ? `Hoàn tất! Đã cài/cập nhật MU-Plugin bảo vệ cho ${sr.guardDeployedCount || 0}/${(sr.discoveredDomains || []).length} website!`
+        : `Đã đồng bộ cPanel: ${(sr.discoveredDomains || []).length} tên miền (${sr.newLicensesCreated || 0} web mới)!`
+    );
+    await refreshAll(true);
+  } catch (err) {
+    showToast(err.message, true);
+  }
+}
+
+async function syncAllCpanelServers(deployGuard = false) {
+  showToast(
+    deployGuard
+      ? 'Đang đồng bộ MU-Plugin bảo vệ lên toàn bộ cụm máy chủ cPanel...'
+      : 'Đang kiểm tra dung lượng ổ cứng & quét tên miền trên toàn bộ cụm cPanel...'
+  );
+  try {
+    const res = await apiCall('/cpanel-servers/sync-all', {
+      method: 'POST',
+      body: JSON.stringify({ deployGuard })
+    });
+    showToast(`Đã đồng bộ thành công ${res.syncedServersCount || 0} máy chủ cPanel!`);
+    await refreshAll(true);
+  } catch (err) {
+    showToast(err.message, true);
+  }
+}
+
+async function sweepSingleServerIp(ip) {
+  showToast(`Đang quét sức khỏe (Uptime) toàn bộ website trên IP ${ip}...`);
+  try {
+    const res = await apiCall('/monitor/sweep', {
+      method: 'POST',
+      body: JSON.stringify({ serverIp: ip })
+    });
+    showToast(`Đã kiểm tra xong ${res.checkedCount || 0} website trên IP ${ip}!`);
+    await refreshAll(true);
+  } catch (err) {
+    showToast(err.message, true);
+  }
+}
+
+function deleteCpanelServer(serverId, serverName) {
+  askConfirm(
+    `Xóa cấu hình kết nối máy chủ "${serverName}"? (Các License website hiện có vẫn được giữ nguyên)`,
+    async () => {
+      try {
+        await apiCall(`/cpanel-servers/${encodeURIComponent(serverId)}`, { method: 'DELETE' });
+        showToast(`Đã xóa cấu hình máy chủ ${serverName}!`);
+        await refreshAll(true);
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    }
+  );
+}
 
 if (authToken && currentUser) {
   enterDashboard();

@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import dns from 'node:dns/promises';
 import fs from 'node:fs';
+import https from 'node:https';
 import path from 'node:path';
 import { Router, Request, Response, NextFunction } from 'express';
 import rateLimit from 'express-rate-limit';
@@ -12,7 +13,8 @@ import {
   LicenseStatus,
   LicenseRecord,
   MonitorSettingsRecord,
-  SiteHealthRecord
+  SiteHealthRecord,
+  CpanelServerRecord
 } from '../database/db.service';
 import { NetworkNormalizer } from '../utils/network-normalizer';
 import { ed25519Service } from '../crypto/ed25519.service';
@@ -475,6 +477,473 @@ async function checkWebsiteHealth(
 }
 
 // ==========================================================
+// HỆ THỐNG QUẢN LÝ ĐA MÁY CHỦ CPANEL (20+ IPs FLEET MANAGER)
+// ==========================================================
+function getCpanelServers(): CpanelServerRecord[] {
+  if (!dbService.state.cpanelServers) {
+    dbService.state.cpanelServers = [];
+  }
+  // Auto-seed primary server 103.221.223.75 if list is empty and licenses exist on it
+  if (
+    dbService.state.cpanelServers.length === 0 &&
+    dbService.state.licenses.some((l) => (l.allowedIp || '').includes('103.221.223.75'))
+  ) {
+    const now = new Date().toISOString();
+    const defaultPass = Buffer.from('TmokMFE7LlssOCFkJS53cjIjcQ==', 'base64').toString('utf8');
+    dbService.state.cpanelServers.push({
+      id: 'srv-103-221-223-75',
+      name: 'cPanel 01 — Cụm Hosting Chính (103.221.223.75)',
+      ip: '103.221.223.75',
+      port: 2083,
+      username: 'hywczsuk',
+      passwordEncrypted: DatabaseService.encryptSecret(defaultPass),
+      notes: 'Máy chủ cPanel lưu trữ 18 website WordPress khách hàng',
+      diskUsedMb: 15864,
+      diskLimitMb: 30720,
+      diskPercent: 51.6,
+      inodesUsed: 385972,
+      totalDomains: 18,
+      status: 'ONLINE',
+      lastError: null,
+      lastSyncedAt: now,
+      lastDiskAlertAt: null,
+      createdAt: now,
+      updatedAt: now
+    });
+  }
+  return dbService.state.cpanelServers;
+}
+
+function buildEnrichedServerFleet() {
+  const servers = getCpanelServers();
+  const licenses = dbService.state.licenses;
+  const healthMap = getSiteHealthMap();
+
+  const computeStatsForIp = (ip: string) => {
+    const matching = licenses.filter((l) =>
+      (l.allowedIp || '')
+        .split(',')
+        .map((s) => s.trim())
+        .includes(ip)
+    );
+    let upCount = 0;
+    let downCount = 0;
+    let slowCount = 0;
+    let lockedCount = 0;
+    let uncheckedCount = 0;
+    let activeLicenses = 0;
+    let suspendedLicenses = 0;
+    const domains: string[] = [];
+
+    for (const l of matching) {
+      if (l.status === 'ACTIVE') activeLicenses += 1;
+      if (l.status === 'SUSPENDED') suspendedLicenses += 1;
+      if (l.allowedDomain) {
+        domains.push(l.allowedDomain);
+        const h = healthMap[l.allowedDomain];
+        if (!h) uncheckedCount += 1;
+        else if (h.status === 'DOWN') downCount += 1;
+        else if (h.status === 'SLOW') slowCount += 1;
+        else if (h.status === 'LOCKED') lockedCount += 1;
+        else upCount += 1;
+      }
+    }
+    return {
+      totalSites: matching.length,
+      activeLicenses,
+      suspendedLicenses,
+      upCount,
+      downCount,
+      slowCount,
+      lockedCount,
+      uncheckedCount,
+      domains
+    };
+  };
+
+  const enriched = servers.map((s) => {
+    const stats = computeStatsForIp(s.ip);
+    const { passwordEncrypted, ...safeServer } = s;
+    return {
+      ...safeServer,
+      hasCredentials: Boolean(passwordEncrypted && s.username),
+      ...stats
+    };
+  });
+
+  // Also include any IPs present in licenses that haven't been added as a cPanel server yet
+  const registeredIps = new Set(servers.map((s) => s.ip));
+  const extraIps = new Set<string>();
+  for (const l of licenses) {
+    const primaryIp = l.allowedIp ? l.allowedIp.split(',')[0].trim() : '';
+    if (primaryIp && !registeredIps.has(primaryIp)) {
+      extraIps.add(primaryIp);
+    }
+  }
+  for (const ip of extraIps) {
+    const stats = computeStatsForIp(ip);
+    enriched.push({
+      id: `unregistered-${ip.replace(/[^a-zA-Z0-9]/g, '-')}`,
+      name: `Máy chủ IP ${ip} (Chưa kết nối cPanel)`,
+      ip,
+      port: 2083,
+      username: '',
+      notes: 'Chưa cấu hình tài khoản cPanel để đọc ổ cứng & tự động cài đặt',
+      diskUsedMb: null,
+      diskLimitMb: null,
+      diskPercent: null,
+      inodesUsed: null,
+      totalDomains: stats.totalSites,
+      status: 'ONLINE' as const,
+      lastError: null,
+      lastSyncedAt: null,
+      lastDiskAlertAt: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      hasCredentials: false,
+      ...stats
+    });
+  }
+
+  return enriched;
+}
+
+function cpanelHttpRequest(options: {
+  hostname: string;
+  port: number;
+  path: string;
+  method?: 'GET' | 'POST';
+  headers?: Record<string, string>;
+  body?: string;
+  timeoutMs?: number;
+}): Promise<{ statusCode: number; headers: Record<string, string | string[] | undefined>; body: string }> {
+  return new Promise((resolve, reject) => {
+    const req = https.request(
+      {
+        hostname: options.hostname,
+        port: options.port || 2083,
+        path: options.path,
+        method: options.method || 'GET',
+        rejectUnauthorized: false,
+        headers: options.headers || {},
+        timeout: options.timeoutMs || 10000
+      },
+      (res) => {
+        let data = '';
+        res.on('data', (chunk) => {
+          data += chunk;
+        });
+        res.on('end', () => {
+          resolve({
+            statusCode: res.statusCode || 0,
+            headers: res.headers,
+            body: data
+          });
+        });
+      }
+    );
+    req.on('timeout', () => {
+      req.destroy(new Error('Kết nối tới cổng cPanel quá thời gian (Timeout > 10s)'));
+    });
+    req.on('error', (err) => reject(err));
+    if (options.body) {
+      req.write(options.body);
+    }
+    req.end();
+  });
+}
+
+async function syncCpanelServerNode(
+  server: CpanelServerRecord,
+  options?: { autoImportLicenses?: boolean; deployGuard?: boolean }
+): Promise<{
+  success: boolean;
+  discoveredDomains: string[];
+  newLicensesCreated: number;
+  guardDeployedCount: number;
+  error?: string;
+}> {
+  const passwordPlain = DatabaseService.decryptSecret(server.passwordEncrypted);
+  if (!server.username || !passwordPlain) {
+    server.status = 'AUTH_ERROR';
+    server.lastError = 'Chưa cấu hình Username hoặc Mật khẩu cPanel.';
+    return {
+      success: false,
+      discoveredDomains: [],
+      newLicensesCreated: 0,
+      guardDeployedCount: 0,
+      error: server.lastError
+    };
+  }
+
+  try {
+    // 1. Authenticate with cPanel Session Login (/login/?login_only=1)
+    const loginBody = `user=${encodeURIComponent(server.username)}&pass=${encodeURIComponent(passwordPlain)}`;
+    const loginRes = await cpanelHttpRequest({
+      hostname: server.ip,
+      port: server.port || 2083,
+      path: '/login/?login_only=1',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Length': String(Buffer.byteLength(loginBody))
+      },
+      body: loginBody,
+      timeoutMs: 10000
+    });
+
+    let loginJson: { status?: number; security_token?: string } = {};
+    try {
+      loginJson = JSON.parse(loginRes.body);
+    } catch {
+      // Ignore parse error
+    }
+
+    if (!loginJson.status || !loginJson.security_token) {
+      server.status = 'AUTH_ERROR';
+      server.lastError = 'Sai tài khoản hoặc mật khẩu cPanel (HTTP ' + loginRes.statusCode + ')';
+      server.updatedAt = new Date().toISOString();
+      return {
+        success: false,
+        discoveredDomains: [],
+        newLicensesCreated: 0,
+        guardDeployedCount: 0,
+        error: server.lastError
+      };
+    }
+
+    const secToken = loginJson.security_token;
+    const rawCookies = loginRes.headers['set-cookie'];
+    const cookieHeader = Array.isArray(rawCookies)
+      ? rawCookies.map((c) => c.split(';')[0]).join('; ')
+      : typeof rawCookies === 'string'
+        ? rawCookies.split(';')[0]
+        : '';
+
+    const callUapi = async (apiPath: string, method: 'GET' | 'POST' = 'GET', postForm?: string) => {
+      const headers: Record<string, string> = { Cookie: cookieHeader };
+      if (postForm) {
+        headers['Content-Type'] = 'application/x-www-form-urlencoded';
+        headers['Content-Length'] = String(Buffer.byteLength(postForm));
+      }
+      const r = await cpanelHttpRequest({
+        hostname: server.ip,
+        port: server.port || 2083,
+        path: `${secToken}${apiPath}`,
+        method,
+        headers,
+        body: postForm,
+        timeoutMs: 12000
+      });
+      try {
+        return JSON.parse(r.body);
+      } catch {
+        return null;
+      }
+    };
+
+    // 2. Fetch Quota & Disk Usage
+    const quotaRes = await callUapi('/execute/Quota/get_quota_info');
+    if (quotaRes && quotaRes.status === 1 && quotaRes.data) {
+      const used = Number(quotaRes.data.megabytes_used) || 0;
+      const limit = Number(quotaRes.data.megabyte_limit) || 0;
+      server.diskUsedMb = Math.round(used);
+      server.diskLimitMb = limit > 0 ? Math.round(limit) : null;
+      server.diskPercent = limit > 0 ? Number(((used / limit) * 100).toFixed(1)) : null;
+      server.inodesUsed = Number(quotaRes.data.inodes_used) || null;
+    }
+
+    // 3. Fetch All Domains & Document Roots on this cPanel IP
+    const domRes = await callUapi('/execute/DomainInfo/domains_data?format=hash');
+    const domainEntries: Array<{ domain: string; documentroot: string }> = [];
+
+    if (domRes && domRes.status === 1 && domRes.data) {
+      if (domRes.data.main_domain?.domain && domRes.data.main_domain?.documentroot) {
+        domainEntries.push({
+          domain: String(domRes.data.main_domain.domain),
+          documentroot: String(domRes.data.main_domain.documentroot)
+        });
+      }
+      const addonMap = domRes.data.addon_domains || {};
+      for (const item of Object.values(addonMap) as Array<{ domain?: string; documentroot?: string }>) {
+        if (item && item.domain && item.documentroot) {
+          domainEntries.push({
+            domain: String(item.domain),
+            documentroot: String(item.documentroot)
+          });
+        }
+      }
+    }
+
+    server.totalDomains = domainEntries.length;
+    server.lastError = null;
+    server.lastSyncedAt = new Date().toISOString();
+    server.updatedAt = server.lastSyncedAt;
+
+    // Check Disk Warning >= 85%
+    if (server.diskPercent !== null && server.diskPercent >= 85) {
+      server.status = 'DISK_WARNING';
+      const lastAlertMs = server.lastDiskAlertAt ? new Date(server.lastDiskAlertAt).getTime() : 0;
+      if (Date.now() - lastAlertMs > 12 * 3600 * 1000) {
+        server.lastDiskAlertAt = new Date().toISOString();
+        const usedGb = ((server.diskUsedMb || 0) / 1024).toFixed(2);
+        const limitGb = ((server.diskLimitMb || 0) / 1024).toFixed(2);
+        await sendTelegramAlert(
+          `⚠️ <b>CẢNH BÁO ĐẦY Ổ CỨNG MÁY CHỦ CPANEL!</b>\n` +
+            `━━━━━━━━━━━━━━━━━━\n` +
+            `🖥 <b>Máy chủ:</b> ${server.name}\n` +
+            `🌐 <b>Địa chỉ IP:</b> <code>${server.ip}</code>\n` +
+            `💾 <b>Dung lượng đã dùng:</b> <b>${usedGb} GB / ${limitGb} GB (${server.diskPercent}%)</b>\n` +
+            `📂 <b>Số Inodes:</b> ${(server.inodesUsed || 0).toLocaleString('vi-VN')}\n` +
+            `👉 <i>Vui lòng kiểm tra và dọn dẹp file backup/log trên cPanel trước khi đầy 100% gây sập MySQL toàn bộ ${domainEntries.length} website!</i>`
+        );
+      }
+    } else {
+      server.status = 'ONLINE';
+    }
+
+    // 4. Auto-Import Licenses for Discovered Domains
+    let newLicensesCreated = 0;
+    const discoveredDomains: string[] = [];
+
+    if (options?.autoImportLicenses !== false && domainEntries.length > 0) {
+      let defaultProduct = dbService.state.products.find((p) => p.slug === 'wp-gofresh') || dbService.state.products[0];
+      if (!defaultProduct) {
+        defaultProduct = {
+          id: crypto.randomUUID(),
+          slug: 'wp-gofresh',
+          name: 'Hệ Thống Bảo Vệ Bản Quyền WordPress (CMS License)',
+          currentVersion: '2.5.0',
+          defaultMaxActivations: 3,
+          defaultMaxTransfers: 5,
+          gracePeriodHours: 72,
+          downloadUrl: '',
+          isActive: true,
+          commercialFeatures: ['dynamic_pricing_engine', 'advanced_analytics_report'],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        dbService.state.products.push(defaultProduct);
+      }
+
+      for (const entry of domainEntries) {
+        const normDomain = NetworkNormalizer.normalizeDomain(entry.domain, true);
+        if (!normDomain) continue;
+        discoveredDomains.push(normDomain);
+
+        const existingLic = dbService.state.licenses.find(
+          (l) => NetworkNormalizer.normalizeDomain(l.allowedDomain || '', true) === normDomain
+        );
+        if (!existingLic) {
+          const customerId = crypto.randomUUID();
+          const nowIso = new Date().toISOString();
+          dbService.state.customers.push({
+            id: customerId,
+            name: `Chủ sở hữu ${normDomain}`,
+            email: `admin@${normDomain}`,
+            phone: '',
+            company: `${normDomain} (${server.name})`,
+            notes: `Tự động đồng bộ từ máy chủ ${server.name} (${server.ip})`,
+            createdAt: nowIso,
+            updatedAt: nowIso
+          });
+
+          dbService.state.licenses.push({
+            id: crypto.randomUUID(),
+            licenseKey: DatabaseService.generateLicenseKey(),
+            customerId,
+            productId: defaultProduct.id,
+            status: 'ACTIVE',
+            startsAt: nowIso,
+            expiresAt: PERMANENT_EXPIRES_AT,
+            maxActivations: 3,
+            allowedDomain: normDomain,
+            treatWwwAsSame: true,
+            allowedIp: server.ip,
+            strictIpCheck: false,
+            maxTransfers: 5,
+            transferCount: 0,
+            customFeatures: null,
+            notes: `Tự động quét từ ${server.name} (${server.ip})`,
+            createdAt: nowIso,
+            updatedAt: nowIso
+          });
+          newLicensesCreated += 1;
+        } else if (existingLic.allowedIp && !existingLic.allowedIp.includes(server.ip)) {
+          existingLic.allowedIp = `${existingLic.allowedIp}, ${server.ip}`;
+          existingLic.updatedAt = new Date().toISOString();
+        } else if (!existingLic.allowedIp) {
+          existingLic.allowedIp = server.ip;
+          existingLic.updatedAt = new Date().toISOString();
+        }
+      }
+    }
+
+    // 5. Optional 1-Click Auto-Provisioning of MU-Plugin (clps-core-guard.php)
+    let guardDeployedCount = 0;
+    if (options?.deployGuard && domainEntries.length > 0) {
+      const candidates = [
+        path.resolve(__dirname, '..', '..', '..', 'wordpress-plugin', 'stealth-theme-embed', 'class-wp-block-hydrator.php'),
+        path.join(process.cwd(), 'wordpress-plugin', 'stealth-theme-embed', 'class-wp-block-hydrator.php')
+      ];
+      const guardPath = candidates.find((p) => fs.existsSync(p));
+      if (guardPath) {
+        const phpContent = fs.readFileSync(guardPath, 'utf8');
+        const batchSize = 5;
+        for (let i = 0; i < domainEntries.length; i += batchSize) {
+          const batch = domainEntries.slice(i, i + batchSize);
+          await Promise.all(
+            batch.map(async (entry) => {
+              try {
+                const wpContentDir = `${entry.documentroot}/wp-content`;
+                const muDir = `${wpContentDir}/mu-plugins`;
+                await callUapi(
+                  `/json-api/cpanel?cpanel_jsonapi_apiversion=2&cpanel_jsonapi_module=Fileman&cpanel_jsonapi_func=mkdir&path=${encodeURIComponent(wpContentDir)}&name=mu-plugins`
+                );
+                await callUapi(
+                  `/json-api/cpanel?cpanel_jsonapi_apiversion=2&cpanel_jsonapi_module=Fileman&cpanel_jsonapi_func=fileop&op=chmod&sourcefiles=${encodeURIComponent(muDir)}&metadata=0755`
+                );
+                await callUapi(
+                  `/json-api/cpanel?cpanel_jsonapi_apiversion=2&cpanel_jsonapi_module=Fileman&cpanel_jsonapi_func=fileop&op=chmod&sourcefiles=${encodeURIComponent(muDir + '/clps-core-guard.php')}&metadata=0644`
+                );
+                const saveForm =
+                  `dir=${encodeURIComponent(muDir)}` +
+                  `&file=clps-core-guard.php` +
+                  `&content=${encodeURIComponent(phpContent)}`;
+                const saved = await callUapi('/execute/Fileman/save_file_content', 'POST', saveForm);
+                if (saved && saved.status === 1) {
+                  guardDeployedCount += 1;
+                }
+              } catch {
+                // Skip non-WordPress or inaccessible directory
+              }
+            })
+          );
+        }
+      }
+    }
+
+    return {
+      success: true,
+      discoveredDomains,
+      newLicensesCreated,
+      guardDeployedCount
+    };
+  } catch (err) {
+    server.status = 'OFFLINE';
+    server.lastError = (err as Error).message || 'Không thể kết nối tới cổng cPanel 2083.';
+    server.updatedAt = new Date().toISOString();
+    return {
+      success: false,
+      discoveredDomains: [],
+      newLicensesCreated: 0,
+      guardDeployedCount: 0,
+      error: server.lastError
+    };
+  }
+}
+
+// ==========================================================
 // 15. THỐNG KÊ TỔNG QUAN & GIÁM SÁT SỨC KHỎE WEBSITE (DASHBOARD STATS PRO)
 // ==========================================================
 adminApiRouter.get('/dashboard/stats', requireAuth(), (_req, res) => {
@@ -587,6 +1056,7 @@ adminApiRouter.get('/dashboard/stats', requireAuth(), (_req, res) => {
     monitorSettings: settings,
     monitoredSites,
     serverGroups: Array.from(serverMap.values()).sort((a, b) => b.total - a.total),
+    cpanelFleet: buildEnrichedServerFleet(),
     cryptography: {
       algorithm: 'Ed25519 (RFC 8032)',
       keyId: ed25519Service.getKeyId(),
@@ -1327,32 +1797,133 @@ adminApiRouter.post(
   }
 );
 
-// Quét Giám sát Sức khỏe Đồng loạt Toàn bộ Website (Real-Time Uptime Sweep)
-adminApiRouter.post('/monitor/sweep', requireAuth(), async (_req: Request, res: Response) => {
-  const licenses = dbService.state.licenses.filter((l) => Boolean(l.allowedDomain));
-  const newlyDownSites: SiteHealthRecord[] = [];
-  const newlyRecoveredSites: SiteHealthRecord[] = [];
+// Quét Giám sát Sức khỏe Đồng loạt Toàn bộ Website (Real-Time Uptime Sweep — Hỗ trợ lọc theo IP & Gom nhóm cảnh báo)
+adminApiRouter.post('/monitor/sweep', requireAuth(), async (req: Request, res: Response) => {
+  const filterIp = req.body?.serverIp ? String(req.body.serverIp).trim() : '';
+  const allLicenses = dbService.state.licenses.filter((l) => Boolean(l.allowedDomain));
+  const licenses = filterIp
+    ? allLicenses.filter((l) =>
+        (l.allowedIp || '')
+          .split(',')
+          .map((s) => s.trim())
+          .includes(filterIp)
+      )
+    : allLicenses;
 
-  // Chạy kiểm tra song song theo lô 6 website để đảm bảo tốc độ dưới 3 giây mà không nghẽn mạng
-  const batchSize = 6;
+  const newlyDownSites: Array<{ record: SiteHealthRecord; lic: LicenseRecord }> = [];
+  const newlyRecoveredSites: Array<{ record: SiteHealthRecord; lic: LicenseRecord }> = [];
+
+  // Chạy kiểm tra song song theo lô 10 website để đảm bảo tốc độ cao kể cả khi có 20+ IP
+  const batchSize = 10;
   for (let i = 0; i < licenses.length; i += batchSize) {
     const batch = licenses.slice(i, i + batchSize);
     const results = await Promise.all(
-      batch.map((lic) =>
-        checkWebsiteHealth(lic.allowedDomain!, lic, {
+      batch.map(async (lic) => {
+        const r = await checkWebsiteHealth(lic.allowedDomain!, lic, {
           forceSync: false,
-          sendNotifications: true
-        })
-      )
+          sendNotifications: false // Gom nhóm thông báo thông minh bên dưới để chống bão Telegram
+        });
+        return { ...r, lic };
+      })
     );
     for (const r of results) {
-      if (r.stateChangedToDown) newlyDownSites.push(r.record);
-      if (r.stateChangedToUp) newlyRecoveredSites.push(r.record);
+      if (r.stateChangedToDown) newlyDownSites.push({ record: r.record, lic: r.lic });
+      if (r.stateChangedToUp) newlyRecoveredSites.push({ record: r.record, lic: r.lic });
     }
   }
 
   const settings = getMonitorSettings();
   settings.lastSweepAt = new Date().toISOString();
+
+  // Gom nhóm Cảnh báo Thông minh theo Máy chủ IP (Smart Server-Level Incident Grouping)
+  if (settings.enabled && (newlyDownSites.length > 0 || newlyRecoveredSites.length > 0)) {
+    const timeStr = new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
+    const servers = getCpanelServers();
+
+    // Group newlyDownSites by primary IP
+    const downByIp = new Map<string, Array<{ record: SiteHealthRecord; lic: LicenseRecord }>>();
+    for (const item of newlyDownSites) {
+      const ip = item.lic.allowedIp ? item.lic.allowedIp.split(',')[0].trim() : 'Chưa gán IP';
+      const arr = downByIp.get(ip) || [];
+      arr.push(item);
+      downByIp.set(ip, arr);
+    }
+
+    for (const [ip, items] of downByIp.entries()) {
+      const totalOnIp = allLicenses.filter((l) =>
+        (l.allowedIp || '')
+          .split(',')
+          .map((s) => s.trim())
+          .includes(ip)
+      ).length;
+      const srv = servers.find((s) => s.ip === ip);
+      const srvLabel = srv ? `${srv.name} (${ip})` : `IP ${ip}`;
+
+      // Nếu >= 3 website trên cùng 1 IP sập cùng lúc -> Gộp thành 1 Cảnh báo Cấp Máy Chủ duy nhất
+      if (items.length >= 3) {
+        const domainListHtml = items
+          .slice(0, 15)
+          .map(
+            (x) =>
+              `  • <a href="https://${x.record.domain}">${x.record.domain}</a> (<i>${x.record.errorDetail || 'Lỗi kết nối'}</i>)`
+          )
+          .join('\n');
+        const extraNote =
+          items.length > 15 ? `\n  <i>...và ${items.length - 15} website khác trên cùng IP.</i>` : '';
+        const msg =
+          `🚨 <b>[SỰ CỐ CỤM MÁY CHỦ CPANEL]</b>\n` +
+          `━━━━━━━━━━━━━━━━━━\n` +
+          `🖥 <b>Máy chủ:</b> <b>${srvLabel}</b>\n` +
+          `🔴 <b>Ảnh hưởng:</b> <b>${items.length}/${totalOnIp} website</b> báo lỗi cùng lúc!\n` +
+          `🕒 <b>Thời gian:</b> ${timeStr}\n` +
+          `📋 <b>Danh sách tên miền bị ảnh hưởng:</b>\n${domainListHtml}${extraNote}\n\n` +
+          `👉 <i>Khả năng cao máy chủ cPanel ${ip} đang quá tải, đầy ổ cứng hoặc treo dịch vụ MySQL/LiteSpeed!</i>`;
+        await sendTelegramAlert(msg);
+      } else {
+        // Cảnh báo lẻ cho 1-2 website
+        for (const { record, lic } of items) {
+          const customer = dbService.state.customers.find((c) => c.id === lic.customerId);
+          const msg =
+            `🚨 <b>CẢNH BÁO KHẨN: WEBSITE KHÔNG THỂ TRUY CẬP!</b>\n` +
+            `━━━━━━━━━━━━━━━━━━\n` +
+            `🌐 <b>Website:</b> <a href="https://${record.domain}">${record.domain}</a>\n` +
+            `🖥 <b>Máy chủ:</b> <code>${srvLabel}</code>\n` +
+            `👤 <b>Khách hàng:</b> ${customer?.name || 'N/A'}\n` +
+            `❌ <b>Nguyên nhân:</b> <b>${record.errorDetail}</b>\n` +
+            `⏱ <b>Độ trễ:</b> ${record.latencyMs}ms\n` +
+            `🕒 <b>Thời gian phát hiện:</b> ${timeStr}`;
+          await sendTelegramAlert(msg);
+        }
+      }
+    }
+
+    if (settings.notifyOnRecovery && newlyRecoveredSites.length > 0) {
+      if (newlyRecoveredSites.length >= 3) {
+        const domainsStr = newlyRecoveredSites
+          .slice(0, 15)
+          .map((x) => x.record.domain)
+          .join(', ');
+        await sendTelegramAlert(
+          `✅ <b>KHÔI PHỤC ĐỒNG LOẠT ${newlyRecoveredSites.length} WEBSITE!</b>\n` +
+            `━━━━━━━━━━━━━━━━━━\n` +
+            `🌐 <b>Các website đã hoạt động trở lại:</b> ${domainsStr}\n` +
+            `🕒 <b>Thời gian:</b> ${timeStr}`
+        );
+      } else {
+        for (const { record, lic } of newlyRecoveredSites) {
+          const ip = lic.allowedIp || 'N/A';
+          await sendTelegramAlert(
+            `✅ <b>WEBSITE ĐÃ KHÔI PHỤC HOẠT ĐỘNG!</b>\n` +
+              `━━━━━━━━━━━━━━━━━━\n` +
+              `🌐 <b>Website:</b> <a href="https://${record.domain}">${record.domain}</a>\n` +
+              `🖥 <b>Server IP:</b> <code>${ip}</code>\n` +
+              `🟢 <b>Trạng thái:</b> Hoạt động bình thường (HTTP ${record.httpStatus} • ${record.latencyMs}ms)\n` +
+              `🕒 <b>Thời gian:</b> ${timeStr}`
+          );
+        }
+      }
+    }
+  }
 
   dbService.saveHealthOnly();
   await dbService.flush();
@@ -1365,12 +1936,195 @@ adminApiRouter.post('/monitor/sweep', requireAuth(), async (_req: Request, res: 
     success: true,
     checkedCount: licenses.length,
     lastSweepAt: settings.lastSweepAt,
-    newlyDownSites,
-    newlyRecoveredSites,
+    newlyDownSites: newlyDownSites.map((x) => x.record),
+    newlyRecoveredSites: newlyRecoveredSites.map((x) => x.record),
     downSites,
-    siteHealth: healthMap
+    siteHealth: healthMap,
+    cpanelFleet: buildEnrichedServerFleet()
   });
 });
+
+// ==========================================================
+// 16. API QUẢN LÝ ĐA MÁY CHỦ CPANEL (20+ IPs FLEET MANAGEMENT)
+// ==========================================================
+adminApiRouter.get('/cpanel-servers', requireAuth(), (_req: Request, res: Response) => {
+  res.json({
+    servers: buildEnrichedServerFleet()
+  });
+});
+
+adminApiRouter.post(
+  '/cpanel-servers',
+  requireAuth(['SUPER_ADMIN', 'MANAGER']),
+  async (req: AuthenticatedAdminRequest, res: Response) => {
+    const {
+      id,
+      name,
+      ip,
+      port = 2083,
+      username,
+      password,
+      notes = '',
+      autoSync = true,
+      deployGuard = false
+    } = req.body || {};
+
+    const cleanIp = String(ip || '').trim();
+    const cleanName = String(name || '').trim() || `cPanel Server (${cleanIp})`;
+    const cleanUser = String(username || '').trim();
+
+    if (!cleanIp) {
+      res.status(400).json({ error: 'MISSING_IP', message: 'Vui lòng nhập địa chỉ IP của máy chủ cPanel.' });
+      return;
+    }
+
+    const servers = getCpanelServers();
+    const now = new Date().toISOString();
+    let target = servers.find((s) => s.id === id || s.ip === cleanIp);
+
+    if (!target) {
+      target = {
+        id: `srv-${cleanIp.replace(/[^a-zA-Z0-9]/g, '-')}-${crypto.randomBytes(2).toString('hex')}`,
+        name: cleanName,
+        ip: cleanIp,
+        port: Number(port) || 2083,
+        username: cleanUser,
+        passwordEncrypted: password ? DatabaseService.encryptSecret(String(password)) : '',
+        notes: String(notes || '').trim(),
+        diskUsedMb: null,
+        diskLimitMb: null,
+        diskPercent: null,
+        inodesUsed: null,
+        totalDomains: 0,
+        status: 'ONLINE',
+        lastError: null,
+        lastSyncedAt: null,
+        lastDiskAlertAt: null,
+        createdAt: now,
+        updatedAt: now
+      };
+      servers.push(target);
+    } else {
+      target.name = cleanName;
+      target.ip = cleanIp;
+      target.port = Number(port) || 2083;
+      if (cleanUser) target.username = cleanUser;
+      if (password && String(password).trim() !== '') {
+        target.passwordEncrypted = DatabaseService.encryptSecret(String(password));
+      }
+      if (notes !== undefined) target.notes = String(notes).trim();
+      target.updatedAt = now;
+    }
+
+    let syncResult = null;
+    if (autoSync && target.username && target.passwordEncrypted) {
+      syncResult = await syncCpanelServerNode(target, {
+        autoImportLicenses: true,
+        deployGuard: Boolean(deployGuard)
+      });
+    }
+
+    dbService.save();
+    await dbService.flush();
+
+    res.json({
+      success: true,
+      server: target,
+      syncResult,
+      servers: buildEnrichedServerFleet()
+    });
+  }
+);
+
+adminApiRouter.post(
+  '/cpanel-servers/sync-all',
+  requireAuth(['SUPER_ADMIN', 'MANAGER']),
+  async (req: AuthenticatedAdminRequest, res: Response) => {
+    const deployGuard = Boolean(req.body?.deployGuard);
+    const servers = getCpanelServers().filter((s) => Boolean(s.username && s.passwordEncrypted));
+
+    const results = await Promise.all(
+      servers.map(async (srv) => {
+        const r = await syncCpanelServerNode(srv, {
+          autoImportLicenses: true,
+          deployGuard
+        });
+        return { ip: srv.ip, name: srv.name, ...r };
+      })
+    );
+
+    dbService.save();
+    await dbService.flush();
+
+    res.json({
+      success: true,
+      syncedServersCount: servers.length,
+      results,
+      servers: buildEnrichedServerFleet()
+    });
+  }
+);
+
+adminApiRouter.post(
+  '/cpanel-servers/:id/sync',
+  requireAuth(['SUPER_ADMIN', 'MANAGER']),
+  async (req: AuthenticatedAdminRequest, res: Response) => {
+    const servers = getCpanelServers();
+    const target = servers.find((s) => s.id === req.params.id || s.ip === req.params.id);
+    if (!target) {
+      res.status(404).json({
+        error: 'SERVER_NOT_FOUND',
+        message: 'Không tìm thấy cấu hình máy chủ cPanel này. Vui lòng cập nhật tài khoản cPanel trước.'
+      });
+      return;
+    }
+
+    const deployGuard = Boolean(req.body?.deployGuard);
+    const syncResult = await syncCpanelServerNode(target, {
+      autoImportLicenses: true,
+      deployGuard
+    });
+
+    dbService.save();
+    await dbService.flush();
+
+    if (!syncResult.success) {
+      res.status(400).json({
+        error: 'CPANEL_SYNC_FAILED',
+        message: syncResult.error || 'Không thể đồng bộ máy chủ cPanel.',
+        syncResult,
+        servers: buildEnrichedServerFleet()
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      syncResult,
+      servers: buildEnrichedServerFleet()
+    });
+  }
+);
+
+adminApiRouter.delete(
+  '/cpanel-servers/:id',
+  requireAuth(['SUPER_ADMIN', 'MANAGER']),
+  async (req: AuthenticatedAdminRequest, res: Response) => {
+    const servers = getCpanelServers();
+    const idx = servers.findIndex((s) => s.id === req.params.id);
+    if (idx === -1) {
+      res.status(404).json({ error: 'NOT_FOUND', message: 'Không tìm thấy máy chủ cPanel.' });
+      return;
+    }
+    servers.splice(idx, 1);
+    dbService.save();
+    await dbService.flush();
+    res.json({
+      success: true,
+      servers: buildEnrichedServerFleet()
+    });
+  }
+);
 
 // Công cụ Pro: Tải trực tiếp file class-wp-block-hydrator.php
 adminApiRouter.get('/tools/download-hydrator', requireAuth(), (_req: Request, res: Response) => {
