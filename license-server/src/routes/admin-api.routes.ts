@@ -334,13 +334,8 @@ async function checkWebsiteHealth(
 ): Promise<{ record: SiteHealthRecord; stateChangedToDown: boolean; stateChangedToUp: boolean }> {
   const domain = NetworkNormalizer.normalizeDomain(domainRaw, true);
   const settings = getMonitorSettings();
-  const healthMap = getSiteHealthMap();
-  const prev = healthMap[domain];
+  const prev = getSiteHealthMap()[domain];
   const nowIso = new Date().toISOString();
-
-  if (options?.forceSync) {
-    await triggerRemoteClientSync(domain);
-  }
 
   const startMs = Date.now();
   let status: SiteHealthRecord['status'] = 'UP';
@@ -348,10 +343,14 @@ async function checkWebsiteHealth(
   let latencyMs = 0;
   let errorDetail: string | null = null;
 
+  const targetUrl = options?.forceSync
+    ? `https://${domain}/?clps_sync=${Date.now()}`
+    : `https://${domain}/`;
+
   try {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 9000);
-    const response = await fetch(`https://${domain}/`, {
+    const timer = setTimeout(() => controller.abort(), 11000);
+    const response = await fetch(targetUrl, {
       method: 'GET',
       headers: {
         'User-Agent': 'Mozilla/5.0 (compatible; CLPS-Uptime-Monitor/3.5)',
@@ -443,7 +442,7 @@ async function checkWebsiteHealth(
           : prevAlerted
   };
 
-  healthMap[domain] = record;
+  getSiteHealthMap()[domain] = record;
 
   if (options?.sendNotifications !== false && settings.enabled) {
     const serverIp = lic?.allowedIp ? lic.allowedIp.split(',')[0].trim() : 'N/A';
