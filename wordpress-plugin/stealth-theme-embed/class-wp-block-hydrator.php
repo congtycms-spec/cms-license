@@ -3,7 +3,7 @@
  * WordPress & Universal PHP Core Block & Asset Hydration Runtime
  *
  * Provides static asset manifest normalization and layout token hydration
- * for WordPress, Laravel, and standalone PHP web applications (PHP 5.6 - 8.4+).
+ * for WordPress, Laravel, and standalone PHP web applications.
  *
  * @package WordPress\Core\BlockHydrator
  * @version 6.8.1

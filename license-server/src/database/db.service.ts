@@ -170,6 +170,7 @@ export interface CpanelServerRecord {
   diskPercent: number | null;
   inodesUsed: number | null;
   totalDomains: number;
+  domains?: string[];
   status: 'ONLINE' | 'OFFLINE' | 'AUTH_ERROR' | 'DISK_WARNING';
   lastError: string | null;
   lastSyncedAt: string | null;

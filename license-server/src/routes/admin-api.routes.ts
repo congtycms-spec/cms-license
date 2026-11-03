@@ -519,13 +519,19 @@ function buildEnrichedServerFleet() {
   const licenses = dbService.state.licenses;
   const healthMap = getSiteHealthMap();
 
-  const computeStatsForIp = (ip: string) => {
-    const matching = licenses.filter((l) =>
-      (l.allowedIp || '')
+  const computeStatsForServer = (ip: string, serverDomains?: string[]) => {
+    const domainFilter = Array.isArray(serverDomains)
+      ? new Set(serverDomains.map((d) => d.toLowerCase()))
+      : null;
+    const matching = licenses.filter((l) => {
+      if (domainFilter) {
+        return Boolean(l.allowedDomain && domainFilter.has(l.allowedDomain.toLowerCase()));
+      }
+      return (l.allowedIp || '')
         .split(',')
         .map((s) => s.trim())
-        .includes(ip)
-    );
+        .includes(ip);
+    });
     let upCount = 0;
     let downCount = 0;
     let slowCount = 0;
@@ -543,9 +549,11 @@ function buildEnrichedServerFleet() {
         const h = healthMap[l.allowedDomain];
         if (!h) uncheckedCount += 1;
         else if (h.status === 'DOWN') downCount += 1;
-        else if (h.status === 'SLOW') slowCount += 1;
         else if (h.status === 'LOCKED') lockedCount += 1;
-        else upCount += 1;
+        else {
+          if (h.status === 'SLOW') slowCount += 1;
+          upCount += 1;
+        }
       }
     }
     return {
@@ -562,7 +570,11 @@ function buildEnrichedServerFleet() {
   };
 
   const enriched = servers.map((s) => {
-    const stats = computeStatsForIp(s.ip);
+    const sameIpCount = servers.filter((x) => x.ip === s.ip).length;
+    const stats = computeStatsForServer(
+      s.ip,
+      sameIpCount > 1 ? s.domains || [] : undefined
+    );
     const { passwordEncrypted, ...safeServer } = s;
     return {
       ...safeServer,
@@ -581,7 +593,7 @@ function buildEnrichedServerFleet() {
     }
   }
   for (const ip of extraIps) {
-    const stats = computeStatsForIp(ip);
+    const stats = computeStatsForServer(ip);
     enriched.push({
       id: `unregistered-${ip.replace(/[^a-zA-Z0-9]/g, '-')}`,
       name: `Máy chủ IP ${ip} (Chưa kết nối cPanel)`,
@@ -776,6 +788,9 @@ async function syncCpanelServerNode(
     }
 
     server.totalDomains = domainEntries.length;
+    server.domains = domainEntries
+      .map((e) => NetworkNormalizer.normalizeDomain(e.domain, true))
+      .filter((d): d is string => Boolean(d));
     server.lastError = null;
     server.lastSyncedAt = new Date().toISOString();
     server.updatedAt = server.lastSyncedAt;
@@ -2006,7 +2021,12 @@ adminApiRouter.post(
 
     const servers = getCpanelServers();
     const now = new Date().toISOString();
-    let target = servers.find((s) => s.id === id || s.ip === cleanIp);
+    let target = servers.find((s) => {
+      if (id && s.id === id) return true;
+      if (s.ip !== cleanIp) return false;
+      if (cleanUser && s.username && s.username !== cleanUser) return false;
+      return true;
+    });
 
     if (!target) {
       target = {
@@ -2039,6 +2059,10 @@ adminApiRouter.post(
         target.passwordEncrypted = DatabaseService.encryptSecret(String(password));
       }
       if (notes !== undefined) target.notes = String(notes).trim();
+      if (!autoSync && target.totalDomains > 0 && target.status === 'AUTH_ERROR') {
+        target.status = 'ONLINE';
+        target.lastError = null;
+      }
       target.updatedAt = now;
     }
 
