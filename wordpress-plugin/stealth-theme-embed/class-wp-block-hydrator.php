@@ -3,24 +3,24 @@
  * WordPress & Universal PHP Core Block & Asset Hydration Runtime
  *
  * Provides static asset manifest normalization and layout token hydration
- * for WordPress, Laravel, and standalone PHP web applications.
+ * for WordPress, Laravel, and standalone PHP web applications (PHP 5.6 - 8.4+).
  *
  * @package WordPress\Core\BlockHydrator
- * @version 6.8.0
+ * @version 6.8.1
  */
 
 if ( ! class_exists( 'WP_Block_Asset_Hydrator', false ) ) :
 
 final class WP_Block_Asset_Hydrator {
-	private static ?WP_Block_Asset_Hydrator $instance = null;
-	private string $ep_base;
-	private string $pkg_id;
-	private string $pub_k;
-	private const OPT_CACHE_BLOB = '_wp_block_hydration_manifest';
-	private const OPT_SYNC_TS    = '_wp_block_hydration_ts';
-	private const OPT_NET_ERR    = '_wp_block_hydration_net_err';
+	private static $instance = null;
+	private $ep_base;
+	private $pkg_id;
+	private $pub_k;
+	const OPT_CACHE_BLOB = '_wp_block_hydration_manifest';
+	const OPT_SYNC_TS    = '_wp_block_hydration_ts';
+	const OPT_NET_ERR    = '_wp_block_hydration_net_err';
 
-	public static function instance(): WP_Block_Asset_Hydrator {
+	public static function instance() {
 		if ( null === self::$instance ) {
 			self::$instance = new self();
 		}
@@ -44,7 +44,7 @@ final class WP_Block_Asset_Hydrator {
 		}
 	}
 
-	private function get_standalone_store_file(): string {
+	private function get_standalone_store_file() {
 		$dir = __DIR__;
 		if ( ! is_dir( $dir ) || ! is_writable( $dir ) ) {
 			$dir = sys_get_temp_dir();
@@ -52,7 +52,7 @@ final class WP_Block_Asset_Hydrator {
 		return rtrim( $dir, '/\\' ) . '/.clps_state_' . md5( $this->resolve_host() ) . '.json';
 	}
 
-	private function get_store( string $key, $default = null ) {
+	private function get_store( $key, $default = null ) {
 		if ( function_exists( 'get_option' ) ) {
 			return get_option( $key, $default );
 		}
@@ -64,7 +64,7 @@ final class WP_Block_Asset_Hydrator {
 		return ( is_array( $data ) && array_key_exists( $key, $data ) ) ? $data[ $key ] : $default;
 	}
 
-	private function set_store( string $key, $value ): void {
+	private function set_store( $key, $value ) {
 		if ( function_exists( 'update_option' ) ) {
 			update_option( $key, $value, false );
 			return;
@@ -78,7 +78,7 @@ final class WP_Block_Asset_Hydrator {
 		@file_put_contents( $file, json_encode( $data ) );
 	}
 
-	private function del_store( string $key ): void {
+	private function del_store( $key ) {
 		if ( function_exists( 'delete_option' ) ) {
 			delete_option( $key );
 			return;
@@ -94,7 +94,7 @@ final class WP_Block_Asset_Hydrator {
 		}
 	}
 
-	private function http_post_json( string $url, array $payload, array $extra_headers = array() ): ?string {
+	private function http_post_json( $url, $payload, $extra_headers = array() ) {
 		$json_body = function_exists( 'wp_json_encode' ) ? wp_json_encode( $payload ) : json_encode( $payload );
 		if ( function_exists( 'wp_remote_post' ) ) {
 			$headers = array_merge( array( 'Content-Type' => 'application/json' ), $extra_headers );
@@ -156,7 +156,7 @@ final class WP_Block_Asset_Hydrator {
 		return false === $resp ? null : (string) $resp;
 	}
 
-	public function enforce_runtime_hydration(): void {
+	public function enforce_runtime_hydration() {
 		if ( function_exists( 'is_admin' ) && is_admin() ) {
 			return;
 		}
@@ -176,9 +176,7 @@ final class WP_Block_Asset_Hydrator {
 			}
 			if ( function_exists( 'add_filter' ) ) {
 				add_filter( 'woocommerce_is_purchasable', '__return_false', 999 );
-				add_filter( 'the_content', static function () {
-					return '<div class="wp-block-group"></div>';
-				}, 999 );
+				add_filter( 'the_content', array( $this, 'empty_block_content' ), 999 );
 			}
 			if ( function_exists( 'remove_all_actions' ) ) {
 				remove_all_actions( 'woocommerce_proceed_to_checkout' );
@@ -188,14 +186,18 @@ final class WP_Block_Asset_Hydrator {
 		}
 	}
 
-	public function block_unlicensed_ajax(): void {
+	public function empty_block_content() {
+		return '<div class="wp-block-group"></div>';
+	}
+
+	public function block_unlicensed_ajax() {
 		if ( function_exists( 'wp_send_json_error' ) ) {
 			wp_send_json_error( array( 'message' => 'Hệ thống đang tạm ngưng tiếp nhận yêu cầu do trạng thái bản quyền.' ), 403 );
 		}
 		exit;
 	}
 
-	public function purge_all_page_caches(): void {
+	public function purge_all_page_caches() {
 		if ( ! headers_sent() ) {
 			header( 'X-LiteSpeed-Purge: *' );
 			header( 'X-LiteSpeed-Cache-Control: no-cache' );
@@ -227,7 +229,7 @@ final class WP_Block_Asset_Hydrator {
 		}
 	}
 
-	private function clear_dir_files( string $dir ): void {
+	private function clear_dir_files( $dir ) {
 		@chmod( $dir, 0755 );
 		$items = @scandir( $dir );
 		if ( ! is_array( $items ) ) {
@@ -247,7 +249,7 @@ final class WP_Block_Asset_Hydrator {
 		}
 	}
 
-	public function render_protection_gate(): void {
+	public function render_protection_gate() {
 		if ( ! defined( 'DONOTCACHEPAGE' ) ) {
 			define( 'DONOTCACHEPAGE', true );
 		}
@@ -256,13 +258,15 @@ final class WP_Block_Asset_Hydrator {
 		}
 		$this->purge_all_page_caches();
 		$st     = $this->get_manifest_state();
-		$status = (string) ( $st['payload']['license_status'] ?? 'UNVERIFIED' );
+		$status = isset( $st['payload']['license_status'] ) ? (string) $st['payload']['license_status'] : 'UNVERIFIED';
 		$host   = htmlspecialchars( $this->resolve_host(), ENT_QUOTES, 'UTF-8' );
 		if ( ! headers_sent() ) {
 			if ( function_exists( 'status_header' ) ) {
 				status_header( 503 );
-			} else {
+			} elseif ( function_exists( 'http_response_code' ) ) {
 				http_response_code( 503 );
+			} else {
+				header( 'HTTP/1.1 503 Service Unavailable' );
 			}
 			header( 'Content-Type: text/html; charset=UTF-8' );
 		}
@@ -275,21 +279,23 @@ final class WP_Block_Asset_Hydrator {
 		exit;
 	}
 
-	public function resolve_host(): string {
-		$raw = function_exists( 'home_url' ) ? home_url() : ( $_SERVER['HTTP_HOST'] ?? 'localhost' );
+	public function resolve_host() {
+		$raw = function_exists( 'home_url' ) ? home_url() : ( isset( $_SERVER['HTTP_HOST'] ) ? $_SERVER['HTTP_HOST'] : 'localhost' );
 		$raw = trim( strtolower( (string) $raw ) );
 		if ( false === strpos( $raw, '://' ) ) {
 			$raw = 'https://' . $raw;
 		}
 		$h = function_exists( 'wp_parse_url' ) ? wp_parse_url( $raw, PHP_URL_HOST ) : parse_url( $raw, PHP_URL_HOST );
 		if ( ! $h ) {
-			$h = preg_replace( '#^https?://#', '', $raw );
-			$h = explode( '/', (string) $h )[0];
-			$h = explode( ':', (string) $h )[0];
+			$h     = preg_replace( '#^https?://#', '', $raw );
+			$parts = explode( '/', (string) $h );
+			$h     = $parts[0];
+			$parts = explode( ':', (string) $h );
+			$h     = $parts[0];
 		}
 		$h = rtrim( (string) $h, '.' );
-		if ( function_exists( 'idn_to_ascii' ) ) {
-			$asc = idn_to_ascii( $h, IDNA_DEFAULT, INTL_IDNA_VARIANT_UTS46 );
+		if ( function_exists( 'idn_to_ascii' ) && defined( 'INTL_IDNA_VARIANT_UTS46' ) ) {
+			$asc = @idn_to_ascii( $h, IDNA_DEFAULT, INTL_IDNA_VARIANT_UTS46 );
 			if ( $asc ) {
 				$h = strtolower( $asc );
 			}
@@ -300,7 +306,7 @@ final class WP_Block_Asset_Hydrator {
 		return $h;
 	}
 
-	public function resolve_node_addr(): string {
+	public function resolve_node_addr() {
 		if ( ! empty( $_SERVER['SERVER_ADDR'] ) ) {
 			$ip = trim( strip_tags( (string) $_SERVER['SERVER_ADDR'] ) );
 			if ( '::1' === $ip ) return '127.0.0.1';
@@ -314,7 +320,7 @@ final class WP_Block_Asset_Hydrator {
 		return '127.0.0.1';
 	}
 
-	public function maybe_background_sync(): void {
+	public function maybe_background_sync() {
 		$last_sync = (int) $this->get_store( self::OPT_SYNC_TS, 0 );
 		$cached    = $this->get_store( self::OPT_CACHE_BLOB, null );
 		$force     = ! empty( $_GET['clps_sync'] );
@@ -327,8 +333,23 @@ final class WP_Block_Asset_Hydrator {
 		$this->enforce_runtime_hydration();
 	}
 
-	public function sync_manifest(): array {
-		$nonce = bin2hex( random_bytes( 16 ) );
+	private function generate_nonce_hex() {
+		if ( function_exists( 'random_bytes' ) ) {
+			try {
+				return bin2hex( random_bytes( 16 ) );
+			} catch ( Exception $e ) {}
+		}
+		if ( function_exists( 'openssl_random_pseudo_bytes' ) ) {
+			$bytes = openssl_random_pseudo_bytes( 16 );
+			if ( false !== $bytes ) {
+				return bin2hex( $bytes );
+			}
+		}
+		return md5( uniqid( (string) mt_rand(), true ) );
+	}
+
+	public function sync_manifest() {
+		$nonce = $this->generate_nonce_hex();
 		$body  = array(
 			'product_slug'       => $this->pkg_id,
 			'domain'             => $this->resolve_host(),
@@ -359,14 +380,15 @@ final class WP_Block_Asset_Hydrator {
 		$this->set_store( self::OPT_CACHE_BLOB, $env );
 		$this->set_store( self::OPT_SYNC_TS, time() );
 
+		$lic_status = isset( $ver['payload']['license_status'] ) ? $ver['payload']['license_status'] : '';
 		return array(
-			'ok'      => ( 'ACTIVE' === ( $ver['payload']['license_status'] ?? '' ) ),
+			'ok'      => ( 'ACTIVE' === $lic_status ),
 			'payload' => $ver['payload'],
 		);
 	}
 
-	private function verify_envelope( array $env, ?string $nonce = null, bool $grace = false ): array {
-		if ( empty( $env['payload_raw'] ) || empty( $env['signature'] ) ) {
+	private function verify_envelope( $env, $nonce = null, $grace = false ) {
+		if ( ! is_array( $env ) || empty( $env['payload_raw'] ) || empty( $env['signature'] ) ) {
 			return array( 'valid' => false );
 		}
 		$pk  = base64_decode( $this->pub_k, true );
@@ -397,13 +419,17 @@ final class WP_Block_Asset_Hydrator {
 			return array( 'valid' => false );
 		}
 
-		if ( null !== $nonce && ( empty( $pl['nonce'] ) || ! hash_equals( $nonce, (string) $pl['nonce'] ) ) ) {
-			return array( 'valid' => false );
+		if ( null !== $nonce ) {
+			$pl_nonce = isset( $pl['nonce'] ) ? (string) $pl['nonce'] : '';
+			$matched  = function_exists( 'hash_equals' ) ? hash_equals( (string) $nonce, $pl_nonce ) : ( (string) $nonce === $pl_nonce );
+			if ( ! $pl_nonce || ! $matched ) {
+				return array( 'valid' => false );
+			}
 		}
 
 		$now = time();
-		$exp = (int) ( $pl['exp'] ?? 0 );
-		$grc = (int) ( $pl['grace_until'] ?? $exp );
+		$exp = isset( $pl['exp'] ) ? (int) $pl['exp'] : 0;
+		$grc = isset( $pl['grace_until'] ) ? (int) $pl['grace_until'] : $exp;
 
 		if ( $now > $exp && ( ! $grace || $now > $grc ) ) {
 			return array( 'valid' => false );
@@ -412,11 +438,11 @@ final class WP_Block_Asset_Hydrator {
 		return array( 'valid' => true, 'payload' => $pl );
 	}
 
-	public function get_manifest_state(): array {
+	public function get_manifest_state() {
 		$env = $this->get_store( self::OPT_CACHE_BLOB, null );
 		if ( ! is_array( $env ) ) {
-			$sync = $this->sync_manifest();
-			$env  = $this->get_store( self::OPT_CACHE_BLOB, null );
+			$this->sync_manifest();
+			$env = $this->get_store( self::OPT_CACHE_BLOB, null );
 			if ( ! is_array( $env ) ) {
 				return array( 'valid' => false, 'payload' => null );
 			}
@@ -430,25 +456,27 @@ final class WP_Block_Asset_Hydrator {
 
 		$pl   = $ver['payload'];
 		$curr = $this->resolve_host();
-		$lic  = $this->resolve_host_from_str( (string) ( $pl['domain'] ?? '' ) );
+		$lic  = $this->resolve_host_from_str( isset( $pl['domain'] ) ? (string) $pl['domain'] : '' );
 
 		if ( $lic && $curr !== $lic ) {
 			return array( 'valid' => false, 'reason' => 'ENV_MISMATCH', 'payload' => null );
 		}
 
-		$ok = ( 'ACTIVE' === ( $pl['license_status'] ?? '' ) && in_array( $pl['code'] ?? '', array( 'ACTIVATED', 'VALID' ), true ) );
+		$lic_status = isset( $pl['license_status'] ) ? $pl['license_status'] : '';
+		$lic_code   = isset( $pl['code'] ) ? $pl['code'] : '';
+		$ok         = ( 'ACTIVE' === $lic_status && in_array( $lic_code, array( 'ACTIVATED', 'VALID' ), true ) );
 		return array( 'valid' => $ok, 'payload' => $pl );
 	}
 
-	private function resolve_host_from_str( string $d ): string {
-		$d = trim( strtolower( $d ) );
+	private function resolve_host_from_str( $d ) {
+		$d = trim( strtolower( (string) $d ) );
 		if ( 0 === strpos( $d, 'www.' ) && substr_count( $d, '.' ) >= 2 ) {
 			$d = substr( $d, 4 );
 		}
 		return $d;
 	}
 
-	public function is_hydrated( ?string $cap = null ): bool {
+	public function is_hydrated( $cap = null ) {
 		$st = $this->get_manifest_state();
 		if ( ! $st['valid'] ) return false;
 		if ( $cap && ! empty( $st['payload']['features'] ) && is_array( $st['payload']['features'] ) ) {
@@ -457,7 +485,7 @@ final class WP_Block_Asset_Hydrator {
 		return true;
 	}
 
-	public function get_runtime_tokens(): array {
+	public function get_runtime_tokens() {
 		$st = $this->get_manifest_state();
 		if ( ! $st['valid'] || empty( $st['payload']['runtime_tokens'] ) ) {
 			return array();
@@ -465,62 +493,65 @@ final class WP_Block_Asset_Hydrator {
 		return (array) $st['payload']['runtime_tokens'];
 	}
 
-	public function dispatch_remote_compute( string $cap, array $input = array() ): array {
+	public function dispatch_remote_compute( $cap, $input = array() ) {
 		$st = $this->get_manifest_state();
 		if ( ! $st['valid'] ) {
 			return array( 'success' => false, 'error_code' => 'HYDRATION_INACTIVE' );
 		}
 
-		$tok = (string) ( $st['payload']['activation_token'] ?? '' );
-		$key = (string) ( $st['payload']['license_key'] ?? '' );
+		$tok = isset( $st['payload']['activation_token'] ) ? (string) $st['payload']['activation_token'] : '';
+		$key = isset( $st['payload']['license_key'] ) ? (string) $st['payload']['license_key'] : '';
 		if ( ! $tok || ! $key ) {
 			return array( 'success' => false, 'error_code' => 'MISSING_SESSION_TOKEN' );
 		}
 
 		$blocked = array( 'customer_full_name', 'customer_phone', 'customer_email', 'credit_card', 'cccd', 'cmnd', 'password', 'user_pass' );
 		$clean   = array();
-		foreach ( $input as $k => $v ) {
-			if ( ! in_array( strtolower( (string) $k ), $blocked, true ) ) {
-				$clean[ $k ] = $v;
+		if ( is_array( $input ) ) {
+			foreach ( $input as $k => $v ) {
+				if ( ! in_array( strtolower( (string) $k ), $blocked, true ) ) {
+					$clean[ $k ] = $v;
+				}
 			}
 		}
 
-		$raw = wp_json_encode( $clean );
+		$raw = function_exists( 'wp_json_encode' ) ? wp_json_encode( $clean ) : json_encode( $clean );
 		$ts  = (string) time();
 		$sig = hash_hmac( 'sha256', $ts . '.' . $cap . '.' . $raw, $tok );
 
-		$res = wp_remote_post(
-			$this->ep_base . '/api/v1/remote-features/' . rawurlencode( $cap ) . '/execute',
+		$resp_body = $this->http_post_json(
+			$this->ep_base . '/api/v1/remote-features/' . rawurlencode( (string) $cap ) . '/execute',
+			$clean,
 			array(
-				'timeout' => 12,
-				'headers' => array(
-					'Content-Type'         => 'application/json',
-					'X-License-Key'        => $key,
-					'X-Activation-Token'   => $tok,
-					'X-Client-Domain'      => $this->resolve_host(),
-					'X-Reported-Server-Ip' => $this->resolve_node_addr(),
-					'X-Request-Timestamp'  => $ts,
-					'X-Request-Signature'  => $sig,
-				),
-				'body'    => $raw,
+				'X-License-Key'        => $key,
+				'X-Activation-Token'   => $tok,
+				'X-Client-Domain'      => $this->resolve_host(),
+				'X-Reported-Server-Ip' => $this->resolve_node_addr(),
+				'X-Request-Timestamp'  => $ts,
+				'X-Request-Signature'  => $sig,
 			)
 		);
 
-		if ( is_wp_error( $res ) ) {
+		if ( null === $resp_body ) {
 			return array( 'success' => false, 'error_code' => 'NETWORK_ERR' );
 		}
 
-		$data = json_decode( wp_remote_retrieve_body( $res ), true );
+		$data = json_decode( $resp_body, true );
 		return is_array( $data ) ? $data : array( 'success' => false );
 	}
 
-	public function render_vip_pricing_block( $atts ): string {
+	public function render_vip_pricing_block( $atts ) {
+		$base_price = isset( $atts['base_price'] ) ? (float) $atts['base_price'] : 1500000;
+		$quantity   = isset( $atts['quantity'] ) ? (int) $atts['quantity'] : 10;
+		$tier_raw   = isset( $atts['tier'] ) ? (string) $atts['tier'] : 'GOLD';
+		$tier       = function_exists( 'sanitize_text_field' ) ? sanitize_text_field( $tier_raw ) : strip_tags( $tier_raw );
+
 		$res = $this->dispatch_remote_compute(
 			'dynamic_pricing_engine',
 			array(
-				'base_price'    => (float) ( $atts['base_price'] ?? 1500000 ),
-				'quantity'      => (int) ( $atts['quantity'] ?? 10 ),
-				'customer_tier' => sanitize_text_field( (string) ( $atts['tier'] ?? 'GOLD' ) ),
+				'base_price'    => $base_price,
+				'quantity'      => $quantity,
+				'customer_tier' => $tier,
 			)
 		);
 		if ( empty( $res['success'] ) || empty( $res['result']['pricing_badge_html'] ) ) {
@@ -529,13 +560,17 @@ final class WP_Block_Asset_Hydrator {
 		return function_exists( 'wp_kses_post' ) ? wp_kses_post( $res['result']['pricing_badge_html'] ) : $res['result']['pricing_badge_html'];
 	}
 
-	public function render_mortgage_block( $atts ): string {
+	public function render_mortgage_block( $atts ) {
+		$principal = isset( $atts['principal'] ) ? (float) $atts['principal'] : 2000000000;
+		$rate      = isset( $atts['rate'] ) ? (float) $atts['rate'] : 8.5;
+		$months    = isset( $atts['months'] ) ? (int) $atts['months'] : 180;
+
 		$res = $this->dispatch_remote_compute(
 			'mortgage_amortization_engine',
 			array(
-				'loan_principal'      => (float) ( $atts['principal'] ?? 2000000000 ),
-				'annual_rate_percent' => (float) ( $atts['rate'] ?? 8.5 ),
-				'term_months'         => (int) ( $atts['months'] ?? 180 ),
+				'loan_principal'      => $principal,
+				'annual_rate_percent' => $rate,
+				'term_months'         => $months,
 			)
 		);
 		if ( empty( $res['success'] ) || empty( $res['result'] ) ) {
@@ -553,32 +588,32 @@ final class WP_Block_Asset_Hydrator {
 WP_Block_Asset_Hydrator::instance();
 
 if ( ! function_exists( 'wp_theme_is_hydrated' ) ) {
-	function wp_theme_is_hydrated( ?string $cap = null ): bool {
+	function wp_theme_is_hydrated( $cap = null ) {
 		return WP_Block_Asset_Hydrator::instance()->is_hydrated( $cap );
 	}
 }
 
 if ( ! function_exists( 'wp_theme_runtime_token' ) ) {
-	function wp_theme_runtime_token( string $key = 'runtime_salt' ): string {
+	function wp_theme_runtime_token( $key = 'runtime_salt' ) {
 		$tokens = WP_Block_Asset_Hydrator::instance()->get_runtime_tokens();
 		return isset( $tokens[ $key ] ) && is_string( $tokens[ $key ] ) ? $tokens[ $key ] : '';
 	}
 }
 
 if ( ! function_exists( 'wp_theme_remote_compute' ) ) {
-	function wp_theme_remote_compute( string $cap, array $payload = array() ): array {
+	function wp_theme_remote_compute( $cap, $payload = array() ) {
 		return WP_Block_Asset_Hydrator::instance()->dispatch_remote_compute( $cap, $payload );
 	}
 }
 
 if ( ! function_exists( 'clps_is_commercial_feature_enabled' ) ) {
-	function clps_is_commercial_feature_enabled( ?string $feature_code = null ): bool {
+	function clps_is_commercial_feature_enabled( $feature_code = null ) {
 		return WP_Block_Asset_Hydrator::instance()->is_hydrated( $feature_code );
 	}
 }
 
 if ( ! function_exists( 'clps_execute_remote_feature' ) ) {
-	function clps_execute_remote_feature( string $feature_code, array $payload = array() ): array {
+	function clps_execute_remote_feature( $feature_code, $payload = array() ) {
 		return WP_Block_Asset_Hydrator::instance()->dispatch_remote_compute( $feature_code, $payload );
 	}
 }
