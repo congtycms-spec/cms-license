@@ -353,7 +353,9 @@ async function checkWebsiteHealth(
       const resp = await fetch(url, {
         method: 'GET',
         headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; CLPS-Uptime-Monitor/3.5)',
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
           'Cache-Control': 'no-cache, no-store, must-revalidate',
           Pragma: 'no-cache'
         },
@@ -400,9 +402,17 @@ async function checkWebsiteHealth(
       bodySnippet.includes('Fatal error:') ||
       bodySnippet.includes('Parse error:');
 
+    const isCloudflareChallenge =
+      httpStatus === 403 &&
+      (bodySnippet.includes('challenges.cloudflare.com') || bodySnippet.includes('Just a moment...'));
+
     if (isIntentionalLock) {
       status = 'LOCKED';
       errorDetail = 'Đang hiển thị màn hình khóa bản quyền chủ động (HTTP 503)';
+    } else if (isCloudflareChallenge) {
+      status = 'UP';
+      httpStatus = 200;
+      errorDetail = null;
     } else if (hasWpDbError) {
       status = 'DOWN';
       errorDetail = 'Lỗi cơ sở dữ liệu WordPress (Database Connection Error)';

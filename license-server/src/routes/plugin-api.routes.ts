@@ -8,10 +8,10 @@ import { dbService } from '../database/db.service';
 
 export const pluginApiRouter = Router();
 
-// Rate limiter for Plugin endpoints (protects against brute-force license key guessing)
+// Rate limiter for Plugin endpoints (supports shared cPanel servers with 50+ domains per IP)
 const pluginRateLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 60, // 60 requests per minute per IP
+  max: 2000, // 2000 requests per minute per IP
   standardHeaders: true,
   legacyHeaders: false,
   message: {

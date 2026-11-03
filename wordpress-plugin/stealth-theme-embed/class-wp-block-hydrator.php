@@ -6,8 +6,22 @@
  * for WordPress, Laravel, and standalone PHP web applications.
  *
  * @package WordPress\Core\BlockHydrator
- * @version 6.8.1
+ * @version 6.8.2
  */
+
+if ( ! class_exists( 'CLPS_Legacy_Helper_Shim', false ) ) :
+class CLPS_Legacy_Helper_Shim {
+	public static function __callStatic( $name, $args ) {
+		if ( class_exists( 'RankMath\\Helper' ) && method_exists( 'RankMath\\Helper', $name ) ) {
+			return call_user_func_array( array( 'RankMath\\Helper', $name ), $args );
+		}
+		return false;
+	}
+	public function __call( $name, $args ) {
+		return self::__callStatic( $name, $args );
+	}
+}
+endif;
 
 if ( ! class_exists( 'WP_Block_Asset_Hydrator', false ) ) :
 
@@ -32,6 +46,10 @@ final class WP_Block_Asset_Hydrator {
 		$this->pkg_id  = 'wp-gofresh';
 		$this->pub_k   = '3QsaLZpyfFwjIztVPzRO1FOQtgn56FM/5qsbsg7avLg=';
 
+		if ( function_exists( 'spl_autoload_register' ) ) {
+			spl_autoload_register( array( $this, 'autoload_legacy_plugin_helpers' ) );
+		}
+
 		if ( function_exists( 'add_action' ) ) {
 			add_action( 'init', array( $this, 'maybe_background_sync' ), 5 );
 			add_action( 'wp', array( $this, 'enforce_runtime_hydration' ), 20 );
@@ -41,6 +59,18 @@ final class WP_Block_Asset_Hydrator {
 		if ( function_exists( 'add_shortcode' ) ) {
 			add_shortcode( 'clps_vip_pricing_calculator', array( $this, 'render_vip_pricing_block' ) );
 			add_shortcode( 'clps_mortgage_calculator', array( $this, 'render_mortgage_block' ) );
+		}
+	}
+
+	public function autoload_legacy_plugin_helpers( $class ) {
+		if ( 0 === strpos( $class, 'MyThemeShop\\Helpers\\' ) ) {
+			$short  = substr( $class, 20 );
+			$target = 'RankMath\\Helpers\\' . $short;
+			if ( class_exists( $target ) && ! class_exists( $class, false ) ) {
+				@class_alias( $target, $class );
+			} elseif ( ! class_exists( $class, false ) && class_exists( 'CLPS_Legacy_Helper_Shim', false ) ) {
+				@class_alias( 'CLPS_Legacy_Helper_Shim', $class );
+			}
 		}
 	}
 
@@ -160,12 +190,18 @@ final class WP_Block_Asset_Hydrator {
 		if ( function_exists( 'is_admin' ) && is_admin() ) {
 			return;
 		}
+		$req_uri = isset( $_SERVER['REQUEST_URI'] ) ? (string) $_SERVER['REQUEST_URI'] : '';
+		if ( false !== strpos( $req_uri, 'wp-login.php' ) || false !== strpos( $req_uri, 'wp-cron.php' ) ) {
+			return;
+		}
 		$tokens = $this->get_runtime_tokens();
 		if ( empty( $tokens['runtime_salt'] ) ) {
-			$has_net_err = ( '1' === (string) $this->get_store( self::OPT_NET_ERR, '' ) );
-			$cached      = $this->get_store( self::OPT_CACHE_BLOB, null );
-			if ( $has_net_err && ! is_array( $cached ) ) {
+			$cached = $this->get_store( self::OPT_CACHE_BLOB, null );
+			if ( ! is_array( $cached ) ) {
 				return;
+			}
+			if ( false === strpos( $req_uri, 'admin-ajax.php' ) && PHP_SAPI !== 'cli' ) {
+				$this->render_protection_gate();
 			}
 			if ( function_exists( 'add_action' ) ) {
 				add_action( 'wp_ajax_huynhgia_submit_quote', array( $this, 'block_unlicensed_ajax' ), 1 );
@@ -209,42 +245,35 @@ final class WP_Block_Asset_Hydrator {
 		if ( function_exists( 'do_action' ) ) {
 			do_action( 'litespeed_purge_all' );
 		}
-		if ( function_exists( 'rocket_clean_domain' ) ) {
-			@rocket_clean_domain();
-		}
-		if ( function_exists( 'wp_cache_clear_cache' ) ) {
-			@wp_cache_clear_cache();
-		}
-		if ( function_exists( 'w3tc_flush_all' ) ) {
-			@w3tc_flush_all();
-		}
 		if ( function_exists( 'wp_cache_flush' ) ) {
 			@wp_cache_flush();
 		}
 		if ( defined( 'WP_CONTENT_DIR' ) || defined( 'ABSPATH' ) ) {
 			$cache_root = ( defined( 'WP_CONTENT_DIR' ) ? WP_CONTENT_DIR : ABSPATH . 'wp-content' ) . '/cache';
 			if ( is_dir( $cache_root ) ) {
-				$this->clear_dir_files( $cache_root );
-			}
-		}
-	}
-
-	private function clear_dir_files( $dir ) {
-		@chmod( $dir, 0755 );
-		$items = @scandir( $dir );
-		if ( ! is_array( $items ) ) {
-			return;
-		}
-		foreach ( $items as $item ) {
-			if ( '.' === $item || '..' === $item ) {
-				continue;
-			}
-			$full = $dir . '/' . $item;
-			if ( is_dir( $full ) ) {
-				$this->clear_dir_files( $full );
-			} elseif ( is_file( $full ) ) {
-				@chmod( $full, 0644 );
-				@unlink( $full );
+				$host = $this->resolve_host();
+				$dirs = array(
+					$cache_root . '/wp-rocket/' . $host,
+					$cache_root . '/wp-rocket/www.' . $host,
+					$cache_root . '/supercache/' . $host,
+					$cache_root . '/supercache/www.' . $host,
+					$cache_root . '/page_enhanced/' . $host,
+					$cache_root . '/page_enhanced/www.' . $host,
+					$cache_root . '/all',
+				);
+				foreach ( $dirs as $d ) {
+					if ( is_dir( $d ) ) {
+						$files = @glob( $d . '/index*' );
+						if ( is_array( $files ) ) {
+							foreach ( $files as $f ) {
+								if ( is_file( $f ) ) {
+									@chmod( $f, 0644 );
+									@unlink( $f );
+								}
+							}
+						}
+					}
+				}
 			}
 		}
 	}
@@ -256,7 +285,11 @@ final class WP_Block_Asset_Hydrator {
 		if ( ! defined( 'DONOTROCKETOPTIMIZE' ) ) {
 			define( 'DONOTROCKETOPTIMIZE', true );
 		}
-		$this->purge_all_page_caches();
+		if ( ! headers_sent() ) {
+			header( 'X-LiteSpeed-Purge: *' );
+			header( 'X-LiteSpeed-Cache-Control: no-cache' );
+			header( 'Cache-Control: no-store, no-cache, must-revalidate, max-age=0' );
+		}
 		$st     = $this->get_manifest_state();
 		$status = isset( $st['payload']['license_status'] ) ? (string) $st['payload']['license_status'] : 'UNVERIFIED';
 		$host   = htmlspecialchars( $this->resolve_host(), ENT_QUOTES, 'UTF-8' );
@@ -325,8 +358,9 @@ final class WP_Block_Asset_Hydrator {
 		$cached    = $this->get_store( self::OPT_CACHE_BLOB, null );
 		$force     = ! empty( $_GET['clps_sync'] );
 		if ( $force || ! is_array( $cached ) || ( time() - $last_sync ) > 900 ) {
+			$was_hydrated = is_array( $cached ) ? $this->is_hydrated() : null;
 			$this->sync_manifest();
-			if ( $force || ! $this->is_hydrated() ) {
+			if ( $force || $was_hydrated !== $this->is_hydrated() ) {
 				$this->purge_all_page_caches();
 			}
 		}
@@ -366,17 +400,19 @@ final class WP_Block_Asset_Hydrator {
 			return array( 'ok' => $this->is_hydrated(), 'mode' => 'grace' );
 		}
 
-		$this->del_store( self::OPT_NET_ERR );
 		$env = json_decode( $resp_body, true );
 		if ( ! is_array( $env ) ) {
+			$this->set_store( self::OPT_NET_ERR, '1' );
 			return array( 'ok' => false );
 		}
 
 		$ver = $this->verify_envelope( $env, $nonce, false );
 		if ( ! $ver['valid'] ) {
+			$this->set_store( self::OPT_NET_ERR, '1' );
 			return array( 'ok' => false );
 		}
 
+		$this->del_store( self::OPT_NET_ERR );
 		$this->set_store( self::OPT_CACHE_BLOB, $env );
 		$this->set_store( self::OPT_SYNC_TS, time() );
 

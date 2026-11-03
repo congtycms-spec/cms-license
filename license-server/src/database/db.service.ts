@@ -349,11 +349,7 @@ export class DatabaseService {
 
   public static encryptSecret(plain: string): string {
     if (!plain) return '';
-    const key = crypto.scryptSync(
-      process.env.ADMIN_JWT_SECRET || 'clps-cpanel-fleet-vault-2026',
-      'clps_cpanel_salt_v1',
-      32
-    );
+    const key = crypto.scryptSync('clps-cpanel-fleet-vault-2026', 'clps_cpanel_salt_v1', 32);
     const iv = crypto.randomBytes(12);
     const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
     const encrypted = Buffer.concat([cipher.update(plain, 'utf8'), cipher.final()]);
@@ -363,25 +359,28 @@ export class DatabaseService {
 
   public static decryptSecret(encoded: string): string {
     if (!encoded) return '';
-    try {
-      const parts = encoded.split(':');
-      if (parts.length !== 3) return encoded;
-      const [ivHex, tagHex, encHex] = parts;
-      const key = crypto.scryptSync(
-        process.env.ADMIN_JWT_SECRET || 'clps-cpanel-fleet-vault-2026',
-        'clps_cpanel_salt_v1',
-        32
-      );
-      const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(ivHex, 'hex'));
-      decipher.setAuthTag(Buffer.from(tagHex, 'hex'));
-      const decrypted = Buffer.concat([
-        decipher.update(Buffer.from(encHex, 'hex')),
-        decipher.final()
-      ]);
-      return decrypted.toString('utf8');
-    } catch {
-      return '';
+    const parts = encoded.split(':');
+    if (parts.length !== 3) return encoded;
+    const [ivHex, tagHex, encHex] = parts;
+    const candidates = [
+      'clps-cpanel-fleet-vault-2026',
+      process.env.ADMIN_JWT_SECRET || ''
+    ].filter(Boolean);
+    for (const secret of candidates) {
+      try {
+        const key = crypto.scryptSync(secret, 'clps_cpanel_salt_v1', 32);
+        const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(ivHex, 'hex'));
+        decipher.setAuthTag(Buffer.from(tagHex, 'hex'));
+        const decrypted = Buffer.concat([
+          decipher.update(Buffer.from(encHex, 'hex')),
+          decipher.final()
+        ]);
+        return decrypted.toString('utf8');
+      } catch {
+        // Try next candidate key
+      }
     }
+    return '';
   }
 
   private loadOrSeed(): void {

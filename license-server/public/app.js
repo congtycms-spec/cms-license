@@ -104,7 +104,12 @@ async function apiCall(path, options = {}) {
     ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
     ...(options.headers || {})
   };
-  const res = await fetch(`/api/v1/admin${path}`, { ...options, headers });
+  let res;
+  try {
+    res = await fetch(`/api/v1/admin${path}`, { ...options, headers });
+  } catch {
+    res = await fetch(`https://cms-license.vercel.app/api/v1/admin${path}`, { ...options, headers });
+  }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     throw new Error(data.message || `Lỗi HTTP ${res.status}`);
