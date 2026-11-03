@@ -1219,6 +1219,7 @@ async function runBulkAction(action, extra = {}) {
 
   askConfirm(`Xác nhận thực hiện: ${actionLabels[action] || action}?`, async () => {
     try {
+      showToast(`Đang đồng bộ trạng thái cho ${ids.length} website, vui lòng đợi vài giây...`);
       const res = await apiCall('/licenses/bulk-action', {
         method: 'POST',
         body: JSON.stringify({
@@ -1227,9 +1228,12 @@ async function runBulkAction(action, extra = {}) {
           ...extra
         })
       });
+      if (res && res.siteHealth) {
+        Object.assign(livePingResults, res.siteHealth);
+      }
       if (action === 'DELETE') selectedLicenseIds.clear();
       updateBulkSelectionUI();
-      showToast(`Đã xử lý thành công ${res.updatedCount} website!`);
+      showToast(`Đã xử lý & đồng bộ thành công ${res.updatedCount} website!`);
       refreshAll();
     } catch (err) {
       showToast(err.message, true);

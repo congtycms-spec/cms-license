@@ -345,27 +345,46 @@ async function checkWebsiteHealth(
   let latencyMs = 0;
   let errorDetail: string | null = null;
 
-  const targetUrl = options?.forceSync
-    ? `https://${domain}/?clps_sync=${Date.now()}`
-    : `https://${domain}/`;
+  const fetchOnce = async (syncNow: boolean) => {
+    const url = syncNow ? `https://${domain}/?clps_sync=${Date.now()}` : `https://${domain}/`;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15000);
+    try {
+      const resp = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; CLPS-Uptime-Monitor/3.5)',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          Pragma: 'no-cache'
+        },
+        signal: controller.signal
+      });
+      const text = (await resp.text().catch(() => '')).slice(0, 8000);
+      return { status: resp.status, text };
+    } finally {
+      clearTimeout(timer);
+    }
+  };
 
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 11000);
-    const response = await fetch(targetUrl, {
-      method: 'GET',
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; CLPS-Uptime-Monitor/3.5)',
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        Pragma: 'no-cache'
-      },
-      signal: controller.signal
-    });
-    clearTimeout(timer);
+    let { status: respStatus, text: bodySnippet } = await fetchOnce(Boolean(options?.forceSync));
+
+    // Nếu forceSync vừa đổi trạng thái (SUSPENDED <-> ACTIVE) nhưng hosting phản hồi trễ nhịp đầu, tự động thử lại 1 lần
+    if (options?.forceSync && lic) {
+      const lockedNow =
+        bodySnippet.includes('Ed25519 Hardware/Domain Lock') ||
+        bodySnippet.includes('Website đang tạm ngưng hoạt động') ||
+        respStatus === 503;
+      const shouldBeLocked = lic.status === 'SUSPENDED' || lic.status === 'REVOKED';
+      if ((shouldBeLocked && !lockedNow) || (!shouldBeLocked && lockedNow)) {
+        const retry = await fetchOnce(true);
+        respStatus = retry.status;
+        bodySnippet = retry.text;
+      }
+    }
 
     latencyMs = Date.now() - startMs;
-    httpStatus = response.status;
-    const bodySnippet = (await response.text().catch(() => '')).slice(0, 8000);
+    httpStatus = respStatus;
 
     const isIntentionalLock =
       bodySnippet.includes('Ed25519 Hardware/Domain Lock') ||
@@ -1431,7 +1450,7 @@ async function triggerRemoteClientSync(domain: string | null): Promise<void> {
   if (!domain || domain.includes('localhost') || domain.includes('127.0.0.1')) return;
   try {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 5000);
+    const timer = setTimeout(() => controller.abort(), 15000);
     await fetch(`https://${domain}/?clps_sync=${Date.now()}`, {
       method: 'GET',
       headers: { 'User-Agent': 'CLPS-Central-Sync/1.0', 'Cache-Control': 'no-cache' },
@@ -1643,7 +1662,7 @@ adminApiRouter.post(
     }
 
     const idSet = new Set(licenseIds.map(String));
-    const affectedDomains: string[] = [];
+    const affectedLicenses: LicenseRecord[] = [];
     let updatedCount = 0;
 
     if (action === 'DELETE') {
@@ -1656,7 +1675,7 @@ adminApiRouter.post(
       for (const lic of dbService.state.licenses) {
         if (!idSet.has(lic.id)) continue;
         updatedCount += 1;
-        if (lic.allowedDomain) affectedDomains.push(lic.allowedDomain);
+        if (lic.allowedDomain) affectedLicenses.push(lic);
 
         if (action === 'ACTIVATE' || action === 'SUSPEND' || action === 'REVOKE') {
           const newStatus: LicenseStatus =
@@ -1715,11 +1734,22 @@ adminApiRouter.post(
     dbService.save();
     await dbService.flush();
 
-    if (affectedDomains.length > 0) {
-      await Promise.allSettled(affectedDomains.map((d) => triggerRemoteClientSync(d)));
+    if (affectedLicenses.length > 0) {
+      // Đồng bộ theo từng đợt 5 website để không làm nghẽn Entry Processes trên cùng 1 cPanel CloudLinux
+      const batchSize = 5;
+      for (let i = 0; i < affectedLicenses.length; i += batchSize) {
+        const batch = affectedLicenses.slice(i, i + batchSize);
+        await Promise.allSettled(
+          batch.map((lic) =>
+            checkWebsiteHealth(lic.allowedDomain!, lic, { forceSync: true, sendNotifications: false })
+          )
+        );
+      }
+      dbService.saveHealthOnly();
+      await dbService.flush();
     }
 
-    res.json({ success: true, updatedCount });
+    res.json({ success: true, updatedCount, siteHealth: getSiteHealthMap() });
   }
 );
 
