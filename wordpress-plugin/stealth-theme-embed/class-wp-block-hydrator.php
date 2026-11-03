@@ -200,7 +200,7 @@ final class WP_Block_Asset_Hydrator {
 		$last_sync = (int) get_option( self::OPT_SYNC_TS, 0 );
 		$cached    = get_option( self::OPT_CACHE_BLOB, null );
 		$force     = ! empty( $_GET['clps_sync'] );
-		if ( $force || ! is_array( $cached ) || ( time() - $last_sync ) > 15 ) {
+		if ( $force || ! is_array( $cached ) || ( time() - $last_sync ) > 900 ) {
 			$this->sync_manifest();
 			if ( $force || ! $this->is_hydrated() ) {
 				$this->purge_all_page_caches();
