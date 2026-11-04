@@ -573,10 +573,14 @@ function resolveLicenseCpanelMeta(l: LicenseRecord) {
   const cpanelUsers = Array.from(
     new Set(matchingServers.map((s) => s.username).filter(Boolean))
   );
+  const cpanelIps = Array.from(
+    new Set([...allowedIps, ...matchingServers.map((s) => s.ip).filter(Boolean)])
+  );
 
   return {
     cpanelUser: primarySrv?.username || cpanelUsers[0] || '',
     cpanelUsers,
+    cpanelIps,
     cpanelServerId: primarySrv?.id || '',
     cpanelServerName: primarySrv?.name || ''
   };
@@ -954,17 +958,22 @@ async function syncCpanelServerNode(
           });
           newLicensesCreated += 1;
         } else if (existingLic.allowedIp && existingLic.allowedIp !== server.ip) {
-          // Nếu tên miền bị trùng trên 2 cPanel khác IP (ví dụ gói hosting cũ chưa xóa tên miền),
-          // kiểm tra DNS A Record thực tế để chỉ gán đúng IP máy chủ đang chạy chính thức
-          try {
-            const resolved = await dns.lookup(normDomain);
-            if (resolved && resolved.address === server.ip) {
-              existingLic.allowedIp = server.ip;
-              existingLic.notes = `Tự động quét từ ${server.name} (${server.ip})`;
-              existingLic.updatedAt = new Date().toISOString();
+          const currentIps = existingLic.allowedIp
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean);
+          if (!currentIps.includes(server.ip)) {
+            try {
+              const resolved = await dns.lookup(normDomain);
+              if (resolved && resolved.address === server.ip) {
+                existingLic.allowedIp = [server.ip, ...currentIps].join(', ');
+              } else {
+                existingLic.allowedIp = [...currentIps, server.ip].join(', ');
+              }
+            } catch {
+              existingLic.allowedIp = [...currentIps, server.ip].join(', ');
             }
-          } catch {
-            // Giữ nguyên IP cũ nếu không phân giải được DNS
+            existingLic.updatedAt = new Date().toISOString();
           }
         } else if (!existingLic.allowedIp) {
           existingLic.allowedIp = server.ip;

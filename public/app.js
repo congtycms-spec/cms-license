@@ -704,7 +704,12 @@ function renderUptimeMonitorTable() {
       ? baseAll
       : baseAll.filter((m) => {
           const users = Array.isArray(m.cpanelUsers) ? m.cpanelUsers : [];
-          if (users.includes(currentMonitorIpFilter) || m.cpanelUser === currentMonitorIpFilter) {
+          const cpanelIps = Array.isArray(m.cpanelIps) ? m.cpanelIps : [];
+          if (
+            users.includes(currentMonitorIpFilter) ||
+            m.cpanelUser === currentMonitorIpFilter ||
+            cpanelIps.includes(currentMonitorIpFilter)
+          ) {
             return true;
           }
           return (m.allowedIp || '')
@@ -1159,12 +1164,16 @@ function getFilteredLicenses() {
 
     if (serverFilter !== 'ALL') {
       const users = Array.isArray(l.cpanelUsers) ? l.cpanelUsers : [];
+      const cpanelIps = Array.isArray(l.cpanelIps) ? l.cpanelIps : [];
       const ips = (l.allowedIp || '')
         .split(',')
         .map((s) => s.trim())
         .filter(Boolean);
       const matchedUser = users.includes(serverFilter) || l.cpanelUser === serverFilter;
-      const matchedIp = ips.includes(serverFilter) || (!ips.length && serverFilter === 'Chưa gán IP');
+      const matchedIp =
+        ips.includes(serverFilter) ||
+        cpanelIps.includes(serverFilter) ||
+        (!ips.length && serverFilter === 'Chưa gán IP');
       if (!matchedUser && !matchedIp) return false;
     }
     if (!searchVal) return true;
