@@ -543,6 +543,45 @@ function getCpanelServers(): CpanelServerRecord[] {
   return dbService.state.cpanelServers;
 }
 
+function resolveLicenseCpanelMeta(l: LicenseRecord) {
+  const servers = getCpanelServers();
+  const domainLower = (l.allowedDomain || '').toLowerCase();
+  const allowedIps = (l.allowedIp || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  let matchingServers = domainLower
+    ? servers.filter(
+        (s) =>
+          Array.isArray(s.domains) &&
+          s.domains.some((d) => d.toLowerCase() === domainLower)
+      )
+    : [];
+
+  if (matchingServers.length === 0 && allowedIps.length > 0) {
+    const byIp = servers.filter((s) => allowedIps.includes(s.ip));
+    if (byIp.length === 1) {
+      matchingServers = byIp;
+    }
+  }
+
+  const primarySrv =
+    matchingServers.find((s) => allowedIps.includes(s.ip)) ||
+    matchingServers[0] ||
+    null;
+  const cpanelUsers = Array.from(
+    new Set(matchingServers.map((s) => s.username).filter(Boolean))
+  );
+
+  return {
+    cpanelUser: primarySrv?.username || cpanelUsers[0] || '',
+    cpanelUsers,
+    cpanelServerId: primarySrv?.id || '',
+    cpanelServerName: primarySrv?.name || ''
+  };
+}
+
 function buildEnrichedServerFleet() {
   const servers = getCpanelServers();
   const licenses = dbService.state.licenses;
@@ -599,9 +638,11 @@ function buildEnrichedServerFleet() {
   };
 
   const enriched = servers.map((s) => {
+    const hasOwnDomains = Array.isArray(s.domains) && s.domains.length > 0;
+    const sameIpCount = servers.filter((x) => x.ip === s.ip).length;
     const stats = computeStatsForServer(
       s.ip,
-      s.domains && s.domains.length > 0 ? s.domains : undefined
+      hasOwnDomains || sameIpCount > 1 ? s.domains || [] : undefined
     );
     const { passwordEncrypted, ...safeServer } = s;
     return {
@@ -813,21 +854,6 @@ async function syncCpanelServerNode(
           });
         }
       }
-      const parkedList = Array.isArray(domRes.data.parked_domains)
-        ? domRes.data.parked_domains
-        : Object.values(domRes.data.parked_domains || {});
-      for (const item of parkedList as Array<any>) {
-        const pDomain = typeof item === 'string' ? item : item?.domain;
-        const pRoot =
-          (typeof item === 'object' && item?.documentroot) ||
-          domRes.data.main_domain?.documentroot;
-        if (pDomain && pRoot) {
-          domainEntries.push({
-            domain: String(pDomain),
-            documentroot: String(pRoot)
-          });
-        }
-      }
     }
 
     server.totalDomains = domainEntries.length;
@@ -927,9 +953,19 @@ async function syncCpanelServerNode(
             updatedAt: nowIso
           });
           newLicensesCreated += 1;
-        } else if (existingLic.allowedIp && !existingLic.allowedIp.includes(server.ip)) {
-          existingLic.allowedIp = `${existingLic.allowedIp}, ${server.ip}`;
-          existingLic.updatedAt = new Date().toISOString();
+        } else if (existingLic.allowedIp && existingLic.allowedIp !== server.ip) {
+          // Nếu tên miền bị trùng trên 2 cPanel khác IP (ví dụ gói hosting cũ chưa xóa tên miền),
+          // kiểm tra DNS A Record thực tế để chỉ gán đúng IP máy chủ đang chạy chính thức
+          try {
+            const resolved = await dns.lookup(normDomain);
+            if (resolved && resolved.address === server.ip) {
+              existingLic.allowedIp = server.ip;
+              existingLic.notes = `Tự động quét từ ${server.name} (${server.ip})`;
+              existingLic.updatedAt = new Date().toISOString();
+            }
+          } catch {
+            // Giữ nguyên IP cũ nếu không phân giải được DNS
+          }
         } else if (!existingLic.allowedIp) {
           existingLic.allowedIp = server.ip;
           existingLic.updatedAt = new Date().toISOString();
@@ -1043,17 +1079,19 @@ adminApiRouter.get('/dashboard/stats', requireAuth(), (_req, res) => {
   }
 
   const pendingTransfers = dbService.state.transferRequests.filter((t) => t.status === 'PENDING');
+  const cpanelFleet = buildEnrichedServerFleet();
 
-  // Group licenses by primary hosting Server IP
-  const serverMap = new Map<string, { ip: string; total: number; active: number; suspended: number }>();
-  for (const l of licenses) {
-    const primaryIp = l.allowedIp ? l.allowedIp.split(',')[0].trim() : 'Chưa gán IP';
-    const cur = serverMap.get(primaryIp) || { ip: primaryIp, total: 0, active: 0, suspended: 0 };
-    cur.total += 1;
-    if (l.status === 'ACTIVE') cur.active += 1;
-    if (l.status === 'SUSPENDED') cur.suspended += 1;
-    serverMap.set(primaryIp, cur);
-  }
+  // Group licenses by cPanel User (or IP if no cPanel user)
+  const serverGroups = cpanelFleet.map((srv) => ({
+    id: srv.id,
+    user: srv.username || '',
+    ip: srv.ip,
+    name: srv.name,
+    filterKey: srv.username || srv.ip,
+    total: srv.totalSites || 0,
+    active: srv.activeLicenses || 0,
+    suspended: srv.suspendedLicenses || 0
+  }));
 
   // 24h validation telemetry
   const logs24h = dbService.state.validationLogs.filter(
@@ -1094,6 +1132,7 @@ adminApiRouter.get('/dashboard/stats', requireAuth(), (_req, res) => {
       const domain = l.allowedDomain!;
       const h = healthMap[domain] || null;
       const customer = dbService.state.customers.find((c) => c.id === l.customerId);
+      const cpMeta = resolveLicenseCpanelMeta(l);
       if (!h) {
         uncheckedCount += 1;
       } else if (h.status === 'DOWN') {
@@ -1111,6 +1150,10 @@ adminApiRouter.get('/dashboard/stats', requireAuth(), (_req, res) => {
         licenseStatus: l.status,
         domain,
         allowedIp: l.allowedIp || '',
+        cpanelUser: cpMeta.cpanelUser,
+        cpanelUsers: cpMeta.cpanelUsers,
+        cpanelServerId: cpMeta.cpanelServerId,
+        cpanelServerName: cpMeta.cpanelServerName,
         customerName: customer?.name || 'N/A',
         health: h
       };
@@ -1127,7 +1170,7 @@ adminApiRouter.get('/dashboard/stats', requireAuth(), (_req, res) => {
       revokedLicenses: licenses.filter((l) => l.status === 'REVOKED').length,
       pendingTransferRequestsCount: pendingTransfers.length,
       totalRemoteFeatureCalls: dbService.state.remoteFeatureLogs.length,
-      serverCount: serverMap.size,
+      serverCount: cpanelFleet.length,
       validations24hTotal: logs24h.length,
       validations24hValid: valid24h,
       validations24hInvalid: invalid24h,
@@ -1139,8 +1182,8 @@ adminApiRouter.get('/dashboard/stats', requireAuth(), (_req, res) => {
     },
     monitorSettings: settings,
     monitoredSites,
-    serverGroups: Array.from(serverMap.values()).sort((a, b) => b.total - a.total),
-    cpanelFleet: buildEnrichedServerFleet(),
+    serverGroups: [...serverGroups].sort((a, b) => b.total - a.total),
+    cpanelFleet,
     cryptography: {
       algorithm: 'Ed25519 (RFC 8032)',
       keyId: ed25519Service.getKeyId(),
@@ -1338,8 +1381,13 @@ adminApiRouter.get('/licenses', requireAuth(), (_req, res) => {
     const transfers = dbService.state.transferRequests.filter((t) => t.licenseId === l.id);
     const latestActivation = activations[activations.length - 1] || null;
     const health = l.allowedDomain ? healthMap[l.allowedDomain] || null : null;
+    const cpMeta = resolveLicenseCpanelMeta(l);
     return {
       ...l,
+      cpanelUser: cpMeta.cpanelUser,
+      cpanelUsers: cpMeta.cpanelUsers,
+      cpanelServerId: cpMeta.cpanelServerId,
+      cpanelServerName: cpMeta.cpanelServerName,
       customerName: customer?.name || 'N/A',
       customerEmail: customer?.email || '',
       customerPhone: customer?.phone || '',
@@ -1895,15 +1943,21 @@ adminApiRouter.post(
 // Quét Giám sát Sức khỏe Đồng loạt Toàn bộ Website (Real-Time Uptime Sweep — Hỗ trợ lọc theo IP & Gom nhóm cảnh báo)
 adminApiRouter.post('/monitor/sweep', requireAuth(), async (req: Request, res: Response) => {
   const filterIp = req.body?.serverIp ? String(req.body.serverIp).trim() : '';
+  const filterUser = req.body?.cpanelUser ? String(req.body.cpanelUser).trim().toLowerCase() : '';
   const allLicenses = dbService.state.licenses.filter((l) => Boolean(l.allowedDomain));
-  const licenses = filterIp
-    ? allLicenses.filter((l) =>
-        (l.allowedIp || '')
-          .split(',')
-          .map((s) => s.trim())
-          .includes(filterIp)
-      )
-    : allLicenses;
+  const licenses = filterUser
+    ? allLicenses.filter((l) => {
+        const meta = resolveLicenseCpanelMeta(l);
+        return meta.cpanelUsers.some((u) => u.toLowerCase() === filterUser);
+      })
+    : filterIp
+      ? allLicenses.filter((l) =>
+          (l.allowedIp || '')
+            .split(',')
+            .map((s) => s.trim())
+            .includes(filterIp)
+        )
+      : allLicenses;
 
   const newlyDownSites: Array<{ record: SiteHealthRecord; lic: LicenseRecord }> = [];
   const newlyRecoveredSites: Array<{ record: SiteHealthRecord; lic: LicenseRecord }> = [];

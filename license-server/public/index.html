@@ -787,14 +787,14 @@
                 <path d="m21 21-4.3-4.3" />
               </svg>
               <input id="license-search-input" type="search" oninput="renderFilteredLicenses()"
-                placeholder="Tìm nhanh theo Tên miền, License Key, Khách hàng, IP, Ghi chú..."
+                placeholder="Tìm nhanh theo Tên miền, User cPanel, License Key, Khách hàng, IP..."
                 class="input-field w-full pl-9 pr-3.5 py-2 rounded-lg text-xs" />
             </div>
 
             <div class="flex flex-wrap items-center gap-2 text-xs">
               <select id="license-server-filter" onchange="renderFilteredLicenses()"
                 class="input-field rounded-lg px-3 py-2 text-xs font-mono">
-                <option value="ALL">Tất cả Máy chủ (IP)</option>
+                <option value="ALL">Tất cả User cPanel</option>
               </select>
 
               <select id="license-status-filter" onchange="renderFilteredLicenses()"
@@ -855,7 +855,7 @@
                   </th>
                   <th class="py-3 px-3">Website / Tên miền</th>
                   <th class="py-3 px-3">Trạng thái Bản quyền</th>
-                  <th class="py-3 px-3">IP Máy chủ & Môi trường</th>
+                  <th class="py-3 px-3">User cPanel & IP Hosting</th>
                   <th class="py-3 px-3">Khách hàng / License Key</th>
                   <th class="py-3 px-3">Sức khỏe & Phản hồi (Uptime)</th>
                   <th class="py-3 px-3 text-right">Điều khiển Nhanh</th>
@@ -1341,7 +1341,7 @@
     </div>
   </div>
 
-  <script src="/app.js"></script>
+  <script src="/app.js?v=6.8.3"></script>
 </body>
 
 </html>
