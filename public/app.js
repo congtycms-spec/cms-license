@@ -104,7 +104,12 @@ async function apiCall(path, options = {}) {
     ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
     ...(options.headers || {})
   };
-  const res = await fetch(`/api/v1/admin${path}`, { ...options, headers });
+  let res;
+  try {
+    res = await fetch(`/api/v1/admin${path}`, { ...options, headers });
+  } catch {
+    res = await fetch(`https://cms-license.vercel.app/api/v1/admin${path}`, { ...options, headers });
+  }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     throw new Error(data.message || `Lỗi HTTP ${res.status}`);
@@ -539,36 +544,46 @@ async function loadOverviewStats() {
     <div class="bg-orange-500 h-full transition-all duration-300" style="width: ${lockPct}%" title="Đang khóa chủ động (HTTP 503): ${lockedCount}"></div>
   `;
 
-  // Render Server Clusters
+  // Render Server Clusters (by cPanel User)
   const groups = data.serverGroups || [];
-  document.getElementById('server-cluster-count').textContent = `${groups.length} Cụm IP`;
+  document.getElementById('server-cluster-count').textContent = `${groups.length} User cPanel`;
   document.getElementById('server-clusters-list').innerHTML =
     groups.length === 0
       ? `<div class="text-xs text-slate-500 py-3 text-center">Chưa có dữ liệu máy chủ</div>`
       : groups
-          .map(
-            (g) => `
-          <div onclick="filterLicensesByServerAndSwitch('${esc(g.ip)}')" class="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-slate-950/80 hover:bg-slate-800 border border-slate-800 cursor-pointer transition-colors text-xs">
-            <div class="font-mono font-semibold text-sky-300 flex items-center gap-1 truncate">
+          .map((g) => {
+            const filterKey = g.filterKey || g.user || g.ip;
+            const userLabel = g.user && g.user !== g.ip ? `User: ${g.user}` : `IP: ${g.ip}`;
+            return `
+          <div onclick="filterLicensesByServerAndSwitch('${esc(filterKey)}')" class="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-slate-950/80 hover:bg-slate-800 border border-slate-800 cursor-pointer transition-colors text-xs" title="${esc(g.name || '')} — IP: ${esc(g.ip)}">
+            <div class="font-mono font-semibold text-sky-300 flex items-center gap-1.5 truncate">
               ${ICONS.server}
-              <span class="truncate">${esc(g.ip)}</span>
+              <span class="text-emerald-300 font-bold truncate">${esc(userLabel)}</span>
+              ${g.user && g.user !== g.ip ? `<span class="text-[10px] text-slate-400">(${esc(g.ip)})</span>` : ''}
             </div>
             <div class="flex items-center gap-1.5 font-mono text-[10px] shrink-0">
               <span class="text-emerald-400">${g.active} mở</span>
               ${g.suspended > 0 ? `<span class="text-orange-400">${g.suspended} khóa</span>` : ''}
             </div>
-          </div>`
-          )
+          </div>`;
+          })
           .join('');
 
-  // Populate server filter dropdown in Licenses tab
+  // Populate server/user filter dropdown in Licenses tab
   const serverFilterEl = document.getElementById('license-server-filter');
   if (serverFilterEl) {
     const currentVal = serverFilterEl.value;
     serverFilterEl.innerHTML =
-      `<option value="ALL">Tất cả Máy chủ (${s.totalLicenses} web)</option>` +
+      `<option value="ALL">Tất cả User cPanel (${s.totalLicenses} web)</option>` +
       groups
-        .map((g) => `<option value="${esc(g.ip)}">IP: ${esc(g.ip)} (${g.total} web)</option>`)
+        .map((g) => {
+          const filterKey = g.filterKey || g.user || g.ip;
+          const label =
+            g.user && g.user !== g.ip
+              ? `👤 User: ${esc(g.user)} — IP: ${esc(g.ip)} (${g.total} web)`
+              : `IP: ${esc(g.ip)} (${g.total} web)`;
+          return `<option value="${esc(filterKey)}">${label}</option>`;
+        })
         .join('');
     if (Array.from(serverFilterEl.options).some((o) => o.value === currentVal)) {
       serverFilterEl.value = currentVal;
@@ -687,12 +702,16 @@ function renderUptimeMonitorTable() {
   const all =
     currentMonitorIpFilter === 'ALL'
       ? baseAll
-      : baseAll.filter((m) =>
-          (m.allowedIp || '')
+      : baseAll.filter((m) => {
+          const users = Array.isArray(m.cpanelUsers) ? m.cpanelUsers : [];
+          if (users.includes(currentMonitorIpFilter) || m.cpanelUser === currentMonitorIpFilter) {
+            return true;
+          }
+          return (m.allowedIp || '')
             .split(',')
             .map((s) => s.trim())
-            .includes(currentMonitorIpFilter)
-        );
+            .includes(currentMonitorIpFilter);
+        });
   const downList = all.filter((m) => m.health?.status === 'DOWN');
   const slowList = all.filter((m) => m.health?.status === 'SLOW');
   const upList = all.filter((m) => m.health?.status === 'UP');
@@ -780,7 +799,14 @@ function renderUptimeMonitorTable() {
           <a href="https://${esc(m.domain)}" target="_blank" rel="noopener" class="font-mono font-bold text-sm text-white hover:text-sky-300 flex items-center">
             ${ICONS.globe}<span>${esc(m.domain)}</span>${ICONS.external}
           </a>
-          <div class="text-[11px] text-slate-400 font-mono mt-0.5">${esc(m.allowedIp || 'Chưa gán IP')} • ${esc(m.customerName)}</div>
+          <div class="text-[11px] text-slate-400 font-mono mt-0.5 flex flex-wrap items-center gap-1.5">
+            ${
+              m.cpanelUser
+                ? `<span class="px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-semibold">User: ${esc(m.cpanelUser)}</span>`
+                : ''
+            }
+            <span>IP: ${esc(m.allowedIp || 'Chưa gán IP')} • ${esc(m.customerName)}</span>
+          </div>
         </td>
         <td class="py-3 px-3">${statusBadgeHtml}</td>
         <td class="py-3 px-3">${latencyHtml}</td>
@@ -1132,8 +1158,14 @@ function getFilteredLicenses() {
     }
 
     if (serverFilter !== 'ALL') {
-      const primaryIp = l.allowedIp ? l.allowedIp.split(',')[0].trim() : 'Chưa gán IP';
-      if (primaryIp !== serverFilter) return false;
+      const users = Array.isArray(l.cpanelUsers) ? l.cpanelUsers : [];
+      const ips = (l.allowedIp || '')
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const matchedUser = users.includes(serverFilter) || l.cpanelUser === serverFilter;
+      const matchedIp = ips.includes(serverFilter) || (!ips.length && serverFilter === 'Chưa gán IP');
+      if (!matchedUser && !matchedIp) return false;
     }
     if (!searchVal) return true;
     const haystack = [
@@ -1143,6 +1175,9 @@ function getFilteredLicenses() {
       l.customerCompany,
       l.allowedDomain,
       l.allowedIp,
+      l.cpanelUser,
+      (l.cpanelUsers || []).join(' '),
+      l.cpanelServerName,
       l.notes,
       l.health?.errorDetail
     ]
@@ -1219,6 +1254,7 @@ async function runBulkAction(action, extra = {}) {
 
   askConfirm(`Xác nhận thực hiện: ${actionLabels[action] || action}?`, async () => {
     try {
+      showToast(`Đang đồng bộ trạng thái cho ${ids.length} website, vui lòng đợi vài giây...`);
       const res = await apiCall('/licenses/bulk-action', {
         method: 'POST',
         body: JSON.stringify({
@@ -1227,9 +1263,12 @@ async function runBulkAction(action, extra = {}) {
           ...extra
         })
       });
+      if (res && res.siteHealth) {
+        Object.assign(livePingResults, res.siteHealth);
+      }
       if (action === 'DELETE') selectedLicenseIds.clear();
       updateBulkSelectionUI();
-      showToast(`Đã xử lý thành công ${res.updatedCount} website!`);
+      showToast(`Đã xử lý & đồng bộ thành công ${res.updatedCount} website!`);
       refreshAll();
     } catch (err) {
       showToast(err.message, true);
@@ -1310,6 +1349,16 @@ function renderFilteredLicenses() {
       </td>
       <td class="py-3.5 px-3">${statusBadge(l.status)}</td>
       <td class="py-3.5 px-3 font-mono">
+        ${
+          Array.isArray(l.cpanelUsers) && l.cpanelUsers.length > 0
+            ? `<div class="flex flex-wrap gap-1 mb-1">${l.cpanelUsers
+                .map(
+                  (u) =>
+                    `<button type="button" onclick="filterLicensesByServerAndSwitch('${esc(u)}')" class="px-1.5 py-0.5 rounded bg-emerald-500/15 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/35 text-[11px] font-bold cursor-pointer transition-colors" title="Bấm để lọc toàn bộ web thuộc User: ${esc(u)}">User: ${esc(u)}</button>`
+                )
+                .join('')}</div>`
+            : ''
+        }
         <div class="text-slate-200 text-xs flex items-center">${ICONS.server}<span>${esc(l.allowedIp || 'Chưa gán IP')}</span></div>
         <div class="text-[10px] text-slate-400 mt-0.5">${l.strictIpCheck ? 'Chế độ: Khớp cứng IP (Strict)' : 'Chế độ: Linh hoạt (Flex)'}</div>
       </td>
@@ -1736,19 +1785,20 @@ function renderOverviewIpPills() {
   const allActive = currentMonitorIpFilter === 'ALL';
 
   let html = `
-    <span class="text-[11px] text-slate-400 font-semibold mr-1">Lọc theo Server IP:</span>
+    <span class="text-[11px] text-slate-400 font-semibold mr-1">Lọc theo User cPanel:</span>
     <button type="button" onclick="setMonitorIpFilter('ALL')"
       class="px-2.5 py-1 rounded-lg font-mono text-[11px] cursor-pointer transition-colors ${
         allActive
           ? 'bg-sky-500/25 text-sky-200 border border-sky-400 font-bold'
           : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700'
       }">
-      🌐 Tất cả IP (${totalSites})
+      🌐 Tất cả User (${totalSites})
     </button>
   `;
 
   for (const srv of cachedCpanelFleet || []) {
-    const isSelected = currentMonitorIpFilter === srv.ip;
+    const filterKey = srv.username || srv.ip;
+    const isSelected = currentMonitorIpFilter === filterKey;
     const diskText =
       srv.diskPercent !== null && srv.diskPercent !== undefined
         ? ` • 💾 ${srv.diskPercent}%`
@@ -1759,9 +1809,10 @@ function renderOverviewIpPills() {
       : srv.diskPercent >= 85
         ? 'bg-amber-400'
         : 'bg-emerald-400';
+    const pillLabel = srv.username ? `User: ${srv.username}` : srv.ip;
 
     html += `
-      <button type="button" onclick="setMonitorIpFilter('${esc(srv.ip)}')"
+      <button type="button" onclick="setMonitorIpFilter('${esc(filterKey)}')"
         class="px-2.5 py-1 rounded-lg font-mono text-[11px] cursor-pointer transition-colors inline-flex items-center gap-1.5 ${
           isSelected
             ? 'bg-emerald-500/25 text-emerald-200 border border-emerald-400 font-bold'
@@ -1769,9 +1820,9 @@ function renderOverviewIpPills() {
               ? 'bg-rose-950/60 hover:bg-rose-900/60 text-rose-200 border border-rose-500/50'
               : 'bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700'
         }"
-        title="${esc(srv.name)} — ${srv.upCount || 0} UP / ${srv.downCount || 0} DOWN">
+        title="${esc(srv.name)} (IP: ${esc(srv.ip)}) — ${srv.upCount || 0} UP / ${srv.downCount || 0} DOWN">
         <span class="w-2 h-2 rounded-full ${dotColor}"></span>
-        <span>${esc(srv.ip)} (${srv.totalSites || 0} web${diskText})</span>
+        <span>${esc(pillLabel)} (${srv.totalSites || 0} web${diskText})</span>
       </button>
     `;
   }
@@ -1921,13 +1972,14 @@ function renderCpanelFleetTab() {
         <!-- Action Buttons for this cPanel Server -->
         <div class="pt-3 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-1.5 text-[11px]">
           <div class="flex flex-wrap items-center gap-1.5">
-            <button type="button" onclick="filterLicensesByServerAndSwitch('${esc(srv.ip)}')"
-              class="px-2.5 py-1.5 bg-sky-600/20 hover:bg-sky-600 text-sky-300 hover:text-white border border-sky-500/30 rounded-lg font-semibold cursor-pointer">
+            <button type="button" onclick="filterLicensesByServerAndSwitch('${esc(srv.username || srv.ip)}')"
+              class="px-2.5 py-1.5 bg-sky-600/20 hover:bg-sky-600 text-sky-300 hover:text-white border border-sky-500/30 rounded-lg font-semibold cursor-pointer"
+              title="Lọc các website thuộc User: ${esc(srv.username || srv.ip)}">
               🔍 Xem ${srv.totalSites || 0} Web
             </button>
-            <button type="button" onclick="sweepSingleServerIp('${esc(srv.ip)}')"
+            <button type="button" onclick="sweepSingleServerIp('${esc(srv.ip)}', '${esc(srv.username || '')}')"
               class="px-2.5 py-1.5 bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/30 rounded-lg font-semibold cursor-pointer"
-              title="Kiểm tra sức khỏe toàn bộ website trên IP này">
+              title="Kiểm tra sức khỏe toàn bộ website thuộc User: ${esc(srv.username || srv.ip)}">
               ⚡ Quét Uptime
             </button>
             <button type="button" onclick="syncSingleCpanelServer('${esc(srv.id)}', false, '${esc(srv.ip)}')"
@@ -2108,14 +2160,15 @@ async function syncAllCpanelServers(deployGuard = false) {
   }
 }
 
-async function sweepSingleServerIp(ip) {
-  showToast(`Đang quét sức khỏe (Uptime) toàn bộ website trên IP ${ip}...`);
+async function sweepSingleServerIp(ip, cpanelUser = '') {
+  const targetLabel = cpanelUser ? `User: ${cpanelUser} (${ip})` : `IP ${ip}`;
+  showToast(`Đang quét sức khỏe (Uptime) toàn bộ website thuộc ${targetLabel}...`);
   try {
     const res = await apiCall('/monitor/sweep', {
       method: 'POST',
-      body: JSON.stringify({ serverIp: ip })
+      body: JSON.stringify({ serverIp: ip, cpanelUser })
     });
-    showToast(`Đã kiểm tra xong ${res.checkedCount || 0} website trên IP ${ip}!`);
+    showToast(`Đã kiểm tra xong ${res.checkedCount || 0} website thuộc ${targetLabel}!`);
     await refreshAll(true);
   } catch (err) {
     showToast(err.message, true);
