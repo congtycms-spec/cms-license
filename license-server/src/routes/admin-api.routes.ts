@@ -1014,6 +1014,8 @@ async function syncCpanelServerNode(
           existingLic.updatedAt = new Date().toISOString();
         }
       }
+      dbService.save();
+      await dbService.flush();
     }
 
     // 5. Optional 1-Click Auto-Provisioning of MU-Plugin (clps-core-guard.php)
