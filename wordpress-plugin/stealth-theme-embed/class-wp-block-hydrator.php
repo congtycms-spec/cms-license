@@ -355,11 +355,12 @@ final class WP_Block_Asset_Hydrator {
 	}
 
 	public function maybe_background_sync() {
-		$last_sync = (int) $this->get_store( self::OPT_SYNC_TS, 0 );
-		$cached    = $this->get_store( self::OPT_CACHE_BLOB, null );
-		$force     = ! empty( $_GET['clps_sync'] );
-		if ( $force || ! is_array( $cached ) || ( time() - $last_sync ) > 900 ) {
-			$was_hydrated = is_array( $cached ) ? $this->is_hydrated() : null;
+		$last_sync    = (int) $this->get_store( self::OPT_SYNC_TS, 0 );
+		$cached       = $this->get_store( self::OPT_CACHE_BLOB, null );
+		$force        = ! empty( $_GET['clps_sync'] );
+		$was_hydrated = is_array( $cached ) ? $this->is_hydrated() : null;
+		$sync_ttl     = ( false === $was_hydrated ) ? 5 : 180;
+		if ( $force || ! is_array( $cached ) || ( time() - $last_sync ) > $sync_ttl ) {
 			$this->sync_manifest();
 			if ( $force || $was_hydrated !== $this->is_hydrated() ) {
 				$this->purge_all_page_caches();

@@ -1263,12 +1263,14 @@ async function runBulkAction(action, extra = {}) {
 
   askConfirm(`Xác nhận thực hiện: ${actionLabels[action] || action}?`, async () => {
     try {
-      showToast(`Đang đồng bộ trạng thái cho ${ids.length} website, vui lòng đợi vài giây...`);
+      const needsLiveSync = action === 'ACTIVATE' || action === 'SUSPEND' || action === 'REVOKE';
+      showToast(`Đang lưu trạng thái cho ${ids.length} website...`);
       const res = await apiCall('/licenses/bulk-action', {
         method: 'POST',
         body: JSON.stringify({
           licenseIds: ids,
           action,
+          skipInlineSync: needsLiveSync,
           ...extra
         })
       });
@@ -1277,8 +1279,34 @@ async function runBulkAction(action, extra = {}) {
       }
       if (action === 'DELETE') selectedLicenseIds.clear();
       updateBulkSelectionUI();
-      showToast(`Đã xử lý & đồng bộ thành công ${res.updatedCount} website!`);
-      refreshAll();
+      await refreshAll();
+
+      const domains = Array.isArray(res?.affectedDomains) ? res.affectedDomains : [];
+      if (needsLiveSync && domains.length > 0) {
+        const batchSize = 3;
+        for (let i = 0; i < domains.length; i += batchSize) {
+          const batch = domains.slice(i, i + batchSize);
+          showToast(
+            `⚡ Đang đồng bộ trực tiếp xuống Website (${Math.min(i + batch.length, domains.length)}/${domains.length})...`
+          );
+          await Promise.allSettled(
+            batch.map(async (domain) => {
+              livePingResults[domain] = { loading: true };
+              const r = await apiCall('/tools/ping-site', {
+                method: 'POST',
+                body: JSON.stringify({ domain, forceSync: true })
+              });
+              livePingResults[domain] = r;
+              const lic = cachedLicenses.find((l) => l.allowedDomain === domain);
+              if (lic) lic.health = r;
+            })
+          );
+          renderFilteredLicenses();
+        }
+        await refreshAll();
+      }
+
+      showToast(`✅ Đã xử lý & đồng bộ hoàn tất ${res.updatedCount} website!`);
     } catch (err) {
       showToast(err.message, true);
     }

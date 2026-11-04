@@ -1786,7 +1786,7 @@ adminApiRouter.post(
   '/licenses/bulk-action',
   requireAuth(['SUPER_ADMIN', 'MANAGER']),
   async (req: AuthenticatedAdminRequest, res) => {
-    const { licenseIds, action, addDays, allowedIp } = req.body || {};
+    const { licenseIds, action, addDays, allowedIp, skipInlineSync } = req.body || {};
     if (!Array.isArray(licenseIds) || licenseIds.length === 0) {
       res.status(400).json({ error: 'EMPTY_IDS', message: 'Vui lòng chọn ít nhất 1 website.' });
       return;
@@ -1874,7 +1874,11 @@ adminApiRouter.post(
     dbService.save();
     await dbService.flush();
 
-    if (affectedLicenses.length > 0) {
+    const affectedDomains = affectedLicenses
+      .map((l) => l.allowedDomain)
+      .filter((d): d is string => Boolean(d));
+
+    if (!skipInlineSync && affectedLicenses.length > 0) {
       // Đồng bộ toàn bộ website bị ảnh hưởng với độ trễ giãn cách 100ms và giới hạn tối đa 6.8s để không bị Timeout trên Vercel Serverless
       const syncTasks = affectedLicenses.map(
         (lic, idx) =>
@@ -1894,7 +1898,7 @@ adminApiRouter.post(
       await dbService.flush();
     }
 
-    res.json({ success: true, updatedCount, siteHealth: getSiteHealthMap() });
+    res.json({ success: true, updatedCount, affectedDomains, siteHealth: getSiteHealthMap() });
   }
 );
 
