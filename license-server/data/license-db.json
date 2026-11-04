@@ -2151,6 +2151,46 @@
       "customFeatures": null,
       "maxActivations": 3,
       "treatWwwAsSame": true
+    },
+    {
+      "id": "af9a69d9-501a-459c-a3ca-338995e97241",
+      "notes": "Tự động quét từ cPanel 20 — Cụm Hosting (45.252.249.25) (45.252.249.25)",
+      "status": "ACTIVE",
+      "startsAt": "2026-11-04T02:50:10.367Z",
+      "allowedIp": "45.252.249.25",
+      "createdAt": "2026-11-04T02:50:10.367Z",
+      "expiresAt": "2099-12-31T23:59:59.000Z",
+      "productId": "c28670e2-f7f7-469e-baeb-0505da72d5ea",
+      "updatedAt": "2026-11-04T02:50:10.367Z",
+      "customerId": "cce1caf6-3886-455f-96c9-6a11b4348ecc",
+      "licenseKey": "CLPS-NWXA-9PWV-5QGZ-93MC",
+      "maxTransfers": 5,
+      "allowedDomain": "maynenkhiseize.com",
+      "strictIpCheck": false,
+      "transferCount": 0,
+      "customFeatures": null,
+      "maxActivations": 3,
+      "treatWwwAsSame": true
+    },
+    {
+      "id": "361ba665-fc06-4922-bd29-bd19f8103dde",
+      "notes": "Tự động quét từ cPanel 20 — Cụm Hosting (45.252.249.25) (45.252.249.25)",
+      "status": "ACTIVE",
+      "startsAt": "2026-11-04T02:50:10.370Z",
+      "allowedIp": "45.252.249.25",
+      "createdAt": "2026-11-04T02:50:10.370Z",
+      "expiresAt": "2099-12-31T23:59:59.000Z",
+      "productId": "c28670e2-f7f7-469e-baeb-0505da72d5ea",
+      "updatedAt": "2026-11-04T02:50:10.370Z",
+      "customerId": "661f6658-c019-4c65-98bb-19e479d69c26",
+      "licenseKey": "CLPS-UR39-SHPV-YUGS-4UHD",
+      "maxTransfers": 5,
+      "allowedDomain": "hoanglongphat.vn",
+      "strictIpCheck": false,
+      "transferCount": 0,
+      "customFeatures": null,
+      "maxActivations": 3,
+      "treatWwwAsSame": true
     }
   ],
   "products": [
@@ -10195,6 +10235,26 @@
       "company": "appetro.com.vn (cPanel 18 — Cụm Hosting (103.221.223.75 - xlamdnbb))",
       "createdAt": "2026-11-03T09:42:14.221Z",
       "updatedAt": "2026-11-03T09:42:14.221Z"
+    },
+    {
+      "id": "cce1caf6-3886-455f-96c9-6a11b4348ecc",
+      "name": "Chủ sở hữu maynenkhiseize.com",
+      "email": "admin@maynenkhiseize.com",
+      "notes": "Tự động đồng bộ từ máy chủ cPanel 20 — Cụm Hosting (45.252.249.25) (45.252.249.25)",
+      "phone": "",
+      "company": "maynenkhiseize.com (cPanel 20 — Cụm Hosting (45.252.249.25))",
+      "createdAt": "2026-11-04T02:50:10.367Z",
+      "updatedAt": "2026-11-04T02:50:10.367Z"
+    },
+    {
+      "id": "661f6658-c019-4c65-98bb-19e479d69c26",
+      "name": "Chủ sở hữu hoanglongphat.vn",
+      "email": "admin@hoanglongphat.vn",
+      "notes": "Tự động đồng bộ từ máy chủ cPanel 20 — Cụm Hosting (45.252.249.25) (45.252.249.25)",
+      "phone": "",
+      "company": "hoanglongphat.vn (cPanel 20 — Cụm Hosting (45.252.249.25))",
+      "createdAt": "2026-11-04T02:50:10.370Z",
+      "updatedAt": "2026-11-04T02:50:10.370Z"
     }
   ],
   "siteHealth": {
@@ -10548,6 +10608,16 @@
       "lastIncidentAt": null,
       "lastAlertedState": "UP"
     },
+    "hoanglongphat.vn": {
+      "domain": "hoanglongphat.vn",
+      "status": "SLOW",
+      "checkedAt": "2026-11-04T02:50:17.215Z",
+      "latencyMs": 5854,
+      "httpStatus": 200,
+      "errorDetail": "Phản hồi chậm (5854ms)",
+      "lastIncidentAt": null,
+      "lastAlertedState": "UP"
+    },
     "inoxthanhphu.com": {
       "domain": "inoxthanhphu.com",
       "status": "UP",
@@ -10726,6 +10796,16 @@
       "httpStatus": 200,
       "errorDetail": null,
       "lastIncidentAt": "2026-11-03T06:41:15.664Z",
+      "lastAlertedState": "UP"
+    },
+    "maynenkhiseize.com": {
+      "domain": "maynenkhiseize.com",
+      "status": "UP",
+      "checkedAt": "2026-11-04T02:50:17.179Z",
+      "latencyMs": 177,
+      "httpStatus": 200,
+      "errorDetail": null,
+      "lastIncidentAt": null,
       "lastAlertedState": "UP"
     },
     "nhuaphatdai.com.vn": {
@@ -11553,7 +11633,7 @@
       "phpVersion": "8.2.35",
       "activatedAt": "2026-11-02T04:05:17.342Z",
       "pluginVersion": "1.0.0-stealth",
-      "lastVerifiedAt": "2026-11-04T02:13:19.732Z",
+      "lastVerifiedAt": "2026-11-04T02:56:07.704Z",
       "activationToken": "act_727aebc7e77129f7d9e0d52b79906c6dbcb346f1fd2b004d"
     },
     {
@@ -11566,7 +11646,7 @@
       "phpVersion": "8.2.35",
       "activatedAt": "2026-11-02T04:06:49.632Z",
       "pluginVersion": "1.0.0-stealth",
-      "lastVerifiedAt": "2026-11-04T02:40:18.569Z",
+      "lastVerifiedAt": "2026-11-04T02:56:10.630Z",
       "activationToken": "act_a65c45635eee39f81524777030950f5a611c129912d50e97"
     },
     {
@@ -11579,7 +11659,7 @@
       "phpVersion": "8.2.35",
       "activatedAt": "2026-11-02T04:07:22.556Z",
       "pluginVersion": "1.0.0-stealth",
-      "lastVerifiedAt": "2026-11-04T02:30:30.708Z",
+      "lastVerifiedAt": "2026-11-04T02:49:23.594Z",
       "activationToken": "act_f47eff850e648f3b5e4ba3af8648d4f9c8f51dbae52c61cf"
     },
     {
@@ -11670,7 +11750,7 @@
       "phpVersion": "8.3.36",
       "activatedAt": "2026-11-02T06:54:16.569Z",
       "pluginVersion": "1.0.0-stealth",
-      "lastVerifiedAt": "2026-11-04T02:25:39.413Z",
+      "lastVerifiedAt": "2026-11-04T02:48:04.361Z",
       "activationToken": "act_c76252863b961aba0b91aa364749019f8086c0fd2829776f"
     },
     {
@@ -12021,7 +12101,7 @@
       "phpVersion": "8.3.36",
       "activatedAt": "2026-11-03T02:58:13.515Z",
       "pluginVersion": "1.0.0-stealth",
-      "lastVerifiedAt": "2026-11-04T02:32:54.567Z",
+      "lastVerifiedAt": "2026-11-04T02:48:33.612Z",
       "activationToken": "act_751c564d6217387db344c846740573f09e8145deaadf3e7f"
     },
     {
@@ -12086,7 +12166,7 @@
       "phpVersion": "8.2.35",
       "activatedAt": "2026-11-03T03:24:36.880Z",
       "pluginVersion": "1.0.0-stealth",
-      "lastVerifiedAt": "2026-11-04T02:30:42.487Z",
+      "lastVerifiedAt": "2026-11-04T02:48:41.223Z",
       "activationToken": "act_c20c17b4b8b49214ab3aabe07dfc73f921bf5f20a493e329"
     },
     {
@@ -12112,7 +12192,7 @@
       "phpVersion": "5.5.38",
       "activatedAt": "2026-11-03T03:44:43.373Z",
       "pluginVersion": "1.0.0-stealth",
-      "lastVerifiedAt": "2026-11-04T02:29:11.003Z",
+      "lastVerifiedAt": "2026-11-04T02:46:42.852Z",
       "activationToken": "act_12786ae995c9486b22af58fe463a6e4df7fa819918905cff"
     },
     {
@@ -12333,7 +12413,7 @@
       "phpVersion": "7.4.33",
       "activatedAt": "2026-11-03T08:05:13.167Z",
       "pluginVersion": "1.0.0-stealth",
-      "lastVerifiedAt": "2026-11-04T02:31:23.359Z",
+      "lastVerifiedAt": "2026-11-04T02:49:26.676Z",
       "activationToken": "act_caad864c38463369552e8595d4f4ec935b62c35b1a13295b"
     },
     {
@@ -12411,7 +12491,7 @@
       "phpVersion": "8.3.36",
       "activatedAt": "2026-11-03T08:18:07.760Z",
       "pluginVersion": "1.0.0-stealth",
-      "lastVerifiedAt": "2026-11-04T02:36:10.535Z",
+      "lastVerifiedAt": "2026-11-04T02:51:33.174Z",
       "activationToken": "act_01676692c946292f8bb57d99482eac2f9c206f3214ce8274"
     },
     {
@@ -12437,7 +12517,7 @@
       "phpVersion": "8.3.36",
       "activatedAt": "2026-11-03T08:25:38.426Z",
       "pluginVersion": "1.0.0-stealth",
-      "lastVerifiedAt": "2026-11-04T02:04:31.839Z",
+      "lastVerifiedAt": "2026-11-04T02:53:30.103Z",
       "activationToken": "act_9a1f84ec614f67d5aa189185a7b133d347e2018fffe277fa"
     },
     {
@@ -12463,7 +12543,7 @@
       "phpVersion": "8.3.36",
       "activatedAt": "2026-11-03T08:26:52.675Z",
       "pluginVersion": "1.0.0-stealth",
-      "lastVerifiedAt": "2026-11-04T02:32:39.885Z",
+      "lastVerifiedAt": "2026-11-04T02:50:23.085Z",
       "activationToken": "act_7c51f848e101e79c81c54b79efb25fb10fba1fae53b8f019"
     },
     {
@@ -12775,7 +12855,7 @@
       "phpVersion": "7.4.33",
       "activatedAt": "2026-11-03T08:42:47.116Z",
       "pluginVersion": "1.0.0-stealth",
-      "lastVerifiedAt": "2026-11-04T02:41:24.736Z",
+      "lastVerifiedAt": "2026-11-04T02:56:55.732Z",
       "activationToken": "act_fbad4da64f89ac0affa20dfd24b0d0091d6231c38d0b4614"
     },
     {
@@ -12788,7 +12868,7 @@
       "phpVersion": "7.4.33",
       "activatedAt": "2026-11-03T08:42:56.191Z",
       "pluginVersion": "1.0.0-stealth",
-      "lastVerifiedAt": "2026-11-04T02:38:06.793Z",
+      "lastVerifiedAt": "2026-11-04T02:54:54.540Z",
       "activationToken": "act_98b6dc15cd68a19eda5eaeeefda16a00cc4867ae39973fc2"
     },
     {
@@ -12814,7 +12894,7 @@
       "phpVersion": "7.4.33",
       "activatedAt": "2026-11-03T08:46:53.205Z",
       "pluginVersion": "1.0.0-stealth",
-      "lastVerifiedAt": "2026-11-04T02:39:40.822Z",
+      "lastVerifiedAt": "2026-11-04T02:56:13.404Z",
       "activationToken": "act_301255a3b7a4bfbbdbd69d47983fb25619d74bf90899fb30"
     },
     {
@@ -12840,7 +12920,7 @@
       "phpVersion": "8.3.36",
       "activatedAt": "2026-11-03T08:55:17.015Z",
       "pluginVersion": "1.0.0-stealth",
-      "lastVerifiedAt": "2026-11-04T02:36:35.589Z",
+      "lastVerifiedAt": "2026-11-04T02:53:35.390Z",
       "activationToken": "act_4195368b76bf67ae611e541dc24ddbe9b673abcbf95f8d3a"
     },
     {
@@ -12853,7 +12933,7 @@
       "phpVersion": "8.0.30",
       "activatedAt": "2026-11-03T08:55:53.861Z",
       "pluginVersion": "1.0.0-stealth",
-      "lastVerifiedAt": "2026-11-04T02:33:08.521Z",
+      "lastVerifiedAt": "2026-11-04T02:49:53.496Z",
       "activationToken": "act_3b61389a57854221cf76b8618374d1d855753fd964228cfd"
     },
     {
@@ -12866,7 +12946,7 @@
       "phpVersion": "7.4.33",
       "activatedAt": "2026-11-03T08:56:05.334Z",
       "pluginVersion": "1.0.0-stealth",
-      "lastVerifiedAt": "2026-11-04T02:32:51.512Z",
+      "lastVerifiedAt": "2026-11-04T02:50:38.882Z",
       "activationToken": "act_f6d28da5d6a9c1811e3c7a92841cdd31b77a0efa3934f9b3"
     },
     {
@@ -12892,7 +12972,7 @@
       "phpVersion": "7.4.33",
       "activatedAt": "2026-11-03T08:58:10.327Z",
       "pluginVersion": "1.0.0-stealth",
-      "lastVerifiedAt": "2026-11-04T02:32:04.568Z",
+      "lastVerifiedAt": "2026-11-04T02:47:45.421Z",
       "activationToken": "act_7f24756765a327ca45756bd5c26f6430e84b795da1466b07"
     },
     {
@@ -12905,7 +12985,7 @@
       "phpVersion": "7.4.33",
       "activatedAt": "2026-11-03T08:58:23.919Z",
       "pluginVersion": "1.0.0-stealth",
-      "lastVerifiedAt": "2026-11-04T02:33:14.160Z",
+      "lastVerifiedAt": "2026-11-04T02:49:19.983Z",
       "activationToken": "act_7551674c5596681f91872084486afb930138c98a886d9d11"
     },
     {
@@ -12931,7 +13011,7 @@
       "phpVersion": "7.4.33",
       "activatedAt": "2026-11-03T08:58:40.077Z",
       "pluginVersion": "1.0.0-stealth",
-      "lastVerifiedAt": "2026-11-04T02:40:28.123Z",
+      "lastVerifiedAt": "2026-11-04T02:56:01.788Z",
       "activationToken": "act_839c3d59c817bcbf777fefc60c4bf39b6d0748bf93bd9644"
     },
     {
@@ -13126,7 +13206,7 @@
       "phpVersion": "8.3.36",
       "activatedAt": "2026-11-03T09:11:33.434Z",
       "pluginVersion": "1.0.0-stealth",
-      "lastVerifiedAt": "2026-11-04T02:35:09.335Z",
+      "lastVerifiedAt": "2026-11-04T02:51:11.875Z",
       "activationToken": "act_ef24506499cddea5dbbf272e5f0590eccf0391df39d73850"
     },
     {
@@ -13191,7 +13271,7 @@
       "phpVersion": "7.4.33",
       "activatedAt": "2026-11-03T09:13:40.940Z",
       "pluginVersion": "1.0.0-stealth",
-      "lastVerifiedAt": "2026-11-04T02:34:28.102Z",
+      "lastVerifiedAt": "2026-11-04T02:49:43.064Z",
       "activationToken": "act_3e1b8e934e98a96de177369532a6d7401f9f79ee50c8a999"
     },
     {
@@ -13217,7 +13297,7 @@
       "phpVersion": "8.3.36",
       "activatedAt": "2026-11-03T09:13:57.349Z",
       "pluginVersion": "1.0.0-stealth",
-      "lastVerifiedAt": "2026-11-04T02:34:17.172Z",
+      "lastVerifiedAt": "2026-11-04T02:49:50.642Z",
       "activationToken": "act_116650c0f398432a175587dec9af96f8e5e22d08a809d47a"
     },
     {
@@ -13256,7 +13336,7 @@
       "phpVersion": "8.3.36",
       "activatedAt": "2026-11-03T09:17:58.671Z",
       "pluginVersion": "1.0.0-stealth",
-      "lastVerifiedAt": "2026-11-04T02:40:34.513Z",
+      "lastVerifiedAt": "2026-11-04T02:55:43.257Z",
       "activationToken": "act_c039a82da006d259b9bb4f365192de59dcc97021ec2386f8"
     },
     {
@@ -13308,7 +13388,7 @@
       "phpVersion": "8.2.35",
       "activatedAt": "2026-11-03T09:18:29.545Z",
       "pluginVersion": "1.0.0-stealth",
-      "lastVerifiedAt": "2026-11-04T02:40:44.813Z",
+      "lastVerifiedAt": "2026-11-04T02:57:35.118Z",
       "activationToken": "act_71913181c3f39b6146e8827f5e1ae504b9faa2b755dbf6fa"
     },
     {
@@ -13334,7 +13414,7 @@
       "phpVersion": "8.3.36",
       "activatedAt": "2026-11-03T09:19:06.301Z",
       "pluginVersion": "1.0.0-stealth",
-      "lastVerifiedAt": "2026-11-04T01:40:04.541Z",
+      "lastVerifiedAt": "2026-11-04T02:45:30.187Z",
       "activationToken": "act_d4597bd7b68ae6a8d0fa4a1f23cdbb1b95264c793c26f271"
     },
     {
@@ -13438,7 +13518,7 @@
       "phpVersion": "7.4.33",
       "activatedAt": "2026-11-03T09:27:55.265Z",
       "pluginVersion": "1.0.0-stealth",
-      "lastVerifiedAt": "2026-11-04T02:32:12.486Z",
+      "lastVerifiedAt": "2026-11-04T02:47:18.926Z",
       "activationToken": "act_4c19593b507ac774c8e0c736762c88c7210ae8184611b349"
     },
     {
@@ -13451,7 +13531,7 @@
       "phpVersion": "7.4.33",
       "activatedAt": "2026-11-03T09:28:48.420Z",
       "pluginVersion": "1.0.0-stealth",
-      "lastVerifiedAt": "2026-11-04T02:36:45.792Z",
+      "lastVerifiedAt": "2026-11-04T02:53:01.694Z",
       "activationToken": "act_deeb30319b5309cb41e875ee2d1277f6a85e8769806ddcaa"
     },
     {
@@ -13477,7 +13557,7 @@
       "phpVersion": "7.4.33",
       "activatedAt": "2026-11-03T09:30:48.122Z",
       "pluginVersion": "1.0.0-stealth",
-      "lastVerifiedAt": "2026-11-04T02:14:36.972Z",
+      "lastVerifiedAt": "2026-11-04T02:45:50.225Z",
       "activationToken": "act_b0052735555078903a873e8c7180841720d56778ea801a07"
     },
     {
@@ -13503,7 +13583,7 @@
       "phpVersion": "8.3.36",
       "activatedAt": "2026-11-03T09:34:11.461Z",
       "pluginVersion": "1.0.0-stealth",
-      "lastVerifiedAt": "2026-11-04T02:30:47.707Z",
+      "lastVerifiedAt": "2026-11-04T02:46:19.727Z",
       "activationToken": "act_f860c5135cc11bb4dcb1325aad8ada08df132fc11cb0be9f"
     },
     {
@@ -13516,7 +13596,7 @@
       "phpVersion": "7.4.33",
       "activatedAt": "2026-11-03T09:34:45.693Z",
       "pluginVersion": "1.0.0-stealth",
-      "lastVerifiedAt": "2026-11-04T02:39:07.117Z",
+      "lastVerifiedAt": "2026-11-04T02:54:23.908Z",
       "activationToken": "act_c9c8eb72ec1940e51e994b79b8a95278a837aaa7f4732c79"
     },
     {
@@ -13529,7 +13609,7 @@
       "phpVersion": "8.3.36",
       "activatedAt": "2026-11-03T09:36:35.329Z",
       "pluginVersion": "1.0.0-stealth",
-      "lastVerifiedAt": "2026-11-04T02:38:29.090Z",
+      "lastVerifiedAt": "2026-11-04T02:57:31.772Z",
       "activationToken": "act_2a5d4817aee198758c86bc58c29d84d34a0c3c85894bafb4"
     },
     {
@@ -13555,7 +13635,7 @@
       "phpVersion": "8.3.36",
       "activatedAt": "2026-11-03T09:38:19.008Z",
       "pluginVersion": "1.0.0-stealth",
-      "lastVerifiedAt": "2026-11-04T02:30:58.135Z",
+      "lastVerifiedAt": "2026-11-04T02:48:58.966Z",
       "activationToken": "act_1da1ca722855e002219cf50b491b312728af84732c6183ee"
     },
     {
@@ -13672,7 +13752,7 @@
       "phpVersion": "7.4.33",
       "activatedAt": "2026-11-03T09:44:34.936Z",
       "pluginVersion": "1.0.0-stealth",
-      "lastVerifiedAt": "2026-11-04T02:31:34.305Z",
+      "lastVerifiedAt": "2026-11-04T02:48:07.664Z",
       "activationToken": "act_9b4037ad81471dea9c3889b523f93b76206b7171d88e24df"
     },
     {
@@ -13698,7 +13778,7 @@
       "phpVersion": "8.3.36",
       "activatedAt": "2026-11-03T09:46:59.235Z",
       "pluginVersion": "1.0.0-stealth",
-      "lastVerifiedAt": "2026-11-04T02:14:39.854Z",
+      "lastVerifiedAt": "2026-11-04T02:46:25.574Z",
       "activationToken": "act_aa9e3af67eef2e327edd9b84d49f8662b5aa053c3343e5ff"
     },
     {
@@ -13737,7 +13817,7 @@
       "phpVersion": "8.3.36",
       "activatedAt": "2026-11-03T09:54:09.346Z",
       "pluginVersion": "1.0.0-stealth",
-      "lastVerifiedAt": "2026-11-04T02:41:40.875Z",
+      "lastVerifiedAt": "2026-11-04T02:57:13.966Z",
       "activationToken": "act_aa79dbb4cc791b99a57dee3f6fa1562d4d6ca92b1e5ed57e"
     },
     {
@@ -13750,7 +13830,7 @@
       "phpVersion": "8.3.36",
       "activatedAt": "2026-11-03T09:54:30.921Z",
       "pluginVersion": "1.0.0-stealth",
-      "lastVerifiedAt": "2026-11-04T02:40:15.670Z",
+      "lastVerifiedAt": "2026-11-04T02:56:23.191Z",
       "activationToken": "act_d22d3d380f16a2c7b752a392a56a464b7a166e6c1ab80cf5"
     },
     {
@@ -13776,7 +13856,7 @@
       "phpVersion": "8.3.36",
       "activatedAt": "2026-11-03T09:54:51.702Z",
       "pluginVersion": "1.0.0-stealth",
-      "lastVerifiedAt": "2026-11-04T02:33:11.450Z",
+      "lastVerifiedAt": "2026-11-04T02:49:56.627Z",
       "activationToken": "act_f689ffc997436eab91ed1887e027f0636d7032bad9d86890"
     },
     {
@@ -13802,7 +13882,7 @@
       "phpVersion": "8.3.36",
       "activatedAt": "2026-11-03T09:56:02.034Z",
       "pluginVersion": "1.0.0-stealth",
-      "lastVerifiedAt": "2026-11-04T01:55:38.103Z",
+      "lastVerifiedAt": "2026-11-04T02:56:50.596Z",
       "activationToken": "act_6b7ba52bc72451244df8b03cf950e349924da3fa4e0bb7ad"
     },
     {
@@ -13854,7 +13934,7 @@
       "phpVersion": "8.3.36",
       "activatedAt": "2026-11-03T10:03:57.094Z",
       "pluginVersion": "1.0.0-stealth",
-      "lastVerifiedAt": "2026-11-04T02:36:51.833Z",
+      "lastVerifiedAt": "2026-11-04T02:52:12.767Z",
       "activationToken": "act_e9f774e2b2b8907e0094f3e1f6b67dce8ece56c6f204bbb4"
     },
     {
@@ -13867,7 +13947,7 @@
       "phpVersion": "8.3.36",
       "activatedAt": "2026-11-03T10:05:01.489Z",
       "pluginVersion": "1.0.0-stealth",
-      "lastVerifiedAt": "2026-11-04T02:37:58.143Z",
+      "lastVerifiedAt": "2026-11-04T02:53:08.094Z",
       "activationToken": "act_2cc752ec1be143e6d0ca8456760c7ccc19c99e69ebee7402"
     },
     {
@@ -13880,7 +13960,7 @@
       "phpVersion": "8.2.35",
       "activatedAt": "2026-11-03T10:05:37.065Z",
       "pluginVersion": "1.0.0-stealth",
-      "lastVerifiedAt": "2026-11-04T02:36:05.739Z",
+      "lastVerifiedAt": "2026-11-04T02:53:56.440Z",
       "activationToken": "act_13482591e741d5669a75711681495b935bba4cb2140be1eb"
     },
     {
@@ -13893,7 +13973,7 @@
       "phpVersion": "8.3.36",
       "activatedAt": "2026-11-03T10:06:54.135Z",
       "pluginVersion": "1.0.0-stealth",
-      "lastVerifiedAt": "2026-11-04T02:35:51.527Z",
+      "lastVerifiedAt": "2026-11-04T02:51:16.046Z",
       "activationToken": "act_b0dac49f67c01224755a9b5f304b3ef6bf50bde9000cf2dc"
     },
     {
@@ -13906,7 +13986,7 @@
       "phpVersion": "8.3.36",
       "activatedAt": "2026-11-03T10:07:01.907Z",
       "pluginVersion": "1.0.0-stealth",
-      "lastVerifiedAt": "2026-11-04T02:33:56.000Z",
+      "lastVerifiedAt": "2026-11-04T02:49:13.459Z",
       "activationToken": "act_c14174768c67ea1c35b16289f259d49f7fd06aa54c2ac0e0"
     },
     {
@@ -13932,7 +14012,7 @@
       "phpVersion": "8.3.36",
       "activatedAt": "2026-11-03T10:07:46.060Z",
       "pluginVersion": "1.0.0-stealth",
-      "lastVerifiedAt": "2026-11-04T02:32:00.492Z",
+      "lastVerifiedAt": "2026-11-04T02:50:46.616Z",
       "activationToken": "act_0b0859e6f4224251adb298a73b6cbf2c042534c5085425d6"
     },
     {
@@ -13945,7 +14025,7 @@
       "phpVersion": "8.3.36",
       "activatedAt": "2026-11-03T10:08:30.146Z",
       "pluginVersion": "1.0.0-stealth",
-      "lastVerifiedAt": "2026-11-04T02:32:21.340Z",
+      "lastVerifiedAt": "2026-11-04T02:53:14.969Z",
       "activationToken": "act_c99f1f3888ac81fe6cd85302e6f5662b37e4babde395409a"
     },
     {
@@ -13958,7 +14038,7 @@
       "phpVersion": "8.3.36",
       "activatedAt": "2026-11-03T10:09:53.207Z",
       "pluginVersion": "1.0.0-stealth",
-      "lastVerifiedAt": "2026-11-04T02:27:54.128Z",
+      "lastVerifiedAt": "2026-11-04T02:46:56.437Z",
       "activationToken": "act_e2a25cf20599889d1bdc7a43c01c803f92a7007c42d778d5"
     },
     {
@@ -14072,12 +14152,12 @@
       "ip": "103.221.223.75",
       "name": "cPanel 01 — Cụm Hosting Chính (103.221.223.75)",
       "port": 2083,
-      "notes": "Máy chủ cPanel lưu trữ 18 website WordPress khách hàng",
+      "notes": "Cụm Hosting cPanel 01 (User: hywczsuk)",
       "status": "ONLINE",
       "username": "hywczsuk",
       "createdAt": "2026-11-03T02:17:34.294Z",
       "lastError": null,
-      "updatedAt": "2026-11-03T02:29:29.571Z",
+      "updatedAt": "2026-11-04T02:54:29.081Z",
       "diskUsedMb": 15864,
       "inodesUsed": 385980,
       "diskLimitMb": 30720,
@@ -14085,7 +14165,27 @@
       "lastSyncedAt": "2026-11-03T02:29:29.571Z",
       "totalDomains": 18,
       "lastDiskAlertAt": null,
-      "passwordEncrypted": "02ef64a8349a5511583fd70f:fa4e57a206466354ea551a12d5e18625:7420882ecaf83286cfc644ac1fadad2ceacb1a"
+      "passwordEncrypted": "b34bed3f0a67d1b6608d0343:3d072b5b3d709696441b069022a6d5f3:84aa7aa4a69073a4af720311529780792b05a1",
+      "domains": [
+        "gofresh.vn",
+        "xaydunghuynhgia.vn",
+        "eyelashanan.com",
+        "noithatgiarebinhduong.com.vn",
+        "azoil.com.vn",
+        "hungthinhbinhduong.vn",
+        "itou.vn",
+        "phucthinhland.com.vn",
+        "cokhixaydungbinhduong.vn",
+        "vachpanelbinhduong.com",
+        "fortunevn.com",
+        "osda.vn",
+        "khachsantaithanghappy.com",
+        "cuuhobinhduong.vn",
+        "shopdonaldson.com.vn",
+        "tankhanhcompany.com",
+        "locdonaldsonvn.com",
+        "nhomkinhhungthinhphat.com"
+      ]
     },
     {
       "id": "srv-103-221-221-17-cf8f",
@@ -14124,7 +14224,7 @@
       "username": "kjyjisla",
       "createdAt": "2026-11-03T02:37:54.685Z",
       "lastError": null,
-      "updatedAt": "2026-11-03T02:46:57.818Z",
+      "updatedAt": "2026-11-04T02:54:35.783Z",
       "diskUsedMb": 1170,
       "inodesUsed": 33624,
       "diskLimitMb": 3072,
@@ -14132,7 +14232,10 @@
       "lastSyncedAt": "2026-11-03T02:46:57.818Z",
       "totalDomains": 1,
       "lastDiskAlertAt": null,
-      "passwordEncrypted": "76938a5ae646c7d2aa8da2f9:45e73c43322f7ada5d8bd23e07ce4695:87fd6607dbd118749d2736bd03d23c686fc40432"
+      "passwordEncrypted": "45c72290631a1d43bbc45f48:38878e4ca37bc5f585f56583595d7a25:531a326c166b1f9a84b6d57bdf6881f5d168fada",
+      "domains": [
+        "vissteel.com.vn"
+      ]
     },
     {
       "id": "srv-103-221-222-38-16ec",
@@ -14164,15 +14267,18 @@
       "port": 2083,
       "notes": "Cụm Hosting cPanel 05 (User: lundegej)",
       "status": "ONLINE",
+      "domains": [
+        "cayxanhhoala.com"
+      ],
       "username": "lundegej",
       "createdAt": "2026-11-03T03:01:27.782Z",
       "lastError": null,
-      "updatedAt": "2026-11-03T03:10:00.523Z",
+      "updatedAt": "2026-11-04T02:51:21.272Z",
       "diskUsedMb": 892,
-      "inodesUsed": 5694,
+      "inodesUsed": 5693,
       "diskLimitMb": 3072,
       "diskPercent": 29,
-      "lastSyncedAt": "2026-11-03T03:10:00.523Z",
+      "lastSyncedAt": "2026-11-04T02:51:21.272Z",
       "totalDomains": 1,
       "lastDiskAlertAt": null,
       "passwordEncrypted": "49d67e8e3958887dbcca42aa:a4754dc785bc76af33659934a7b2e6f2:e45dc6f99aee913c3836cf629b324c7a4adf23"
@@ -14187,7 +14293,7 @@
       "username": "pefgeczr",
       "createdAt": "2026-11-03T03:20:33.384Z",
       "lastError": null,
-      "updatedAt": "2026-11-03T03:54:24.481Z",
+      "updatedAt": "2026-11-04T02:54:40.121Z",
       "diskUsedMb": 515,
       "inodesUsed": 29716,
       "diskLimitMb": 3072,
@@ -14195,7 +14301,10 @@
       "lastSyncedAt": "2026-11-03T03:20:33.822Z",
       "totalDomains": 1,
       "lastDiskAlertAt": null,
-      "passwordEncrypted": "7e760f356cb4c9cf56b9f073:9f0d849a97facae1b45ce136ba431592:0a76c53079ce5a463f1dce55401fe142427b8a"
+      "passwordEncrypted": "f9880cf9c312866f1d2e40fa:9fae034cd6d6d7ceb6e3be4fb6369f18:b5c29d7427a667746774f006c8eca918a3f171",
+      "domains": [
+        "techwingvn.com"
+      ]
     },
     {
       "id": "srv-103-221-223-50-53e7",
@@ -14204,15 +14313,18 @@
       "port": 2083,
       "notes": "Cụm Hosting cPanel 07 (User: agcwlkfc)",
       "status": "ONLINE",
+      "domains": [
+        "pumpkin.vn"
+      ],
       "username": "agcwlkfc",
       "createdAt": "2026-11-03T03:29:40.343Z",
       "lastError": null,
-      "updatedAt": "2026-11-03T03:42:19.773Z",
+      "updatedAt": "2026-11-04T02:51:29.530Z",
       "diskUsedMb": 250,
-      "inodesUsed": 20238,
+      "inodesUsed": 20239,
       "diskLimitMb": 3072,
       "diskPercent": 8.1,
-      "lastSyncedAt": "2026-11-03T03:42:19.773Z",
+      "lastSyncedAt": "2026-11-04T02:51:29.530Z",
       "totalDomains": 1,
       "lastDiskAlertAt": null,
       "passwordEncrypted": "98d26430b01d1ce3f80ca130:9decb940b202c5d3587eddf94a7d322f:b2a31d5f389239fab725a05eccfb77cc3022cd"
@@ -14560,659 +14672,33 @@
       "totalDomains": 1,
       "lastDiskAlertAt": null,
       "passwordEncrypted": "28185a36d5bf6c26f967b1f6:0c92a2e7d4c38307e2b4f387f4263d3d:25663042e6b9c00ecfb0d178"
+    },
+    {
+      "id": "srv-45-252-249-25-072b",
+      "ip": "45.252.249.25",
+      "name": "cPanel 20 — Cụm Hosting (45.252.249.25)",
+      "port": 2083,
+      "notes": "Cụm Hosting cPanel 20 (User: ipziphab)",
+      "status": "ONLINE",
+      "domains": [
+        "maynenkhiseize.com",
+        "hoanglongphat.vn"
+      ],
+      "username": "ipziphab",
+      "createdAt": "2026-11-04T02:50:09.892Z",
+      "lastError": null,
+      "updatedAt": "2026-11-04T02:57:54.284Z",
+      "diskUsedMb": 1044,
+      "inodesUsed": 41734,
+      "diskLimitMb": 6144,
+      "diskPercent": 17,
+      "lastSyncedAt": "2026-11-04T02:50:10.365Z",
+      "totalDomains": 2,
+      "lastDiskAlertAt": null,
+      "passwordEncrypted": "0c70fe6cd52cc83058dbf3fa:7d04bf64da3fb8dcd3e0230e29e9b492:2bd11f8eafdd99b2d53a0f00"
     }
   ],
   "validationLogs": [
-    {
-      "id": 10772,
-      "action": "ACTIVATE",
-      "isValid": true,
-      "createdAt": "2026-11-03T19:05:17.549Z",
-      "licenseId": "d4a27e96-b886-42b3-a9e4-74a550e08a34",
-      "userAgent": "WordPress/7.1.4; https://taxidaklak247.net",
-      "failureReason": null,
-      "requestDomain": "taxidaklak247.net",
-      "reportedServerIp": "103.221.222.21",
-      "licenseKeyAttempt": "CLPS-P2VV-RKRW-S7T4-9WCZ",
-      "detectedOutboundIp": "103.221.220.47"
-    },
-    {
-      "id": 10773,
-      "action": "ACTIVATE",
-      "isValid": true,
-      "createdAt": "2026-11-03T19:05:26.035Z",
-      "licenseId": "646903cd-8756-4194-927c-2f6fd346aa04",
-      "userAgent": "WordPress/7.1.4; https://noithatgiarebinhduong.com.vn",
-      "failureReason": null,
-      "requestDomain": "noithatgiarebinhduong.com.vn",
-      "reportedServerIp": "103.221.223.75",
-      "licenseKeyAttempt": "CLPS-LGSN-G7EA-BSZA-2RQX",
-      "detectedOutboundIp": "103.221.223.60"
-    },
-    {
-      "id": 10774,
-      "action": "ACTIVATE",
-      "isValid": true,
-      "createdAt": "2026-11-03T19:05:40.018Z",
-      "licenseId": "471b2989-6075-4410-af5d-47e25667dbda",
-      "userAgent": "WordPress/7.1.4; https://cuuhobinhduong.vn",
-      "failureReason": null,
-      "requestDomain": "cuuhobinhduong.vn",
-      "reportedServerIp": "103.221.223.75",
-      "licenseKeyAttempt": "CLPS-UX28-ZPSR-JLZL-X5EM",
-      "detectedOutboundIp": "103.221.223.60"
-    },
-    {
-      "id": 10775,
-      "action": "ACTIVATE",
-      "isValid": true,
-      "createdAt": "2026-11-03T19:05:42.961Z",
-      "licenseId": "7117e410-1527-4952-b39b-2d143dad6f92",
-      "userAgent": "UniversalPHP/6.8; https://vissteel.com.vn",
-      "failureReason": null,
-      "requestDomain": "vissteel.com.vn",
-      "reportedServerIp": "103.221.222.89",
-      "licenseKeyAttempt": "CLPS-5H3G-X7SS-NHYK-M6U2",
-      "detectedOutboundIp": "103.221.222.68"
-    },
-    {
-      "id": 10776,
-      "action": "ACTIVATE",
-      "isValid": true,
-      "createdAt": "2026-11-03T19:05:50.182Z",
-      "licenseId": "3ec8627a-286f-4641-b04a-36a853328732",
-      "userAgent": "WordPress/7.1.4; https://hoakienglocxuan.com",
-      "failureReason": null,
-      "requestDomain": "hoakienglocxuan.com",
-      "reportedServerIp": "103.221.221.17",
-      "licenseKeyAttempt": "CLPS-DRP5-MPCR-MJWQ-7V67",
-      "detectedOutboundIp": "103.221.220.61"
-    },
-    {
-      "id": 10777,
-      "action": "ACTIVATE",
-      "isValid": true,
-      "createdAt": "2026-11-03T19:06:00.666Z",
-      "licenseId": "06d6e4dc-7db6-4d19-9600-a06aee8aa31f",
-      "userAgent": "WordPress/7.0.3; https://maynenkhisullair.com",
-      "failureReason": null,
-      "requestDomain": "maynenkhisullair.com",
-      "reportedServerIp": "103.221.222.23",
-      "licenseKeyAttempt": "CLPS-AS8B-AW3Y-5ERF-HS22",
-      "detectedOutboundIp": "103.221.221.95"
-    },
-    {
-      "id": 10778,
-      "action": "ACTIVATE",
-      "isValid": true,
-      "createdAt": "2026-11-03T19:06:19.181Z",
-      "licenseId": "4dc9d218-9e48-4b1c-9723-513c3a369dbd",
-      "userAgent": "WordPress/7.1.4; https://hungthinhbinhduong.vn",
-      "failureReason": null,
-      "requestDomain": "hungthinhbinhduong.vn",
-      "reportedServerIp": "103.221.223.75",
-      "licenseKeyAttempt": "CLPS-M6AH-M4WB-UZNT-AAJX",
-      "detectedOutboundIp": "103.221.223.60"
-    },
-    {
-      "id": 10779,
-      "action": "ACTIVATE",
-      "isValid": true,
-      "createdAt": "2026-11-03T19:06:27.896Z",
-      "licenseId": "33e8183f-683a-43f9-a46f-fda54d92f70f",
-      "userAgent": "WordPress/6.9.1; https://nanghungphat.com.vn",
-      "failureReason": null,
-      "requestDomain": "nanghungphat.com.vn",
-      "reportedServerIp": "103.221.222.21",
-      "licenseKeyAttempt": "CLPS-PEZD-959C-P336-C9PS",
-      "detectedOutboundIp": "103.221.220.47"
-    },
-    {
-      "id": 10780,
-      "action": "ACTIVATE",
-      "isValid": true,
-      "createdAt": "2026-11-03T19:06:44.276Z",
-      "licenseId": "1e266644-f464-4dff-bb5b-eb7dfad7ecf3",
-      "userAgent": "WordPress/7.1.4; https://baotuansolar.vn",
-      "failureReason": null,
-      "requestDomain": "baotuansolar.vn",
-      "reportedServerIp": "103.221.220.15",
-      "licenseKeyAttempt": "CLPS-2NQG-TU4C-LWZJ-BFYG",
-      "detectedOutboundIp": "103.221.220.47"
-    },
-    {
-      "id": 10781,
-      "action": "ACTIVATE",
-      "isValid": true,
-      "createdAt": "2026-11-03T19:06:53.037Z",
-      "licenseId": "39b079fd-3a14-4f97-b2c1-a6c1f2975022",
-      "userAgent": "WordPress/7.1.4; https://giochanguyenquangminh.com",
-      "failureReason": null,
-      "requestDomain": "giochanguyenquangminh.com",
-      "reportedServerIp": "103.221.222.41",
-      "licenseKeyAttempt": "CLPS-AVA3-AY7B-53PR-NKJ2",
-      "detectedOutboundIp": "103.221.220.47"
-    },
-    {
-      "id": 10782,
-      "action": "ACTIVATE",
-      "isValid": true,
-      "createdAt": "2026-11-03T19:07:06.277Z",
-      "licenseId": "62c87655-97b0-4f82-8312-67fe85804d70",
-      "userAgent": "WordPress/7.1.4; https://inoxthanhphu.com",
-      "failureReason": null,
-      "requestDomain": "inoxthanhphu.com",
-      "reportedServerIp": "103.221.222.41",
-      "licenseKeyAttempt": "CLPS-48RF-C2M5-KV2J-FVDW",
-      "detectedOutboundIp": "103.221.220.47"
-    },
-    {
-      "id": 10783,
-      "action": "ACTIVATE",
-      "isValid": true,
-      "createdAt": "2026-11-03T19:07:18.689Z",
-      "licenseId": "2514b9ab-24c2-4ee3-a394-194bc6ce879b",
-      "userAgent": "WordPress/6.8.1; https://giacongson.net",
-      "failureReason": null,
-      "requestDomain": "giacongson.net",
-      "reportedServerIp": "103.221.222.21",
-      "licenseKeyAttempt": "CLPS-WHYG-7SCK-TD3K-6FKG",
-      "detectedOutboundIp": "103.221.220.47"
-    },
-    {
-      "id": 10784,
-      "action": "ACTIVATE",
-      "isValid": true,
-      "createdAt": "2026-11-03T19:07:45.018Z",
-      "licenseId": "02858ca0-9c17-4255-ba60-5fe05ccab040",
-      "userAgent": "WordPress/7.1.4; https://khuondap.com",
-      "failureReason": null,
-      "requestDomain": "khuondap.com",
-      "reportedServerIp": "103.221.220.15",
-      "licenseKeyAttempt": "CLPS-MGYD-W4ND-YST9-AWA7",
-      "detectedOutboundIp": "103.221.220.47"
-    },
-    {
-      "id": 10785,
-      "action": "ACTIVATE",
-      "isValid": true,
-      "createdAt": "2026-11-03T19:07:48.214Z",
-      "licenseId": "ecac054f-b5e4-4d9c-946f-e039e2c352d4",
-      "userAgent": "WordPress/7.1.4; https://noithatdaidonga.com",
-      "failureReason": null,
-      "requestDomain": "noithatdaidonga.com",
-      "reportedServerIp": "103.221.222.41",
-      "licenseKeyAttempt": "CLPS-VPRS-K7VC-G2TG-XG96",
-      "detectedOutboundIp": "103.221.220.47"
-    },
-    {
-      "id": 10786,
-      "action": "ACTIVATE",
-      "isValid": true,
-      "createdAt": "2026-11-03T19:07:53.635Z",
-      "licenseId": "1edf5677-16d3-4f5e-9004-d4e1388e07f2",
-      "userAgent": "WordPress/7.1.4; https://dienlanhhongthai.com",
-      "failureReason": null,
-      "requestDomain": "dienlanhhongthai.com",
-      "reportedServerIp": "103.221.222.21",
-      "licenseKeyAttempt": "CLPS-AXN6-CA5Q-7SQP-HX5W",
-      "detectedOutboundIp": "103.221.220.47"
-    },
-    {
-      "id": 10787,
-      "action": "ACTIVATE",
-      "isValid": true,
-      "createdAt": "2026-11-03T19:07:59.539Z",
-      "licenseId": "2d9d9f98-12fb-417e-9fcd-6fc18619ab0d",
-      "userAgent": "WordPress/7.1.4; https://equalvn.com",
-      "failureReason": null,
-      "requestDomain": "equalvn.com",
-      "reportedServerIp": "103.221.221.17",
-      "licenseKeyAttempt": "CLPS-9FB6-QG2P-FEFA-3UBE",
-      "detectedOutboundIp": "103.221.220.61"
-    },
-    {
-      "id": 10788,
-      "action": "ACTIVATE",
-      "isValid": true,
-      "createdAt": "2026-11-03T19:08:06.519Z",
-      "licenseId": "95da6aa0-a8f2-47e3-95e1-4061c859c4e0",
-      "userAgent": "WordPress/7.1.4; https://locdonaldsonvn.com",
-      "failureReason": null,
-      "requestDomain": "locdonaldsonvn.com",
-      "reportedServerIp": "103.221.223.75",
-      "licenseKeyAttempt": "CLPS-EKUE-AXFL-SKS8-82JH",
-      "detectedOutboundIp": "103.221.223.60"
-    },
-    {
-      "id": 10789,
-      "action": "ACTIVATE",
-      "isValid": true,
-      "createdAt": "2026-11-03T19:08:09.369Z",
-      "licenseId": "ea4aeb9e-b486-4caf-9894-0309ab581227",
-      "userAgent": "UniversalPHP/6.8; https://cayxanhhoala.com",
-      "failureReason": null,
-      "requestDomain": "cayxanhhoala.com",
-      "reportedServerIp": "103.221.220.71",
-      "licenseKeyAttempt": "CLPS-DN5C-2GSE-S8QC-8WVW",
-      "detectedOutboundIp": "103.221.221.95"
-    },
-    {
-      "id": 10790,
-      "action": "ACTIVATE",
-      "isValid": true,
-      "createdAt": "2026-11-03T19:08:13.540Z",
-      "licenseId": "840027ab-987a-4d3d-ae4c-2ad959678bd7",
-      "userAgent": "WordPress/7.0.3; https://gocaosubinhduong.com",
-      "failureReason": null,
-      "requestDomain": "gocaosubinhduong.com",
-      "reportedServerIp": "45.252.249.36",
-      "licenseKeyAttempt": "CLPS-UWYY-YGGU-JWFA-P46T",
-      "detectedOutboundIp": "45.252.248.38"
-    },
-    {
-      "id": 10791,
-      "action": "ACTIVATE",
-      "isValid": true,
-      "createdAt": "2026-11-03T19:08:19.605Z",
-      "licenseId": "c38e3894-6cbc-49b8-ab06-1a6ad171fdd9",
-      "userAgent": "WordPress/7.1.4; https://osda.vn",
-      "failureReason": null,
-      "requestDomain": "osda.vn",
-      "reportedServerIp": "103.221.223.75",
-      "licenseKeyAttempt": "CLPS-YPFT-H8KB-4JEE-FUBA",
-      "detectedOutboundIp": "103.221.223.60"
-    },
-    {
-      "id": 10792,
-      "action": "ACTIVATE",
-      "isValid": true,
-      "createdAt": "2026-11-03T19:08:42.884Z",
-      "licenseId": "55488b68-ee94-4962-85a8-ca4a425250bd",
-      "userAgent": "WordPress/7.1.4; https://eurogolden.vn",
-      "failureReason": null,
-      "requestDomain": "eurogolden.vn",
-      "reportedServerIp": "103.221.222.38",
-      "licenseKeyAttempt": "CLPS-JV94-MADC-NTBE-RHTV",
-      "detectedOutboundIp": "103.221.222.90"
-    },
-    {
-      "id": 10793,
-      "action": "ACTIVATE",
-      "isValid": true,
-      "createdAt": "2026-11-03T19:09:51.906Z",
-      "licenseId": "f3105d86-999b-4729-a171-4749954d6096",
-      "userAgent": "WordPress/7.1.4; https://xaydunghuynhgia.vn",
-      "failureReason": null,
-      "requestDomain": "xaydunghuynhgia.vn",
-      "reportedServerIp": "103.221.223.75",
-      "licenseKeyAttempt": "CLPS-G47A-ZUKK-UW9M-5ZNZ",
-      "detectedOutboundIp": "103.221.223.60"
-    },
-    {
-      "id": 10794,
-      "action": "ACTIVATE",
-      "isValid": true,
-      "createdAt": "2026-11-03T19:09:54.207Z",
-      "licenseId": "45c207eb-9548-4487-adcf-92b6828044d8",
-      "userAgent": "WordPress/7.1.4; https://anthanhphu.com",
-      "failureReason": null,
-      "requestDomain": "anthanhphu.com",
-      "reportedServerIp": "103.221.221.17",
-      "licenseKeyAttempt": "CLPS-875N-87J8-2TZ6-HPDW",
-      "detectedOutboundIp": "103.221.220.61"
-    },
-    {
-      "id": 10795,
-      "action": "ACTIVATE",
-      "isValid": true,
-      "createdAt": "2026-11-03T19:10:08.587Z",
-      "licenseId": "00808692-8428-4f53-b5e1-64a7acf530d0",
-      "userAgent": "WordPress/7.1.4; https://ketoantiengtrungbd.com",
-      "failureReason": null,
-      "requestDomain": "ketoantiengtrungbd.com",
-      "reportedServerIp": "103.221.222.21",
-      "licenseKeyAttempt": "CLPS-ZX76-UAMF-XLAY-6232",
-      "detectedOutboundIp": "103.221.220.47"
-    },
-    {
-      "id": 10796,
-      "action": "ACTIVATE",
-      "isValid": true,
-      "createdAt": "2026-11-03T19:10:15.843Z",
-      "licenseId": "740578ce-d883-4f27-a679-29ee2b6458bc",
-      "userAgent": "WordPress/7.1.4; https://thietkewebbinhduong.com.vn",
-      "failureReason": null,
-      "requestDomain": "thietkewebbinhduong.com.vn",
-      "reportedServerIp": "45.252.251.68",
-      "licenseKeyAttempt": "CLPS-TQDH-5EVV-S8L7-9HK8",
-      "detectedOutboundIp": "45.252.251.44"
-    },
-    {
-      "id": 10797,
-      "action": "ACTIVATE",
-      "isValid": true,
-      "createdAt": "2026-11-03T19:10:30.608Z",
-      "licenseId": "186f5f2d-4a32-4291-ab23-3cecdc46373b",
-      "userAgent": "WordPress/7.1.4; https://kvasolar.vn",
-      "failureReason": null,
-      "requestDomain": "kvasolar.vn",
-      "reportedServerIp": "103.221.222.21",
-      "licenseKeyAttempt": "CLPS-AHGX-T8CD-W7X6-3Q3T",
-      "detectedOutboundIp": "103.221.220.47"
-    },
-    {
-      "id": 10798,
-      "action": "ACTIVATE",
-      "isValid": true,
-      "createdAt": "2026-11-03T19:10:35.270Z",
-      "licenseId": "d43daff6-06cc-4c40-a794-688817e39dd2",
-      "userAgent": "WordPress/7.1.4; https://eyelashanan.com",
-      "failureReason": null,
-      "requestDomain": "eyelashanan.com",
-      "reportedServerIp": "103.221.223.75",
-      "licenseKeyAttempt": "CLPS-TQMX-EZZ6-WPNU-5NRG",
-      "detectedOutboundIp": "103.221.223.60"
-    },
-    {
-      "id": 10799,
-      "action": "ACTIVATE",
-      "isValid": true,
-      "createdAt": "2026-11-03T19:10:40.312Z",
-      "licenseId": "1ba29658-a54f-48cb-b04d-ccd6197ef967",
-      "userAgent": "WordPress/7.1.4; http://shopdonaldson.com.vn",
-      "failureReason": null,
-      "requestDomain": "shopdonaldson.com.vn",
-      "reportedServerIp": "103.221.223.75",
-      "licenseKeyAttempt": "CLPS-J3XS-XKJX-H4F3-VZ3D",
-      "detectedOutboundIp": "103.221.223.60"
-    },
-    {
-      "id": 10800,
-      "action": "ACTIVATE",
-      "isValid": true,
-      "createdAt": "2026-11-03T19:11:01.282Z",
-      "licenseId": "80e2fc49-058c-4f61-a1f8-a899e9905686",
-      "userAgent": "WordPress/7.1.4; https://khaosatdiahinhdiachat.com",
-      "failureReason": null,
-      "requestDomain": "khaosatdiahinhdiachat.com",
-      "reportedServerIp": "103.221.223.75",
-      "licenseKeyAttempt": "CLPS-6MWJ-JKMB-93HF-8LG9",
-      "detectedOutboundIp": "103.221.223.60"
-    },
-    {
-      "id": 10801,
-      "action": "ACTIVATE",
-      "isValid": true,
-      "createdAt": "2026-11-03T19:11:12.185Z",
-      "licenseId": "eea1f837-3b5f-42a0-9f02-ffd514140735",
-      "userAgent": "WordPress/7.1.4; https://tungshanpenvn.com",
-      "failureReason": null,
-      "requestDomain": "tungshanpenvn.com",
-      "reportedServerIp": "103.221.220.15",
-      "licenseKeyAttempt": "CLPS-W57W-NKLS-7E9F-K88Y",
-      "detectedOutboundIp": "103.221.220.47"
-    },
-    {
-      "id": 10802,
-      "action": "ACTIVATE",
-      "isValid": true,
-      "createdAt": "2026-11-03T19:11:58.882Z",
-      "licenseId": "4a92157f-d55c-4e16-8b51-ba992191b9f6",
-      "userAgent": "WordPress/6.8.1; https://daychuyenson.net",
-      "failureReason": null,
-      "requestDomain": "daychuyenson.net",
-      "reportedServerIp": "103.221.222.21",
-      "licenseKeyAttempt": "CLPS-BP75-SC9L-DGT3-HXWK",
-      "detectedOutboundIp": "103.221.220.47"
-    },
-    {
-      "id": 10803,
-      "action": "ACTIVATE",
-      "isValid": true,
-      "createdAt": "2026-11-03T19:12:53.832Z",
-      "licenseId": "fb31d3a4-89f8-4996-aa84-c5e664336f0f",
-      "userAgent": "WordPress/7.1.4; https://godaphongthuy.vn",
-      "failureReason": null,
-      "requestDomain": "godaphongthuy.vn",
-      "reportedServerIp": "103.221.220.15",
-      "licenseKeyAttempt": "CLPS-45G2-4YSR-8CVH-NLY5",
-      "detectedOutboundIp": "103.221.220.47"
-    },
-    {
-      "id": 10804,
-      "action": "ACTIVATE",
-      "isValid": true,
-      "createdAt": "2026-11-03T19:12:58.322Z",
-      "licenseId": "2459d93c-524a-484d-92ee-e9fcfaf5d2be",
-      "userAgent": "WordPress/7.1.4; https://itou.vn",
-      "failureReason": null,
-      "requestDomain": "itou.vn",
-      "reportedServerIp": "103.221.223.75",
-      "licenseKeyAttempt": "CLPS-8NBP-782L-FCEZ-8S56",
-      "detectedOutboundIp": "103.221.223.60"
-    },
-    {
-      "id": 10805,
-      "action": "ACTIVATE",
-      "isValid": true,
-      "createdAt": "2026-11-03T19:13:02.670Z",
-      "licenseId": "d8feaba3-0185-49f8-8d47-17902a23a94b",
-      "userAgent": "WordPress/7.1.4; https://minhngocbinhduong.com",
-      "failureReason": null,
-      "requestDomain": "minhngocbinhduong.com",
-      "reportedServerIp": "103.221.222.21",
-      "licenseKeyAttempt": "CLPS-ZLDU-X74Q-GFZL-8R3J",
-      "detectedOutboundIp": "103.221.220.47"
-    },
-    {
-      "id": 10806,
-      "action": "ACTIVATE",
-      "isValid": true,
-      "createdAt": "2026-11-03T19:13:07.167Z",
-      "licenseId": "5e77ba58-80f4-4c16-8575-7f2678264950",
-      "userAgent": "WordPress/7.1.4; https://thietkewebbinhduong.vn",
-      "failureReason": null,
-      "requestDomain": "thietkewebbinhduong.vn",
-      "reportedServerIp": "45.252.251.68",
-      "licenseKeyAttempt": "CLPS-NUWD-EVMZ-AWFD-4WPM",
-      "detectedOutboundIp": "45.252.251.44"
-    },
-    {
-      "id": 10807,
-      "action": "ACTIVATE",
-      "isValid": true,
-      "createdAt": "2026-11-03T19:13:15.126Z",
-      "licenseId": "a5111168-2565-418f-9763-06d233bfcfd3",
-      "userAgent": "WordPress/7.1.4; https://quocteanhson.vn",
-      "failureReason": null,
-      "requestDomain": "quocteanhson.vn",
-      "reportedServerIp": "45.252.251.68",
-      "licenseKeyAttempt": "CLPS-7HWW-D86P-43PL-NNZ2",
-      "detectedOutboundIp": "45.252.251.44"
-    },
-    {
-      "id": 10808,
-      "action": "ACTIVATE",
-      "isValid": true,
-      "createdAt": "2026-11-03T19:13:31.005Z",
-      "licenseId": "fa61ab7b-147f-47f4-a43d-e00ed744b0af",
-      "userAgent": "WordPress/7.1.4; http://luatxuanninh.com",
-      "failureReason": null,
-      "requestDomain": "luatxuanninh.com",
-      "reportedServerIp": "103.221.222.41",
-      "licenseKeyAttempt": "CLPS-E77X-U5C5-3H2U-A5H7",
-      "detectedOutboundIp": "103.221.220.47"
-    },
-    {
-      "id": 10809,
-      "action": "ACTIVATE",
-      "isValid": true,
-      "createdAt": "2026-11-03T19:13:43.944Z",
-      "licenseId": "d5af7ab5-13b1-440b-bab2-53306bcd7a1f",
-      "userAgent": "WordPress/7.1.4; https://cokhixaydungbinhduong.vn",
-      "failureReason": null,
-      "requestDomain": "cokhixaydungbinhduong.vn",
-      "reportedServerIp": "103.221.223.75",
-      "licenseKeyAttempt": "CLPS-DW5T-48B8-222S-WQ5Y",
-      "detectedOutboundIp": "103.221.223.60"
-    },
-    {
-      "id": 10810,
-      "action": "ACTIVATE",
-      "isValid": true,
-      "createdAt": "2026-11-03T19:13:58.188Z",
-      "licenseId": "0c47d9a3-5e63-4cda-88a7-d610c1b746a1",
-      "userAgent": "WordPress/7.1.4; https://baotrinhaxuong.vn",
-      "failureReason": null,
-      "requestDomain": "baotrinhaxuong.vn",
-      "reportedServerIp": "103.221.220.15",
-      "licenseKeyAttempt": "CLPS-HR64-6R6N-HZQN-ZSWA",
-      "detectedOutboundIp": "103.221.220.47"
-    },
-    {
-      "id": 10811,
-      "action": "ACTIVATE",
-      "isValid": true,
-      "createdAt": "2026-11-03T19:14:04.284Z",
-      "licenseId": "aaad450d-b0c8-4ba8-83be-b715ea4377e2",
-      "userAgent": "WordPress/7.1.4; https://noithatnhuatrucvu.com",
-      "failureReason": null,
-      "requestDomain": "noithatnhuatrucvu.com",
-      "reportedServerIp": "103.221.220.15",
-      "licenseKeyAttempt": "CLPS-X6J6-7CB7-SADJ-AWU5",
-      "detectedOutboundIp": "103.221.220.47"
-    },
-    {
-      "id": 10812,
-      "action": "ACTIVATE",
-      "isValid": true,
-      "createdAt": "2026-11-03T19:14:08.167Z",
-      "licenseId": "a523890f-d4fa-46ae-94c6-eb685183aeed",
-      "userAgent": "WordPress/7.1.4; https://nhaxehunglong.com",
-      "failureReason": null,
-      "requestDomain": "nhaxehunglong.com",
-      "reportedServerIp": "103.221.220.15",
-      "licenseKeyAttempt": "CLPS-JPF3-NG26-PPQP-MXDL",
-      "detectedOutboundIp": "103.221.220.47"
-    },
-    {
-      "id": 10813,
-      "action": "ACTIVATE",
-      "isValid": true,
-      "createdAt": "2026-11-03T19:14:11.836Z",
-      "licenseId": "42e4e2b9-1f4e-4b1b-973d-e02a35614103",
-      "userAgent": "WordPress/7.1.4; https://sontinhdienvn.com.vn",
-      "failureReason": null,
-      "requestDomain": "sontinhdienvn.com.vn",
-      "reportedServerIp": "103.221.222.41",
-      "licenseKeyAttempt": "CLPS-WCZS-AEFL-U8YH-NEXT",
-      "detectedOutboundIp": "103.221.220.47"
-    },
-    {
-      "id": 10814,
-      "action": "ACTIVATE",
-      "isValid": true,
-      "createdAt": "2026-11-03T19:15:02.959Z",
-      "licenseId": "6aae4dcc-9500-4152-a6df-44f515b3775c",
-      "userAgent": "WordPress/7.1.4; https://dieukhacthanhbinh.com",
-      "failureReason": null,
-      "requestDomain": "dieukhacthanhbinh.com",
-      "reportedServerIp": "103.221.221.17",
-      "licenseKeyAttempt": "CLPS-8TKQ-AXWU-JJXH-UTQ4",
-      "detectedOutboundIp": "103.221.220.61"
-    },
-    {
-      "id": 10815,
-      "action": "ACTIVATE",
-      "isValid": true,
-      "createdAt": "2026-11-03T19:15:14.666Z",
-      "licenseId": "47c59747-6548-4c19-beb8-b4c0e37ea5c3",
-      "userAgent": "UniversalPHP/6.8; https://thepkimson.com",
-      "failureReason": null,
-      "requestDomain": "thepkimson.com",
-      "reportedServerIp": "103.221.222.23",
-      "licenseKeyAttempt": "CLPS-322R-GTUL-DS5X-E42V",
-      "detectedOutboundIp": "103.221.221.95"
-    },
-    {
-      "id": 10816,
-      "action": "ACTIVATE",
-      "isValid": true,
-      "createdAt": "2026-11-03T19:15:41.466Z",
-      "licenseId": "79eeedf6-ca7e-4f7a-a04c-017330cbc52f",
-      "userAgent": "WordPress/7.1.4; https://nguyenlam.com",
-      "failureReason": null,
-      "requestDomain": "nguyenlam.com",
-      "reportedServerIp": "103.221.221.17",
-      "licenseKeyAttempt": "CLPS-W6NR-ZF8K-6GW8-AWD6",
-      "detectedOutboundIp": "103.221.220.61"
-    },
-    {
-      "id": 10817,
-      "action": "ACTIVATE",
-      "isValid": true,
-      "createdAt": "2026-11-03T19:15:46.459Z",
-      "licenseId": "f1596652-fe80-4ef7-8499-8ca8223d4887",
-      "userAgent": "WordPress/7.1.4; https://maychebiengotruonghung.com",
-      "failureReason": null,
-      "requestDomain": "maychebiengotruonghung.com",
-      "reportedServerIp": "103.221.220.15",
-      "licenseKeyAttempt": "CLPS-WABX-M2XX-FXYX-6FBZ",
-      "detectedOutboundIp": "103.221.220.47"
-    },
-    {
-      "id": 10818,
-      "action": "ACTIVATE",
-      "isValid": true,
-      "createdAt": "2026-11-03T19:16:39.126Z",
-      "licenseId": "5f47a496-f745-497b-aa59-9a8d740f3940",
-      "userAgent": "WordPress/4.9.20; https://sanmiguelpurefoods.vn",
-      "failureReason": null,
-      "requestDomain": "sanmiguelpurefoods.vn",
-      "reportedServerIp": "103.221.222.21",
-      "licenseKeyAttempt": "CLPS-SQZQ-8MZM-RVVF-DWP5",
-      "detectedOutboundIp": "103.221.220.47"
-    },
-    {
-      "id": 10819,
-      "action": "ACTIVATE",
-      "isValid": true,
-      "createdAt": "2026-11-03T19:16:47.598Z",
-      "licenseId": "5e05b861-cef2-40b9-b204-0eadacaeeb35",
-      "userAgent": "WordPress/7.1.4; https://azoil.com.vn",
-      "failureReason": null,
-      "requestDomain": "azoil.com.vn",
-      "reportedServerIp": "103.221.223.75",
-      "licenseKeyAttempt": "CLPS-MATH-B95W-7R6Z-DFU2",
-      "detectedOutboundIp": "103.221.223.60"
-    },
-    {
-      "id": 10820,
-      "action": "ACTIVATE",
-      "isValid": true,
-      "createdAt": "2026-11-03T19:17:33.137Z",
-      "licenseId": "3d6d1f82-1ce9-4c86-8254-df0876bea366",
-      "userAgent": "WordPress/7.1.2; https://moitruongbinhduong.com",
-      "failureReason": null,
-      "requestDomain": "moitruongbinhduong.com",
-      "reportedServerIp": "103.221.222.38",
-      "licenseKeyAttempt": "CLPS-97EL-ARQK-M8CE-89ZS",
-      "detectedOutboundIp": "103.221.222.90"
-    },
-    {
-      "id": 10821,
-      "action": "ACTIVATE",
-      "isValid": true,
-      "createdAt": "2026-11-03T19:17:47.987Z",
-      "licenseId": "85a29ac9-d069-4c44-8fb0-a7785c67b4be",
-      "userAgent": "WordPress/7.1.4; https://giaoxuchanhtoaphucuong.com",
-      "failureReason": null,
-      "requestDomain": "giaoxuchanhtoaphucuong.com",
-      "reportedServerIp": "103.221.222.41",
-      "licenseKeyAttempt": "CLPS-HE2X-4JHE-AMUP-SDR9",
-      "detectedOutboundIp": "103.221.220.47"
-    },
     {
       "id": 10822,
       "action": "ACTIVATE",
@@ -40562,11 +40048,661 @@
       "reportedServerIp": "103.221.222.21",
       "licenseKeyAttempt": "CLPS-PEZD-959C-P336-C9PS",
       "detectedOutboundIp": "103.221.220.47"
+    },
+    {
+      "id": 12785,
+      "action": "ACTIVATE",
+      "isValid": true,
+      "createdAt": "2026-11-04T02:45:30.187Z",
+      "licenseId": "aaad450d-b0c8-4ba8-83be-b715ea4377e2",
+      "userAgent": "WordPress/7.1.4; https://noithatnhuatrucvu.com",
+      "failureReason": null,
+      "requestDomain": "noithatnhuatrucvu.com",
+      "reportedServerIp": "103.221.220.15",
+      "licenseKeyAttempt": "CLPS-X6J6-7CB7-SADJ-AWU5",
+      "detectedOutboundIp": "103.221.220.47"
+    },
+    {
+      "id": 12786,
+      "action": "ACTIVATE",
+      "isValid": true,
+      "createdAt": "2026-11-04T02:45:50.225Z",
+      "licenseId": "cb892c15-f62a-4394-aec0-eeca533657be",
+      "userAgent": "WordPress/7.1.4; https://cuuhobinhduong.com",
+      "failureReason": null,
+      "requestDomain": "cuuhobinhduong.com",
+      "reportedServerIp": "103.221.222.21",
+      "licenseKeyAttempt": "CLPS-VZ5Q-RQHQ-H2BX-KLT2",
+      "detectedOutboundIp": "103.221.220.47"
+    },
+    {
+      "id": 12787,
+      "action": "ACTIVATE",
+      "isValid": true,
+      "createdAt": "2026-11-04T02:46:19.727Z",
+      "licenseId": "bd564fdb-39b4-4dcd-8dd3-ee81d893f227",
+      "userAgent": "WordPress/7.1.4; https://thienmafilter.com.vn",
+      "failureReason": null,
+      "requestDomain": "thienmafilter.com.vn",
+      "reportedServerIp": "103.221.220.15",
+      "licenseKeyAttempt": "CLPS-CP8M-UTTX-AQXW-FR7A",
+      "detectedOutboundIp": "103.221.220.47"
+    },
+    {
+      "id": 12788,
+      "action": "ACTIVATE",
+      "isValid": true,
+      "createdAt": "2026-11-04T02:46:25.574Z",
+      "licenseId": "dfb1f3b5-95c1-44ee-ae09-8780a91b0e32",
+      "userAgent": "WordPress/7.1.4; https://tuvanxaydungtruongluy.com",
+      "failureReason": null,
+      "requestDomain": "tuvanxaydungtruongluy.com",
+      "reportedServerIp": "103.221.223.75",
+      "licenseKeyAttempt": "CLPS-BVTK-BBL3-H4KG-3VP8",
+      "detectedOutboundIp": "103.221.223.60"
+    },
+    {
+      "id": 12789,
+      "action": "ACTIVATE",
+      "isValid": true,
+      "createdAt": "2026-11-04T02:46:37.649Z",
+      "licenseId": "1036fa7a-0919-4f29-a81a-17a8850f0b1f",
+      "userAgent": "UniversalPHP/6.8; https://pumpkin.vn",
+      "failureReason": null,
+      "requestDomain": "pumpkin.vn",
+      "reportedServerIp": "103.221.223.50",
+      "licenseKeyAttempt": "CLPS-US8L-Z753-ASA2-VF5N",
+      "detectedOutboundIp": "103.221.220.13"
+    },
+    {
+      "id": 12790,
+      "action": "ACTIVATE",
+      "isValid": true,
+      "createdAt": "2026-11-04T02:46:42.852Z",
+      "licenseId": "1036fa7a-0919-4f29-a81a-17a8850f0b1f",
+      "userAgent": "UniversalPHP/6.8; https://pumpkin.vn",
+      "failureReason": null,
+      "requestDomain": "pumpkin.vn",
+      "reportedServerIp": "103.221.223.50",
+      "licenseKeyAttempt": "CLPS-US8L-Z753-ASA2-VF5N",
+      "detectedOutboundIp": "103.221.220.13"
+    },
+    {
+      "id": 12791,
+      "action": "ACTIVATE",
+      "isValid": true,
+      "createdAt": "2026-11-04T02:46:56.437Z",
+      "licenseId": "f6757548-0de3-4021-a525-b41cae84b002",
+      "userAgent": "WordPress/7.1.4; https://truongmamnonchoixanh.com",
+      "failureReason": null,
+      "requestDomain": "truongmamnonchoixanh.com",
+      "reportedServerIp": "103.221.222.41",
+      "licenseKeyAttempt": "CLPS-5RCD-38V5-JYJH-W329",
+      "detectedOutboundIp": "103.221.220.47"
+    },
+    {
+      "id": 12792,
+      "action": "ACTIVATE",
+      "isValid": true,
+      "createdAt": "2026-11-04T02:47:18.926Z",
+      "licenseId": "4a92157f-d55c-4e16-8b51-ba992191b9f6",
+      "userAgent": "WordPress/6.8.1; https://daychuyenson.net",
+      "failureReason": null,
+      "requestDomain": "daychuyenson.net",
+      "reportedServerIp": "103.221.222.21",
+      "licenseKeyAttempt": "CLPS-BP75-SC9L-DGT3-HXWK",
+      "detectedOutboundIp": "103.221.220.47"
+    },
+    {
+      "id": 12793,
+      "action": "ACTIVATE",
+      "isValid": true,
+      "createdAt": "2026-11-04T02:47:45.421Z",
+      "licenseId": "aa3b0039-13dd-4e3d-abc9-f65febf2277a",
+      "userAgent": "WordPress/7.1.4; https://viethoamachine.com.vn",
+      "failureReason": null,
+      "requestDomain": "viethoamachine.com.vn",
+      "reportedServerIp": "103.221.222.21",
+      "licenseKeyAttempt": "CLPS-JTEB-FQUN-SC7Y-TRSF",
+      "detectedOutboundIp": "103.221.220.47"
+    },
+    {
+      "id": 12794,
+      "action": "ACTIVATE",
+      "isValid": true,
+      "createdAt": "2026-11-04T02:48:04.361Z",
+      "licenseId": "c38e3894-6cbc-49b8-ab06-1a6ad171fdd9",
+      "userAgent": "WordPress/7.1.4; https://osda.vn",
+      "failureReason": null,
+      "requestDomain": "osda.vn",
+      "reportedServerIp": "103.221.223.75",
+      "licenseKeyAttempt": "CLPS-YPFT-H8KB-4JEE-FUBA",
+      "detectedOutboundIp": "103.221.223.60"
+    },
+    {
+      "id": 12795,
+      "action": "ACTIVATE",
+      "isValid": true,
+      "createdAt": "2026-11-04T02:48:07.664Z",
+      "licenseId": "2918ba4b-8b4a-40ae-8c00-cb3a77a18801",
+      "userAgent": "WordPress/6.8.1; https://gstarcompany.com",
+      "failureReason": null,
+      "requestDomain": "gstarcompany.com",
+      "reportedServerIp": "103.221.222.21",
+      "licenseKeyAttempt": "CLPS-9Z3N-YVGJ-UR69-JRS6",
+      "detectedOutboundIp": "103.221.220.47"
+    },
+    {
+      "id": 12796,
+      "action": "ACTIVATE",
+      "isValid": true,
+      "createdAt": "2026-11-04T02:48:33.612Z",
+      "licenseId": "3d6d1f82-1ce9-4c86-8254-df0876bea366",
+      "userAgent": "WordPress/7.1.2; https://moitruongbinhduong.com",
+      "failureReason": null,
+      "requestDomain": "moitruongbinhduong.com",
+      "reportedServerIp": "103.221.222.38",
+      "licenseKeyAttempt": "CLPS-97EL-ARQK-M8CE-89ZS",
+      "detectedOutboundIp": "103.221.222.90"
+    },
+    {
+      "id": 12797,
+      "action": "ACTIVATE",
+      "isValid": true,
+      "createdAt": "2026-11-04T02:48:41.223Z",
+      "licenseId": "b101c205-0c45-4d80-8026-10ff47c3d2ad",
+      "userAgent": "WordPress/7.1.4; https://techwingvn.com",
+      "failureReason": null,
+      "requestDomain": "techwingvn.com",
+      "reportedServerIp": "103.221.220.76",
+      "licenseKeyAttempt": "CLPS-E2VD-TJPW-Y398-HLW5",
+      "detectedOutboundIp": "103.221.220.98"
+    },
+    {
+      "id": 12798,
+      "action": "ACTIVATE",
+      "isValid": true,
+      "createdAt": "2026-11-04T02:48:58.966Z",
+      "licenseId": "32e47ee0-c509-4f30-a874-27af481185bf",
+      "userAgent": "WordPress/7.1.4; https://vitinhbencat.vn",
+      "failureReason": null,
+      "requestDomain": "vitinhbencat.vn",
+      "reportedServerIp": "103.221.220.15",
+      "licenseKeyAttempt": "CLPS-58ZD-SGJR-59PH-PDDR",
+      "detectedOutboundIp": "103.221.220.47"
+    },
+    {
+      "id": 12799,
+      "action": "ACTIVATE",
+      "isValid": true,
+      "createdAt": "2026-11-04T02:49:13.459Z",
+      "licenseId": "ccfdbda5-9449-4152-83a2-1da6d1fa9b7f",
+      "userAgent": "WordPress/7.1.4; https://kiemdinhxaydung.com",
+      "failureReason": null,
+      "requestDomain": "kiemdinhxaydung.com",
+      "reportedServerIp": "103.221.223.75",
+      "licenseKeyAttempt": "CLPS-YJJP-CYAG-9JXM-FQ5M",
+      "detectedOutboundIp": "103.221.223.60"
+    },
+    {
+      "id": 12800,
+      "action": "ACTIVATE",
+      "isValid": true,
+      "createdAt": "2026-11-04T02:49:19.983Z",
+      "licenseId": "e68ed153-6ae8-4948-a87f-b16920eb99d4",
+      "userAgent": "WordPress/7.1.4; https://thepkimson.vn",
+      "failureReason": null,
+      "requestDomain": "thepkimson.vn",
+      "reportedServerIp": "103.221.222.21",
+      "licenseKeyAttempt": "CLPS-4RBW-ACR7-2CQD-5EVL",
+      "detectedOutboundIp": "103.221.220.47"
+    },
+    {
+      "id": 12801,
+      "action": "ACTIVATE",
+      "isValid": true,
+      "createdAt": "2026-11-04T02:49:23.594Z",
+      "licenseId": "5e05b861-cef2-40b9-b204-0eadacaeeb35",
+      "userAgent": "WordPress/7.1.4; https://azoil.com.vn",
+      "failureReason": null,
+      "requestDomain": "azoil.com.vn",
+      "reportedServerIp": "103.221.223.75",
+      "licenseKeyAttempt": "CLPS-MATH-B95W-7R6Z-DFU2",
+      "detectedOutboundIp": "103.221.223.60"
+    },
+    {
+      "id": 12802,
+      "action": "ACTIVATE",
+      "isValid": true,
+      "createdAt": "2026-11-04T02:49:26.676Z",
+      "licenseId": "47c59747-6548-4c19-beb8-b4c0e37ea5c3",
+      "userAgent": "UniversalPHP/6.8; https://thepkimson.com",
+      "failureReason": null,
+      "requestDomain": "thepkimson.com",
+      "reportedServerIp": "103.221.222.23",
+      "licenseKeyAttempt": "CLPS-322R-GTUL-DS5X-E42V",
+      "detectedOutboundIp": "103.221.221.95"
+    },
+    {
+      "id": 12803,
+      "action": "ACTIVATE",
+      "isValid": true,
+      "createdAt": "2026-11-04T02:49:43.064Z",
+      "licenseId": "5f47a496-f745-497b-aa59-9a8d740f3940",
+      "userAgent": "WordPress/4.9.20; https://sanmiguelpurefoods.vn",
+      "failureReason": null,
+      "requestDomain": "sanmiguelpurefoods.vn",
+      "reportedServerIp": "103.221.222.21",
+      "licenseKeyAttempt": "CLPS-SQZQ-8MZM-RVVF-DWP5",
+      "detectedOutboundIp": "103.221.220.47"
+    },
+    {
+      "id": 12804,
+      "action": "ACTIVATE",
+      "isValid": true,
+      "createdAt": "2026-11-04T02:49:50.642Z",
+      "licenseId": "02139734-5b32-4f81-ae6f-da6d0d491d15",
+      "userAgent": "WordPress/7.1.4; https://nguoivietdoanhnhan.com",
+      "failureReason": null,
+      "requestDomain": "nguoivietdoanhnhan.com",
+      "reportedServerIp": "103.221.220.15",
+      "licenseKeyAttempt": "CLPS-2WSG-T9W4-FU64-CSMS",
+      "detectedOutboundIp": "103.221.220.47"
+    },
+    {
+      "id": 12805,
+      "action": "ACTIVATE",
+      "isValid": true,
+      "createdAt": "2026-11-04T02:49:53.496Z",
+      "licenseId": "894d96cd-3dde-4c7c-ab4d-c16a6024d8a7",
+      "userAgent": "WordPress/7.1.4; https://bdkocham.org",
+      "failureReason": null,
+      "requestDomain": "bdkocham.org",
+      "reportedServerIp": "103.221.222.21",
+      "licenseKeyAttempt": "CLPS-8WFU-Q9HG-2MFT-VR8L",
+      "detectedOutboundIp": "103.221.220.47"
+    },
+    {
+      "id": 12806,
+      "action": "ACTIVATE",
+      "isValid": true,
+      "createdAt": "2026-11-04T02:49:56.627Z",
+      "licenseId": "85a29ac9-d069-4c44-8fb0-a7785c67b4be",
+      "userAgent": "WordPress/7.1.4; https://giaoxuchanhtoaphucuong.com",
+      "failureReason": null,
+      "requestDomain": "giaoxuchanhtoaphucuong.com",
+      "reportedServerIp": "103.221.222.41",
+      "licenseKeyAttempt": "CLPS-HE2X-4JHE-AMUP-SDR9",
+      "detectedOutboundIp": "103.221.220.47"
+    },
+    {
+      "id": 12807,
+      "action": "ACTIVATE",
+      "isValid": true,
+      "createdAt": "2026-11-04T02:50:18.286Z",
+      "licenseId": "79eeedf6-ca7e-4f7a-a04c-017330cbc52f",
+      "userAgent": "WordPress/7.1.4; https://nguyenlam.com",
+      "failureReason": null,
+      "requestDomain": "nguyenlam.com",
+      "reportedServerIp": "103.221.221.17",
+      "licenseKeyAttempt": "CLPS-W6NR-ZF8K-6GW8-AWD6",
+      "detectedOutboundIp": "103.221.220.61"
+    },
+    {
+      "id": 12808,
+      "action": "ACTIVATE",
+      "isValid": true,
+      "createdAt": "2026-11-04T02:50:23.085Z",
+      "licenseId": "79eeedf6-ca7e-4f7a-a04c-017330cbc52f",
+      "userAgent": "WordPress/7.1.4; https://nguyenlam.com",
+      "failureReason": null,
+      "requestDomain": "nguyenlam.com",
+      "reportedServerIp": "103.221.221.17",
+      "licenseKeyAttempt": "CLPS-W6NR-ZF8K-6GW8-AWD6",
+      "detectedOutboundIp": "103.221.220.61"
+    },
+    {
+      "id": 12809,
+      "action": "ACTIVATE",
+      "isValid": true,
+      "createdAt": "2026-11-04T02:50:38.882Z",
+      "licenseId": "32b2acd6-8078-4a75-b208-b5cf307c5324",
+      "userAgent": "WordPress/7.1.4; https://duongthaiha.vn",
+      "failureReason": null,
+      "requestDomain": "duongthaiha.vn",
+      "reportedServerIp": "103.221.222.21",
+      "licenseKeyAttempt": "CLPS-CHVU-P62M-8AUF-Z68F",
+      "detectedOutboundIp": "103.221.220.47"
+    },
+    {
+      "id": 12810,
+      "action": "ACTIVATE",
+      "isValid": true,
+      "createdAt": "2026-11-04T02:50:46.616Z",
+      "licenseId": "6de1be22-2603-48f1-9307-4050fef488dd",
+      "userAgent": "WordPress/7.1.4; https://kiemdinhquyhoachmiennam.com",
+      "failureReason": null,
+      "requestDomain": "kiemdinhquyhoachmiennam.com",
+      "reportedServerIp": "103.221.223.75",
+      "licenseKeyAttempt": "CLPS-YCF3-LFLA-XX6U-C3JR",
+      "detectedOutboundIp": "103.221.223.60"
+    },
+    {
+      "id": 12811,
+      "action": "ACTIVATE",
+      "isValid": true,
+      "createdAt": "2026-11-04T02:51:11.875Z",
+      "licenseId": "00808692-8428-4f53-b5e1-64a7acf530d0",
+      "userAgent": "WordPress/7.1.4; https://ketoantiengtrungbd.com",
+      "failureReason": null,
+      "requestDomain": "ketoantiengtrungbd.com",
+      "reportedServerIp": "103.221.222.21",
+      "licenseKeyAttempt": "CLPS-ZX76-UAMF-XLAY-6232",
+      "detectedOutboundIp": "103.221.220.47"
+    },
+    {
+      "id": 12812,
+      "action": "ACTIVATE",
+      "isValid": true,
+      "createdAt": "2026-11-04T02:51:16.046Z",
+      "licenseId": "02858ca0-9c17-4255-ba60-5fe05ccab040",
+      "userAgent": "WordPress/7.1.4; https://khuondap.com",
+      "failureReason": null,
+      "requestDomain": "khuondap.com",
+      "reportedServerIp": "103.221.220.15",
+      "licenseKeyAttempt": "CLPS-MGYD-W4ND-YST9-AWA7",
+      "detectedOutboundIp": "103.221.220.47"
+    },
+    {
+      "id": 12813,
+      "action": "ACTIVATE",
+      "isValid": true,
+      "createdAt": "2026-11-04T02:51:33.174Z",
+      "licenseId": "f31248e2-1d64-4b76-8e61-6877e82e2347",
+      "userAgent": "WordPress/7.1.4; https://eurocons.vn",
+      "failureReason": null,
+      "requestDomain": "eurocons.vn",
+      "reportedServerIp": "103.221.222.38",
+      "licenseKeyAttempt": "CLPS-PUXH-MJE5-74A9-W2AB",
+      "detectedOutboundIp": "103.221.222.90"
+    },
+    {
+      "id": 12814,
+      "action": "ACTIVATE",
+      "isValid": true,
+      "createdAt": "2026-11-04T02:52:12.768Z",
+      "licenseId": "80e2fc49-058c-4f61-a1f8-a899e9905686",
+      "userAgent": "WordPress/7.1.4; https://www.khaosatdiahinhdiachat.com",
+      "failureReason": null,
+      "requestDomain": "khaosatdiahinhdiachat.com",
+      "reportedServerIp": "103.221.223.75",
+      "licenseKeyAttempt": "CLPS-6MWJ-JKMB-93HF-8LG9",
+      "detectedOutboundIp": "103.221.223.60"
+    },
+    {
+      "id": 12815,
+      "action": "ACTIVATE",
+      "isValid": true,
+      "createdAt": "2026-11-04T02:53:01.694Z",
+      "licenseId": "d4a27e96-b886-42b3-a9e4-74a550e08a34",
+      "userAgent": "WordPress/7.1.4; https://taxidaklak247.net",
+      "failureReason": null,
+      "requestDomain": "taxidaklak247.net",
+      "reportedServerIp": "103.221.222.21",
+      "licenseKeyAttempt": "CLPS-P2VV-RKRW-S7T4-9WCZ",
+      "detectedOutboundIp": "103.221.220.47"
+    },
+    {
+      "id": 12816,
+      "action": "ACTIVATE",
+      "isValid": true,
+      "createdAt": "2026-11-04T02:53:08.094Z",
+      "licenseId": "3e4e4f77-df3b-4131-9208-8b2d3a877339",
+      "userAgent": "WordPress/7.1.4; https://dentaldentures.vn",
+      "failureReason": null,
+      "requestDomain": "dentaldentures.vn",
+      "reportedServerIp": "103.221.222.41",
+      "licenseKeyAttempt": "CLPS-9GM6-H24H-EW5C-J9X7",
+      "detectedOutboundIp": "103.221.220.47"
+    },
+    {
+      "id": 12817,
+      "action": "ACTIVATE",
+      "isValid": true,
+      "createdAt": "2026-11-04T02:53:14.969Z",
+      "licenseId": "e419f7a0-b86d-4a3d-87c0-0f36b13c879a",
+      "userAgent": "WordPress/7.1.4; https://xaydungmanhphatloc.com",
+      "failureReason": null,
+      "requestDomain": "xaydungmanhphatloc.com",
+      "reportedServerIp": "103.221.223.75",
+      "licenseKeyAttempt": "CLPS-XZDV-D65W-8PLH-N9YG",
+      "detectedOutboundIp": "103.221.223.60"
+    },
+    {
+      "id": 12818,
+      "action": "ACTIVATE",
+      "isValid": true,
+      "createdAt": "2026-11-04T02:53:30.103Z",
+      "licenseId": "2d9d9f98-12fb-417e-9fcd-6fc18619ab0d",
+      "userAgent": "WordPress/7.1.4; https://equalvn.com",
+      "failureReason": null,
+      "requestDomain": "equalvn.com",
+      "reportedServerIp": "103.221.221.17",
+      "licenseKeyAttempt": "CLPS-9FB6-QG2P-FEFA-3UBE",
+      "detectedOutboundIp": "103.221.220.61"
+    },
+    {
+      "id": 12819,
+      "action": "ACTIVATE",
+      "isValid": true,
+      "createdAt": "2026-11-04T02:53:35.390Z",
+      "licenseId": "d8feaba3-0185-49f8-8d47-17902a23a94b",
+      "userAgent": "WordPress/7.1.4; https://minhngocbinhduong.com",
+      "failureReason": null,
+      "requestDomain": "minhngocbinhduong.com",
+      "reportedServerIp": "103.221.222.21",
+      "licenseKeyAttempt": "CLPS-ZLDU-X74Q-GFZL-8R3J",
+      "detectedOutboundIp": "103.221.220.47"
+    },
+    {
+      "id": 12820,
+      "action": "ACTIVATE",
+      "isValid": true,
+      "createdAt": "2026-11-04T02:53:56.440Z",
+      "licenseId": "d5af7ab5-13b1-440b-bab2-53306bcd7a1f",
+      "userAgent": "WordPress/7.1.4; https://cokhixaydungbinhduong.vn",
+      "failureReason": null,
+      "requestDomain": "cokhixaydungbinhduong.vn",
+      "reportedServerIp": "103.221.223.75",
+      "licenseKeyAttempt": "CLPS-DW5T-48B8-222S-WQ5Y",
+      "detectedOutboundIp": "103.221.223.60"
+    },
+    {
+      "id": 12821,
+      "action": "ACTIVATE",
+      "isValid": true,
+      "createdAt": "2026-11-04T02:54:23.908Z",
+      "licenseId": "2514b9ab-24c2-4ee3-a394-194bc6ce879b",
+      "userAgent": "WordPress/6.8.1; https://giacongson.net",
+      "failureReason": null,
+      "requestDomain": "giacongson.net",
+      "reportedServerIp": "103.221.222.21",
+      "licenseKeyAttempt": "CLPS-WHYG-7SCK-TD3K-6FKG",
+      "detectedOutboundIp": "103.221.220.47"
+    },
+    {
+      "id": 12822,
+      "action": "ACTIVATE",
+      "isValid": true,
+      "createdAt": "2026-11-04T02:54:54.540Z",
+      "licenseId": "5f933a15-d99d-4ddb-bc3c-65c02bbec7c5",
+      "userAgent": "WordPress/7.1.4; https://dichvucnc.com",
+      "failureReason": null,
+      "requestDomain": "dichvucnc.com",
+      "reportedServerIp": "103.221.222.21",
+      "licenseKeyAttempt": "CLPS-DJM3-RAU8-F8Y4-ZX74",
+      "detectedOutboundIp": "103.221.220.47"
+    },
+    {
+      "id": 12823,
+      "action": "ACTIVATE",
+      "isValid": true,
+      "createdAt": "2026-11-04T02:55:43.257Z",
+      "licenseId": "eea1f837-3b5f-42a0-9f02-ffd514140735",
+      "userAgent": "WordPress/7.1.4; https://tungshanpenvn.com",
+      "failureReason": null,
+      "requestDomain": "tungshanpenvn.com",
+      "reportedServerIp": "103.221.220.15",
+      "licenseKeyAttempt": "CLPS-W57W-NKLS-7E9F-K88Y",
+      "detectedOutboundIp": "103.221.220.47"
+    },
+    {
+      "id": 12824,
+      "action": "ACTIVATE",
+      "isValid": true,
+      "createdAt": "2026-11-04T02:56:01.788Z",
+      "licenseId": "a68e143f-d815-4b56-8333-f2387974fe77",
+      "userAgent": "WordPress/7.1.4; https://homehealthycare.com.vn",
+      "failureReason": null,
+      "requestDomain": "homehealthycare.com.vn",
+      "reportedServerIp": "103.221.222.21",
+      "licenseKeyAttempt": "CLPS-3RXL-3PE7-VES7-D7PD",
+      "detectedOutboundIp": "103.221.220.47"
+    },
+    {
+      "id": 12825,
+      "action": "ACTIVATE",
+      "isValid": true,
+      "createdAt": "2026-11-04T02:56:07.704Z",
+      "licenseId": "d43daff6-06cc-4c40-a794-688817e39dd2",
+      "userAgent": "WordPress/7.1.4; https://eyelashanan.com",
+      "failureReason": null,
+      "requestDomain": "eyelashanan.com",
+      "reportedServerIp": "103.221.223.75",
+      "licenseKeyAttempt": "CLPS-TQMX-EZZ6-WPNU-5NRG",
+      "detectedOutboundIp": "103.221.223.60"
+    },
+    {
+      "id": 12826,
+      "action": "ACTIVATE",
+      "isValid": true,
+      "createdAt": "2026-11-04T02:56:10.630Z",
+      "licenseId": "646903cd-8756-4194-927c-2f6fd346aa04",
+      "userAgent": "WordPress/7.1.4; https://noithatgiarebinhduong.com.vn",
+      "failureReason": null,
+      "requestDomain": "noithatgiarebinhduong.com.vn",
+      "reportedServerIp": "103.221.223.75",
+      "licenseKeyAttempt": "CLPS-LGSN-G7EA-BSZA-2RQX",
+      "detectedOutboundIp": "103.221.223.60"
+    },
+    {
+      "id": 12827,
+      "action": "ACTIVATE",
+      "isValid": true,
+      "createdAt": "2026-11-04T02:56:13.404Z",
+      "licenseId": "1edf5677-16d3-4f5e-9004-d4e1388e07f2",
+      "userAgent": "WordPress/7.1.4; https://dienlanhhongthai.com",
+      "failureReason": null,
+      "requestDomain": "dienlanhhongthai.com",
+      "reportedServerIp": "103.221.222.21",
+      "licenseKeyAttempt": "CLPS-AXN6-CA5Q-7SQP-HX5W",
+      "detectedOutboundIp": "103.221.220.47"
+    },
+    {
+      "id": 12828,
+      "action": "ACTIVATE",
+      "isValid": true,
+      "createdAt": "2026-11-04T02:56:23.191Z",
+      "licenseId": "fe154cdc-8bb8-4470-9f2e-619f213282a0",
+      "userAgent": "WordPress/7.1.4; https://chetaomaydua.com",
+      "failureReason": null,
+      "requestDomain": "chetaomaydua.com",
+      "reportedServerIp": "103.221.222.41",
+      "licenseKeyAttempt": "CLPS-MY4G-NLSQ-QX7H-AAG5",
+      "detectedOutboundIp": "103.221.220.47"
+    },
+    {
+      "id": 12829,
+      "action": "ACTIVATE",
+      "isValid": true,
+      "createdAt": "2026-11-04T02:56:50.596Z",
+      "licenseId": "fa61ab7b-147f-47f4-a43d-e00ed744b0af",
+      "userAgent": "WordPress/7.1.4; http://luatxuanninh.com",
+      "failureReason": null,
+      "requestDomain": "luatxuanninh.com",
+      "reportedServerIp": "103.221.222.41",
+      "licenseKeyAttempt": "CLPS-E77X-U5C5-3H2U-A5H7",
+      "detectedOutboundIp": "103.221.220.47"
+    },
+    {
+      "id": 12830,
+      "action": "ACTIVATE",
+      "isValid": true,
+      "createdAt": "2026-11-04T02:56:55.732Z",
+      "licenseId": "060be159-0a2f-4139-8288-af8d805d40ad",
+      "userAgent": "WordPress/7.1.4; https://truongthuanphat.com",
+      "failureReason": null,
+      "requestDomain": "truongthuanphat.com",
+      "reportedServerIp": "103.221.222.21",
+      "licenseKeyAttempt": "CLPS-G2S2-DLE5-URZQ-35RV",
+      "detectedOutboundIp": "103.221.220.47"
+    },
+    {
+      "id": 12831,
+      "action": "ACTIVATE",
+      "isValid": true,
+      "createdAt": "2026-11-04T02:57:09.463Z",
+      "licenseId": "af1785d2-2649-438f-a866-b0f582105a2b",
+      "userAgent": "WordPress/7.1.4; https://grating.vn",
+      "failureReason": null,
+      "requestDomain": "grating.vn",
+      "reportedServerIp": "103.221.222.41",
+      "licenseKeyAttempt": "CLPS-TMV9-NTR7-BWZN-BAMH",
+      "detectedOutboundIp": "103.221.220.47"
+    },
+    {
+      "id": 12832,
+      "action": "ACTIVATE",
+      "isValid": true,
+      "createdAt": "2026-11-04T02:57:13.966Z",
+      "licenseId": "af1785d2-2649-438f-a866-b0f582105a2b",
+      "userAgent": "WordPress/7.1.4; https://grating.vn",
+      "failureReason": null,
+      "requestDomain": "grating.vn",
+      "reportedServerIp": "103.221.222.41",
+      "licenseKeyAttempt": "CLPS-TMV9-NTR7-BWZN-BAMH",
+      "detectedOutboundIp": "103.221.220.47"
+    },
+    {
+      "id": 12833,
+      "action": "ACTIVATE",
+      "isValid": true,
+      "createdAt": "2026-11-04T02:57:31.772Z",
+      "licenseId": "f1596652-fe80-4ef7-8499-8ca8223d4887",
+      "userAgent": "WordPress/7.1.4; https://maychebiengotruonghung.com",
+      "failureReason": null,
+      "requestDomain": "maychebiengotruonghung.com",
+      "reportedServerIp": "103.221.220.15",
+      "licenseKeyAttempt": "CLPS-WABX-M2XX-FXYX-6FBZ",
+      "detectedOutboundIp": "103.221.220.47"
+    },
+    {
+      "id": 12834,
+      "action": "ACTIVATE",
+      "isValid": true,
+      "createdAt": "2026-11-04T02:57:35.118Z",
+      "licenseId": "52eb953e-0ff8-40d7-b4bc-6529b8d0e42c",
+      "userAgent": "WordPress/7.1.4; https://dichvuchothuexetulai.net",
+      "failureReason": null,
+      "requestDomain": "dichvuchothuexetulai.net",
+      "reportedServerIp": "103.221.220.15",
+      "licenseKeyAttempt": "CLPS-FQ9H-WUY7-N7QW-YSG4",
+      "detectedOutboundIp": "103.221.220.47"
     }
   ],
   "monitorSettings": {
     "enabled": true,
-    "lastSweepAt": "2026-11-04T02:41:18.927Z",
+    "lastSweepAt": "2026-11-04T02:50:23.069Z",
     "telegramChatId": "",
     "slowThresholdMs": 3500,
     "notifyOnRecovery": true,

@@ -540,6 +540,40 @@ function getCpanelServers(): CpanelServerRecord[] {
       updatedAt: now
     });
   }
+
+  // Auto-backfill missing `domains` arrays for earlier servers & clear transient AUTH_ERROR if already synced
+  const allServers = dbService.state.cpanelServers;
+  for (const s of allServers) {
+    if (!Array.isArray(s.domains) || s.domains.length === 0) {
+      const claimedOnSameIp = new Set(
+        allServers
+          .filter((other) => other.ip === s.ip && other.id !== s.id && Array.isArray(other.domains))
+          .flatMap((other) => other.domains || [])
+          .map((d) => d.toLowerCase())
+      );
+      const inferredDomains = dbService.state.licenses
+        .filter((l) => {
+          if (!l.allowedDomain) return false;
+          const ips = (l.allowedIp || '')
+            .split(',')
+            .map((x) => x.trim())
+            .filter(Boolean);
+          if (!ips.includes(s.ip)) return false;
+          return !claimedOnSameIp.has(l.allowedDomain.toLowerCase());
+        })
+        .map((l) => l.allowedDomain!)
+        .filter(Boolean);
+      if (inferredDomains.length > 0) {
+        s.domains = inferredDomains;
+        if (!s.totalDomains) s.totalDomains = inferredDomains.length;
+      }
+    }
+    if (s.status === 'AUTH_ERROR' && s.lastSyncedAt && (s.totalDomains > 0 || (s.domains && s.domains.length > 0))) {
+      s.status = s.diskPercent && s.diskPercent >= 85 ? 'DISK_WARNING' : 'ONLINE';
+      s.lastError = null;
+    }
+  }
+
   return dbService.state.cpanelServers;
 }
 
