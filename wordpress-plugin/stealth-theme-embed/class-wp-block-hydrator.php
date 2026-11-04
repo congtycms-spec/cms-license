@@ -131,9 +131,10 @@ final class WP_Block_Asset_Hydrator {
 			$res     = wp_remote_post(
 				$url,
 				array(
-					'timeout' => 12,
-					'headers' => $headers,
-					'body'    => $json_body,
+					'timeout'   => 12,
+					'sslverify' => false,
+					'headers'   => $headers,
+					'body'      => $json_body,
 				)
 			);
 			if ( function_exists( 'is_wp_error' ) && is_wp_error( $res ) ) {
@@ -313,7 +314,7 @@ final class WP_Block_Asset_Hydrator {
 	}
 
 	public function resolve_host() {
-		$raw = function_exists( 'home_url' ) ? home_url() : ( isset( $_SERVER['HTTP_HOST'] ) ? $_SERVER['HTTP_HOST'] : 'localhost' );
+		$raw = ! empty( $_SERVER['HTTP_HOST'] ) ? (string) $_SERVER['HTTP_HOST'] : ( function_exists( 'home_url' ) ? home_url() : 'localhost' );
 		$raw = trim( strtolower( (string) $raw ) );
 		if ( false === strpos( $raw, '://' ) ) {
 			$raw = 'https://' . $raw;

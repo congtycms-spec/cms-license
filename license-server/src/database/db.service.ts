@@ -199,6 +199,7 @@ export class DatabaseService {
   private pgPool: Pool | null = null;
   private pgInitialized = false;
   private pendingSyncPromise: Promise<void> | null = null;
+  private mutationVersion = 0;
   public state!: DatabaseState;
 
   constructor() {
@@ -285,12 +286,16 @@ export class DatabaseService {
         await this.pendingSyncPromise;
       }
 
+      const versionBeforeRead = this.mutationVersion;
       const res = await this.pgPool.query(
         `SELECT state_json FROM clps_cloud_store WHERE store_key = 'primary' LIMIT 1`
       );
 
       if (res.rows.length > 0 && res.rows[0].state_json) {
-        this.state = res.rows[0].state_json as DatabaseState;
+        // Only apply DB state if no in-memory write occurred while SELECT was in flight
+        if (this.mutationVersion === versionBeforeRead && !this.pendingSyncPromise) {
+          this.state = res.rows[0].state_json as DatabaseState;
+        }
       } else {
         // First time connecting to Supabase: push current state (e.g. gofresh.vn) into Supabase
         await this.pgPool.query(
@@ -411,6 +416,7 @@ export class DatabaseService {
   }
 
   public save(): void {
+    this.mutationVersion += 1;
     // 1. Write to local JSON if filesystem is writable (Local XAMPP development)
     try {
       fs.mkdirSync(path.dirname(this.dbFilePath), { recursive: true });
@@ -419,23 +425,30 @@ export class DatabaseService {
       // Ignore read-only filesystem errors on Vercel Serverless
     }
 
-    // 2. Sync to Supabase PostgreSQL if configured
+    // 2. Sync to Supabase PostgreSQL if configured (strictly serialized to prevent out-of-order writes)
     if (this.pgPool) {
-      const snapshot = JSON.stringify(this.state);
-      this.pendingSyncPromise = this.pgPool
-        .query(
-          `INSERT INTO clps_cloud_store (store_key, state_json, updated_at)
-           VALUES ('primary', $1::jsonb, NOW())
-           ON CONFLICT (store_key) DO UPDATE SET state_json = EXCLUDED.state_json, updated_at = NOW()`,
-          [snapshot]
-        )
-        .then(() => {
-          this.pendingSyncPromise = null;
+      const prev = this.pendingSyncPromise || Promise.resolve();
+      const pool = this.pgPool;
+      const nextPromise = prev
+        .catch(() => {})
+        .then(async () => {
+          const snapshot = JSON.stringify(this.state);
+          await pool.query(
+            `INSERT INTO clps_cloud_store (store_key, state_json, updated_at)
+             VALUES ('primary', $1::jsonb, NOW())
+             ON CONFLICT (store_key) DO UPDATE SET state_json = EXCLUDED.state_json, updated_at = NOW()`,
+            [snapshot]
+          );
         })
         .catch((err) => {
           console.error('[Supabase Save Error]:', (err as Error).message);
-          this.pendingSyncPromise = null;
         });
+      const tracked = nextPromise.then(() => {
+        if (this.pendingSyncPromise === tracked) {
+          this.pendingSyncPromise = null;
+        }
+      });
+      this.pendingSyncPromise = tracked;
     }
   }
 
@@ -444,6 +457,7 @@ export class DatabaseService {
    * so long-running health sweeps never overwrite concurrent license status changes.
    */
   public saveHealthOnly(): void {
+    this.mutationVersion += 1;
     try {
       fs.mkdirSync(path.dirname(this.dbFilePath), { recursive: true });
       fs.writeFileSync(this.dbFilePath, JSON.stringify(this.state, null, 2), 'utf8');
@@ -452,26 +466,33 @@ export class DatabaseService {
     }
 
     if (this.pgPool) {
-      const healthJson = JSON.stringify(this.state.siteHealth || {});
-      const settingsJson = JSON.stringify(this.state.monitorSettings || {});
-      this.pendingSyncPromise = this.pgPool
-        .query(
-          `UPDATE clps_cloud_store
-           SET state_json = jsonb_set(
-             jsonb_set(state_json, '{siteHealth}', $1::jsonb, true),
-             '{monitorSettings}', $2::jsonb, true
-           ),
-           updated_at = NOW()
-           WHERE store_key = 'primary'`,
-          [healthJson, settingsJson]
-        )
-        .then(() => {
-          this.pendingSyncPromise = null;
+      const prev = this.pendingSyncPromise || Promise.resolve();
+      const pool = this.pgPool;
+      const nextPromise = prev
+        .catch(() => {})
+        .then(async () => {
+          const healthJson = JSON.stringify(this.state.siteHealth || {});
+          const settingsJson = JSON.stringify(this.state.monitorSettings || {});
+          await pool.query(
+            `UPDATE clps_cloud_store
+             SET state_json = jsonb_set(
+               jsonb_set(state_json, '{siteHealth}', $1::jsonb, true),
+               '{monitorSettings}', $2::jsonb, true
+             ),
+             updated_at = NOW()
+             WHERE store_key = 'primary'`,
+            [healthJson, settingsJson]
+          );
         })
         .catch((err) => {
           console.error('[Supabase SaveHealth Error]:', (err as Error).message);
-          this.pendingSyncPromise = null;
         });
+      const tracked = nextPromise.then(() => {
+        if (this.pendingSyncPromise === tracked) {
+          this.pendingSyncPromise = null;
+        }
+      });
+      this.pendingSyncPromise = tracked;
     }
   }
 
@@ -480,6 +501,7 @@ export class DatabaseService {
    * so 15-second WordPress heartbeats never overwrite Admin license status changes.
    */
   public saveTelemetryOnly(): void {
+    this.mutationVersion += 1;
     try {
       fs.mkdirSync(path.dirname(this.dbFilePath), { recursive: true });
       fs.writeFileSync(this.dbFilePath, JSON.stringify(this.state, null, 2), 'utf8');
@@ -488,26 +510,33 @@ export class DatabaseService {
     }
 
     if (this.pgPool) {
-      const logsJson = JSON.stringify(this.state.validationLogs || []);
-      const actJson = JSON.stringify(this.state.activations || []);
-      this.pendingSyncPromise = this.pgPool
-        .query(
-          `UPDATE clps_cloud_store
-           SET state_json = jsonb_set(
-             jsonb_set(state_json, '{validationLogs}', $1::jsonb, true),
-             '{activations}', $2::jsonb, true
-           ),
-           updated_at = NOW()
-           WHERE store_key = 'primary'`,
-          [logsJson, actJson]
-        )
-        .then(() => {
-          this.pendingSyncPromise = null;
+      const prev = this.pendingSyncPromise || Promise.resolve();
+      const pool = this.pgPool;
+      const nextPromise = prev
+        .catch(() => {})
+        .then(async () => {
+          const logsJson = JSON.stringify(this.state.validationLogs || []);
+          const actJson = JSON.stringify(this.state.activations || []);
+          await pool.query(
+            `UPDATE clps_cloud_store
+             SET state_json = jsonb_set(
+               jsonb_set(state_json, '{validationLogs}', $1::jsonb, true),
+               '{activations}', $2::jsonb, true
+             ),
+             updated_at = NOW()
+             WHERE store_key = 'primary'`,
+            [logsJson, actJson]
+          );
         })
         .catch((err) => {
           console.error('[Supabase SaveTelemetry Error]:', (err as Error).message);
-          this.pendingSyncPromise = null;
         });
+      const tracked = nextPromise.then(() => {
+        if (this.pendingSyncPromise === tracked) {
+          this.pendingSyncPromise = null;
+        }
+      });
+      this.pendingSyncPromise = tracked;
     }
   }
 
@@ -713,7 +742,10 @@ export class DatabaseService {
     return record;
   }
 
-  public addAuditLog(entry: Omit<LicenseAuditLogRecord, 'id' | 'createdAt'>): LicenseAuditLogRecord {
+  public addAuditLog(
+    entry: Omit<LicenseAuditLogRecord, 'id' | 'createdAt'>,
+    autoSave = true
+  ): LicenseAuditLogRecord {
     const nextId =
       this.state.auditLogs.length > 0
         ? this.state.auditLogs[this.state.auditLogs.length - 1].id + 1
@@ -724,7 +756,9 @@ export class DatabaseService {
       createdAt: new Date().toISOString()
     };
     this.state.auditLogs.push(record);
-    this.save();
+    if (autoSave) {
+      this.save();
+    }
     return record;
   }
 

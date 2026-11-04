@@ -346,25 +346,39 @@ async function checkWebsiteHealth(
   let errorDetail: string | null = null;
 
   const fetchOnce = async (syncNow: boolean) => {
-    const url = syncNow ? `https://${domain}/?clps_sync=${Date.now()}` : `https://${domain}/`;
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 15000);
+    const querySuffix = syncNow ? `?clps_sync=${Date.now()}` : '';
+    const tryScheme = async (scheme: 'https' | 'http', timeoutMs: number) => {
+      const url = `${scheme}://${domain}/${querySuffix}`;
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const resp = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'User-Agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+            Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            Pragma: 'no-cache'
+          },
+          signal: controller.signal
+        });
+        const text = (await resp.text().catch(() => '')).slice(0, 8000);
+        return { status: resp.status, text };
+      } finally {
+        clearTimeout(timer);
+      }
+    };
+
     try {
-      const resp = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          Pragma: 'no-cache'
-        },
-        signal: controller.signal
-      });
-      const text = (await resp.text().catch(() => '')).slice(0, 8000);
-      return { status: resp.status, text };
-    } finally {
-      clearTimeout(timer);
+      return await tryScheme('https', 11000);
+    } catch (httpsErr) {
+      // Fallback sang cổng HTTP 80 nếu tên miền trên Shared Hosting chưa cài SSL hoặc chứng chỉ SSL bị lệch vhost
+      try {
+        return await tryScheme('http', 8000);
+      } catch {
+        throw httpsErr;
+      }
     }
   };
 
@@ -1807,43 +1821,52 @@ adminApiRouter.post(
                 a.status = 'DEACTIVATED';
               });
           }
-          dbService.addAuditLog({
-            licenseId: lic.id,
-            actorUserId: req.adminUser!.id,
-            eventType: `BULK_STATUS_TO_${newStatus}`,
-            oldValue: { status: oldStatus },
-            newValue: { status: newStatus },
-            ipAddress: req.ip || '127.0.0.1',
-            note: `Thao tác hàng loạt: Đổi trạng thái sang ${newStatus} bởi ${req.adminUser!.fullName}`
-          });
+          dbService.addAuditLog(
+            {
+              licenseId: lic.id,
+              actorUserId: req.adminUser!.id,
+              eventType: `BULK_STATUS_TO_${newStatus}`,
+              oldValue: { status: oldStatus },
+              newValue: { status: newStatus },
+              ipAddress: req.ip || '127.0.0.1',
+              note: `Thao tác hàng loạt: Đổi trạng thái sang ${newStatus} bởi ${req.adminUser!.fullName}`
+            },
+            false
+          );
         } else if (action === 'RENEW') {
           const days = Math.max(1, Number(addDays || 365));
           const baseMs = Math.max(Date.now(), new Date(lic.expiresAt).getTime());
           lic.expiresAt = new Date(baseMs + days * 24 * 3600 * 1000).toISOString();
           if (lic.status === 'EXPIRED') lic.status = 'ACTIVE';
           lic.updatedAt = new Date().toISOString();
-          dbService.addAuditLog({
-            licenseId: lic.id,
-            actorUserId: req.adminUser!.id,
-            eventType: 'BULK_LICENSE_RENEWED',
-            oldValue: null,
-            newValue: { expiresAt: lic.expiresAt, addDays: days },
-            ipAddress: req.ip || '127.0.0.1',
-            note: `Gia hạn hàng loạt +${days} ngày bởi ${req.adminUser!.fullName}`
-          });
+          dbService.addAuditLog(
+            {
+              licenseId: lic.id,
+              actorUserId: req.adminUser!.id,
+              eventType: 'BULK_LICENSE_RENEWED',
+              oldValue: null,
+              newValue: { expiresAt: lic.expiresAt, addDays: days },
+              ipAddress: req.ip || '127.0.0.1',
+              note: `Gia hạn hàng loạt +${days} ngày bởi ${req.adminUser!.fullName}`
+            },
+            false
+          );
         } else if (action === 'UPDATE_IP' && allowedIp) {
           const oldIp = lic.allowedIp;
           lic.allowedIp = String(allowedIp).trim();
           lic.updatedAt = new Date().toISOString();
-          dbService.addAuditLog({
-            licenseId: lic.id,
-            actorUserId: req.adminUser!.id,
-            eventType: 'BULK_IP_UPDATED',
-            oldValue: { allowedIp: oldIp },
-            newValue: { allowedIp: lic.allowedIp },
-            ipAddress: req.ip || '127.0.0.1',
-            note: `Đổi IP Server hàng loạt sang ${lic.allowedIp} bởi ${req.adminUser!.fullName}`
-          });
+          dbService.addAuditLog(
+            {
+              licenseId: lic.id,
+              actorUserId: req.adminUser!.id,
+              eventType: 'BULK_IP_UPDATED',
+              oldValue: { allowedIp: oldIp },
+              newValue: { allowedIp: lic.allowedIp },
+              ipAddress: req.ip || '127.0.0.1',
+              note: `Đổi IP Server hàng loạt sang ${lic.allowedIp} bởi ${req.adminUser!.fullName}`
+            },
+            false
+          );
         }
       }
     }
@@ -1852,16 +1875,21 @@ adminApiRouter.post(
     await dbService.flush();
 
     if (affectedLicenses.length > 0) {
-      // Đồng bộ theo từng đợt 5 website để không làm nghẽn Entry Processes trên cùng 1 cPanel CloudLinux
-      const batchSize = 5;
-      for (let i = 0; i < affectedLicenses.length; i += batchSize) {
-        const batch = affectedLicenses.slice(i, i + batchSize);
-        await Promise.allSettled(
-          batch.map((lic) =>
-            checkWebsiteHealth(lic.allowedDomain!, lic, { forceSync: true, sendNotifications: false })
-          )
-        );
-      }
+      // Đồng bộ toàn bộ website bị ảnh hưởng với độ trễ giãn cách 100ms và giới hạn tối đa 6.8s để không bị Timeout trên Vercel Serverless
+      const syncTasks = affectedLicenses.map(
+        (lic, idx) =>
+          new Promise<void>((resolve) => {
+            setTimeout(() => {
+              checkWebsiteHealth(lic.allowedDomain!, lic, { forceSync: true, sendNotifications: false })
+                .then(() => resolve())
+                .catch(() => resolve());
+            }, idx * 100);
+          })
+      );
+      await Promise.race([
+        Promise.allSettled(syncTasks),
+        new Promise<void>((resolve) => setTimeout(resolve, 6800))
+      ]);
       dbService.saveHealthOnly();
       await dbService.flush();
     }
