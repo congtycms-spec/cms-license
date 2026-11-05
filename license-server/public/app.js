@@ -32,6 +32,20 @@ function toggleTheme() {
   showToast(isDark ? 'Đã chuyển sang giao diện Tối (OLED Dark Mode)' : 'Đã chuyển sang giao diện Sáng (High Contrast Light)');
 }
 
+function toggleSidebar() {
+  const sidebar = document.getElementById('main-sidebar');
+  if (!sidebar) return;
+  const collapsed = sidebar.classList.toggle('sidebar-collapsed');
+  localStorage.setItem('clps_sidebar_collapsed', collapsed ? '1' : '0');
+}
+
+(function initSidebarState() {
+  if (localStorage.getItem('clps_sidebar_collapsed') === '1') {
+    const sidebar = document.getElementById('main-sidebar');
+    if (sidebar) sidebar.classList.add('sidebar-collapsed');
+  }
+})();
+
 function esc(val) {
   if (val === null || val === undefined) return '';
   return String(val)
